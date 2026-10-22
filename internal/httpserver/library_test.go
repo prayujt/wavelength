@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
@@ -38,7 +39,11 @@ func TestCatalogStreamingAndRescan(t *testing.T) {
 	if _, err = lib.Scan(ctx); err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewServer(httpserver.New("", db.PingContext, httpserver.WithLibrary(lib, "test-token")).Handler)
+	manager, err := auth.New(ctx, auth.Config{Token: "test-token"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(httpserver.New("", db.PingContext, httpserver.WithLibrary(lib, manager.Protect)).Handler)
 	defer server.Close()
 	request := func(method, path, token, byteRange string) *http.Response {
 		t.Helper()

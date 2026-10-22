@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
@@ -57,12 +58,19 @@ func run() error {
 	}
 	addr := env("WAVELENGTH_ADDR", "127.0.0.1:8080")
 	token := os.Getenv("WAVELENGTH_TOKEN")
-	if err = validateNativeAddress(addr, token); err != nil {
+	manager, err := auth.New(ctx, auth.Config{
+		Issuer: os.Getenv("WAVELENGTH_OIDC_ISSUER"), ClientID: os.Getenv("WAVELENGTH_OIDC_CLIENT_ID"),
+		ClientSecret: os.Getenv("WAVELENGTH_OIDC_CLIENT_SECRET"), PublicURL: os.Getenv("WAVELENGTH_PUBLIC_URL"), Token: token,
+	}, database.AuthStore{DB: db})
+	if err != nil {
 		return err
 	}
-	var options []httpserver.Option
+	if err = validateNativeAddress(addr, token, manager.OIDCEnabled()); err != nil {
+		return err
+	}
+	options := []httpserver.Option{httpserver.WithAuth(manager)}
 	if lib != nil {
-		options = append(options, httpserver.WithLibrary(lib, token))
+		options = append(options, httpserver.WithLibrary(lib, manager.Protect))
 	}
 	servers := []*http.Server{httpserver.New(addr, db.PingContext, options...)}
 	// Legacy protocol is opt-in and has its own listener and credentials.
@@ -120,14 +128,15 @@ func serve(ctx context.Context, servers []*http.Server) error {
 	return serveErr
 }
 
-func validateNativeAddress(addr, token string) error {
+func validateNativeAddress(addr, token string, oidcEnabled bool) error {
+	protected := token != "" || oidcEnabled
 	host, _, err := net.SplitHostPort(addr)
 	if err != nil {
 		return fmt.Errorf("invalid native listen address: %w", err)
 	}
 	ip := net.ParseIP(host)
-	if token == "" && (ip == nil || !ip.IsLoopback()) {
-		return errors.New("WAVELENGTH_TOKEN is required for non-loopback native listeners")
+	if !protected && (ip == nil || !ip.IsLoopback()) {
+		return errors.New("OIDC or WAVELENGTH_TOKEN is required for non-loopback native listeners")
 	}
 	return nil
 }

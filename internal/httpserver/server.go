@@ -4,6 +4,7 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
+	"github.com/prayujt/wavelength/internal/auth"
 	"net/http"
 	"time"
 )
@@ -33,4 +34,9 @@ func respond(w http.ResponseWriter, status int, value string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": value})
+}
+
+// WithAuth registers provider-neutral browser login routes only on the native server.
+func WithAuth(manager *auth.Manager) Option {
+	return func(mux *http.ServeMux) { mux.Handle("/auth/", manager.Handler()) }
 }

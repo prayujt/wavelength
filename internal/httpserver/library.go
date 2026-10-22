@@ -1,8 +1,6 @@
 package httpserver
 
 import (
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -14,8 +12,8 @@ import (
 	"github.com/prayujt/wavelength/internal/playback"
 )
 
-// WithLibrary adds the native catalog API. A nonempty token protects all /api routes.
-func WithLibrary(lib *library.Library, token string) Option {
+// WithLibrary adds the native catalog API behind the configured authentication middleware.
+func WithLibrary(lib *library.Library, protect func(http.Handler) http.Handler) Option {
 	return func(mux *http.ServeMux) {
 		api := http.NewServeMux()
 		api.HandleFunc("GET /api/tracks", func(w http.ResponseWriter, r *http.Request) {
@@ -57,19 +55,7 @@ func WithLibrary(lib *library.Library, token string) Option {
 			}
 			writeJSON(w, 200, result)
 		})
-		mux.Handle("/api/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if token != "" {
-				expected := sha256.Sum256([]byte("Bearer " + token))
-				actual := sha256.Sum256([]byte(r.Header.Get("Authorization")))
-				if subtle.ConstantTimeCompare(expected[:], actual[:]) != 1 {
-					w.Header().Set("WWW-Authenticate", `Bearer realm="wavelength"`)
-					respond(w, 401, "unauthorized")
-					return
-				}
-			}
-			w.Header().Set("Cache-Control", "no-store")
-			api.ServeHTTP(w, r)
-		}))
+		mux.Handle("/api/", protect(api))
 	}
 }
 

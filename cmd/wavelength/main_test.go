@@ -11,14 +11,17 @@ import (
 
 func TestNativeBindingRequiresTokenOutsideLoopback(t *testing.T) {
 	for _, addr := range []string{"0.0.0.0:8080", ":8080", "[::]:8080"} {
-		if validateNativeAddress(addr, "") == nil {
+		if validateNativeAddress(addr, "", false) == nil {
 			t.Fatalf("unprotected public bind: %s", addr)
 		}
-		if err := validateNativeAddress(addr, "token"); err != nil {
+		if err := validateNativeAddress(addr, "", true); err != nil {
+			t.Fatal(err)
+		}
+		if err := validateNativeAddress(addr, "token", false); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if err := validateNativeAddress("127.0.0.1:8080", ""); err != nil {
+	if err := validateNativeAddress("127.0.0.1:8080", "", false); err != nil {
 		t.Fatal(err)
 	}
 }
