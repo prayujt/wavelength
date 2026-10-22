@@ -1,0 +1,5 @@
+CREATE TABLE library_roots (
+    id TEXT PRIMARY KEY,
+    path TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
