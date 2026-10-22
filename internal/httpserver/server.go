@@ -8,8 +8,10 @@ import (
 	"time"
 )
 
+type Option func(*http.ServeMux)
+
 // New constructs a server without opening a listener.
-func New(addr string, ping func(context.Context) error) *http.Server {
+func New(addr string, ping func(context.Context) error, options ...Option) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { respond(w, http.StatusOK, "ok") })
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -21,6 +23,9 @@ func New(addr string, ping func(context.Context) error) *http.Server {
 		}
 		respond(w, http.StatusOK, "ok")
 	})
+	for _, option := range options {
+		option(mux)
+	}
 	return &http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 }
 

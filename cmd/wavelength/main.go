@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
+	"github.com/prayujt/wavelength/internal/library"
 )
 
 func main() {
@@ -24,6 +26,8 @@ func main() {
 }
 
 func run() error {
+	scanOnly := flag.Bool("scan-only", false, "scan the configured music directory and exit")
+	flag.Parse()
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	db, err := database.Open(ctx, env("WAVELENGTH_DATA_DIR", "./data"))
@@ -31,7 +35,37 @@ func run() error {
 		return err
 	}
 	defer db.Close()
-	server := httpserver.New(env("WAVELENGTH_ADDR", "127.0.0.1:8080"), db.PingContext)
+	addr := env("WAVELENGTH_ADDR", "127.0.0.1:8080")
+	token := os.Getenv("WAVELENGTH_TOKEN")
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid listen address: %w", err)
+	}
+	ip := net.ParseIP(host)
+	if token == "" && (ip == nil || !ip.IsLoopback()) {
+		return fmt.Errorf("WAVELENGTH_TOKEN is required for non-loopback listeners")
+	}
+	var options []httpserver.Option
+	musicDir := os.Getenv("WAVELENGTH_MUSIC_DIR")
+	if musicDir != "" {
+		lib, err := library.Open(musicDir, database.Catalog{DB: db})
+		if err != nil {
+			return err
+		}
+		defer lib.Close()
+		result, err := lib.Scan(ctx)
+		if err != nil {
+			return err
+		}
+		slog.Info("library indexed", "tracks", result.Indexed, "metadata_warnings", result.MetadataWarnings)
+		if *scanOnly {
+			return nil
+		}
+		options = append(options, httpserver.WithLibrary(lib, token))
+	} else if *scanOnly {
+		return fmt.Errorf("WAVELENGTH_MUSIC_DIR is required for --scan-only")
+	}
+	server := httpserver.New(addr, db.PingContext, options...)
 	listener, err := net.Listen("tcp", server.Addr)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
