@@ -38,14 +38,37 @@ and the original file's content type. No transcoding occurs.
 ### Authentication and binding
 
 - `WAVELENGTH_ADDR`: native listener, default `127.0.0.1:8080`.
-- `WAVELENGTH_TOKEN`: optional on loopback; required for non-loopback native listeners.
-  Send `Authorization: Bearer <token>` for **all** `/api/` requests, including streams.
+- `WAVELENGTH_TOKEN`: optional on loopback; non-loopback native listeners require
+  this token **or configured OIDC**.
+  When using this token, send `Authorization: Bearer <token>` for `/api/` requests,
+  including streams. With OIDC, signed-in browser sessions also authenticate these routes.
   Tokens are not accepted in URLs. Health endpoints remain unauthenticated.
 - `WAVELENGTH_MUSIC_DIR`: one read-only music root.
 - `WAVELENGTH_DATA_DIR`: SQLite storage, default `./data`.
 
 For example, use `WAVELENGTH_ADDR=0.0.0.0:8080` with `WAVELENGTH_TOKEN` set to
 bind the native API outside loopback. Put TLS at your reverse proxy if exposing it.
+
+### Generic OIDC login for the native API / future UI
+
+Use a standard OIDC provider with these settings:
+
+```sh
+export WAVELENGTH_PUBLIC_URL=https://music.example.com
+export WAVELENGTH_OIDC_ISSUER=https://identity.example.com/your-issuer
+export WAVELENGTH_OIDC_CLIENT_ID=wavelength
+export WAVELENGTH_OIDC_CLIENT_SECRET='your-client-secret'
+```
+
+Register `$WAVELENGTH_PUBLIC_URL/auth/callback` at the provider and visit
+`/auth/login`. Wavelength uses discovery + authorization code/PKCE, verifies ID tokens,
+and issues SQLite-backed HttpOnly browser sessions. Signed-in sessions can browse and
+stream; cookie-authenticated writes require CSRF protection. The native bearer token
+remains an independent optional development/automation credential.
+
+See [OIDC setup and browser integration](docs/oidc.md) for provider registration,
+configuration, endpoints, security boundaries and current limitations. No external
+provider is required unless you enable OIDC. Subsonic auth is unaffected.
 
 ### Separate legacy Subsonic listener
 

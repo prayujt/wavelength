@@ -402,3 +402,21 @@ func TestOIDCConfigurationAndSecureCookies(t *testing.T) {
 		t.Fatalf("insecure cookie: %+v", cookie)
 	}
 }
+
+func TestSessionDoesNotCrossConfiguredIssuers(t *testing.T) {
+	first, second := provider(t, ""), provider(t, "")
+	data, music := t.TempDir(), t.TempDir()
+	server, db := app(t, first.URL, data, music)
+	client := browser(t)
+	callback, _ := beginLogin(t, client, server.URL)
+	if response := do(t, client, "GET", callback, nil); response.StatusCode != 303 {
+		t.Fatal("login failed")
+	}
+	_ = me(t, client, server.URL)
+	server.Close()
+	db.Close()
+	replacement, _ := app(t, second.URL, data, music)
+	if response := do(t, client, "GET", replacement.URL+"/auth/me", nil); response.StatusCode != 401 {
+		t.Fatal("old issuer session accepted")
+	}
+}

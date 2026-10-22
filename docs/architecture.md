@@ -9,6 +9,9 @@ Composition belongs in `cmd/wavelength`; packages live under `internal`.
   store implementation. SQL stays here, never in a protocol handler.
 - `playback`: original media streaming with HTTP range/HEAD support. Opens only
   indexed IDs through `os.Root`, preventing symlink/path traversal outside the root.
+- `auth`: generic OIDC discovery/login, hashed cookie sessions, native middleware and
+  CSRF validation. The `database.AuthStore` implementation persists identities, login
+  transactions and sessions. No provider-specific code or legacy auth dependencies.
 - `httpserver`: native JSON API and operational health endpoints, default port 8080.
 - `subsonic`: isolated legacy XML/JSON projection and authentication, default port
   8081, opt-in via password. It calls library/playback, not SQLite. Protocol-specific
@@ -32,7 +35,10 @@ rescans/restarts stable but does not preserve identity through moves or renames.
 One music root, startup/manual full scans, embedded tags, native search/list/detail,
 original-file streaming, and a small legacy compatibility subset. Both listeners
 bind before either starts serving, and both stop on process shutdown/listener failure.
-Native auth uses an optional bearer token on loopback and requires it elsewhere.
+Native auth supports OIDC browser sessions plus an optional independent bearer token.
+Without either, only anonymous loopback binding is allowed. Cookie-authenticated writes
+require a CSRF header and the configured public origin. Identities use issuer+subject;
+email is never an account-linking key. See [OIDC](oidc.md).
 Legacy auth uses separate username/password with the protocol's salted MD5 token
 scheme. Neither listener provides TLS; that belongs at the deployment proxy.
 
