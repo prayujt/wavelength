@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/playback"
 )
 
 // WithLibrary adds the native catalog API. A nonempty token protects all /api routes.
@@ -44,21 +45,9 @@ func WithLibrary(lib *library.Library, token string) Option {
 			writeJSON(w, 200, track)
 		})
 		api.HandleFunc("GET /api/tracks/{id}/stream", func(w http.ResponseWriter, r *http.Request) {
-			file, track, err := lib.OpenTrack(r.Context(), r.PathValue("id"))
-			if err != nil {
+			if err := playback.Stream(w, r, lib, r.PathValue("id")); err != nil {
 				apiError(w, r, err)
-				return
 			}
-			defer file.Close()
-			info, err := file.Stat()
-			if err != nil {
-				apiError(w, r, err)
-				return
-			}
-			w.Header().Set("Content-Type", track.ContentType)
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			// ServeContent implements HEAD, range/conditional requests and seeking without buffering the file.
-			http.ServeContent(w, r, track.Path, info.ModTime(), file)
 		})
 		api.HandleFunc("POST /api/scan", func(w http.ResponseWriter, r *http.Request) {
 			result, err := lib.Scan(r.Context())

@@ -1,0 +1,78 @@
+// Package subsonic implements a deliberately limited legacy protocol adapter.
+// It does not own catalog storage and is served on a separate listener.
+package subsonic
+
+import "encoding/xml"
+
+type response struct {
+	XMLName       xml.Name      `xml:"subsonic-response" json:"-"`
+	XMLNS         string        `xml:"xmlns,attr" json:"-"`
+	Status        string        `xml:"status,attr" json:"status"`
+	Version       string        `xml:"version,attr" json:"version"`
+	Type          string        `xml:"type,attr" json:"type"`
+	ServerVersion string        `xml:"serverVersion,attr" json:"serverVersion"`
+	Error         *apiError     `xml:"error,omitempty" json:"error,omitempty"`
+	License       *license      `xml:"license,omitempty" json:"license,omitempty"`
+	Folders       *folders      `xml:"musicFolders,omitempty" json:"musicFolders,omitempty"`
+	Artists       *artists      `xml:"artists,omitempty" json:"artists,omitempty"`
+	Artist        *artist       `xml:"artist,omitempty" json:"artist,omitempty"`
+	Album         *album        `xml:"album,omitempty" json:"album,omitempty"`
+	Song          *song         `xml:"song,omitempty" json:"song,omitempty"`
+	Search        *searchResult `xml:"searchResult3,omitempty" json:"searchResult3,omitempty"`
+}
+type apiError struct {
+	Code    int    `xml:"code,attr" json:"code"`
+	Message string `xml:"message,attr" json:"message"`
+}
+type license struct {
+	Valid bool `xml:"valid,attr" json:"valid"`
+}
+type folders struct {
+	Folders []folder `xml:"musicFolder" json:"musicFolder"`
+}
+type folder struct {
+	ID   string `xml:"id,attr" json:"id"`
+	Name string `xml:"name,attr" json:"name"`
+}
+type artists struct {
+	IgnoredArticles string        `xml:"ignoredArticles,attr" json:"ignoredArticles"`
+	Index           []artistIndex `xml:"index" json:"index"`
+}
+type artistIndex struct {
+	Name    string   `xml:"name,attr" json:"name"`
+	Artists []artist `xml:"artist" json:"artist"`
+}
+type artist struct {
+	ID         string  `xml:"id,attr" json:"id"`
+	Name       string  `xml:"name,attr" json:"name"`
+	AlbumCount int     `xml:"albumCount,attr" json:"albumCount"`
+	Albums     []album `xml:"album,omitempty" json:"album,omitempty"`
+}
+type album struct {
+	ID        string `xml:"id,attr" json:"id"`
+	Name      string `xml:"name,attr" json:"name"`
+	Artist    string `xml:"artist,attr" json:"artist"`
+	ArtistID  string `xml:"artistId,attr" json:"artistId"`
+	SongCount int    `xml:"songCount,attr" json:"songCount"`
+	Duration  int    `xml:"duration,attr" json:"duration"`
+	Songs     []song `xml:"song,omitempty" json:"song,omitempty"`
+}
+type song struct {
+	ID          string `xml:"id,attr" json:"id"`
+	Parent      string `xml:"parent,attr" json:"parent"`
+	IsDir       bool   `xml:"isDir,attr" json:"isDir"`
+	Title       string `xml:"title,attr" json:"title"`
+	Artist      string `xml:"artist,attr" json:"artist"`
+	Album       string `xml:"album,attr" json:"album"`
+	ArtistID    string `xml:"artistId,attr" json:"artistId"`
+	AlbumID     string `xml:"albumId,attr" json:"albumId"`
+	Track       int    `xml:"track,attr,omitempty" json:"track,omitempty"`
+	Year        int    `xml:"year,attr,omitempty" json:"year,omitempty"`
+	Size        int64  `xml:"size,attr" json:"size"`
+	ContentType string `xml:"contentType,attr" json:"contentType"`
+	Suffix      string `xml:"suffix,attr" json:"suffix"`
+	Type        string `xml:"type,attr" json:"type"`
+}
+type searchResult struct {
+	Songs []song `xml:"song" json:"song"`
+}

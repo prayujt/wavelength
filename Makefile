@@ -1,4 +1,4 @@
-.PHONY: run build test check fmt
+.PHONY: run build test check fmt smoke
 run:
 	go run ./cmd/wavelength
 build:
@@ -10,3 +10,6 @@ check:
 	go test -race ./...
 fmt:
 	gofmt -w cmd internal
+
+smoke: build
+	python3 scripts/smoke.py

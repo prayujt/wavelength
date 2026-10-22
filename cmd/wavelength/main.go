@@ -16,6 +16,7 @@ import (
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/subsonic"
 )
 
 func main() {
@@ -35,20 +36,9 @@ func run() error {
 		return err
 	}
 	defer db.Close()
-	addr := env("WAVELENGTH_ADDR", "127.0.0.1:8080")
-	token := os.Getenv("WAVELENGTH_TOKEN")
-	host, _, err := net.SplitHostPort(addr)
-	if err != nil {
-		return fmt.Errorf("invalid listen address: %w", err)
-	}
-	ip := net.ParseIP(host)
-	if token == "" && (ip == nil || !ip.IsLoopback()) {
-		return fmt.Errorf("WAVELENGTH_TOKEN is required for non-loopback listeners")
-	}
-	var options []httpserver.Option
-	musicDir := os.Getenv("WAVELENGTH_MUSIC_DIR")
-	if musicDir != "" {
-		lib, err := library.Open(musicDir, database.Catalog{DB: db})
+	var lib *library.Library
+	if dir := os.Getenv("WAVELENGTH_MUSIC_DIR"); dir != "" {
+		lib, err = library.Open(dir, database.Catalog{DB: db})
 		if err != nil {
 			return err
 		}
@@ -58,38 +48,89 @@ func run() error {
 			return err
 		}
 		slog.Info("library indexed", "tracks", result.Indexed, "metadata_warnings", result.MetadataWarnings)
-		if *scanOnly {
-			return nil
-		}
-		options = append(options, httpserver.WithLibrary(lib, token))
-	} else if *scanOnly {
-		return fmt.Errorf("WAVELENGTH_MUSIC_DIR is required for --scan-only")
 	}
-	server := httpserver.New(addr, db.PingContext, options...)
-	listener, err := net.Listen("tcp", server.Addr)
-	if err != nil {
-		return fmt.Errorf("listen: %w", err)
-	}
-	done := make(chan error, 1)
-	go func() { done <- server.Serve(listener) }()
-	slog.Info("wavelength listening", "address", listener.Addr().String())
-	select {
-	case err := <-done:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-		shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		if err := server.Shutdown(shutdown); err != nil {
-			_ = server.Close()
-			return err
+	if *scanOnly {
+		if lib == nil {
+			return errors.New("WAVELENGTH_MUSIC_DIR is required for --scan-only")
 		}
 		return nil
 	}
+	addr := env("WAVELENGTH_ADDR", "127.0.0.1:8080")
+	token := os.Getenv("WAVELENGTH_TOKEN")
+	if err = validateNativeAddress(addr, token); err != nil {
+		return err
+	}
+	var options []httpserver.Option
+	if lib != nil {
+		options = append(options, httpserver.WithLibrary(lib, token))
+	}
+	servers := []*http.Server{httpserver.New(addr, db.PingContext, options...)}
+	// Legacy protocol is opt-in and has its own listener and credentials.
+	if password := os.Getenv("WAVELENGTH_SUBSONIC_PASSWORD"); password != "" {
+		if lib == nil {
+			return errors.New("legacy Subsonic requires WAVELENGTH_MUSIC_DIR")
+		}
+		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password)
+		if err != nil {
+			return err
+		}
+		servers = append(servers, legacy)
+	} else if os.Getenv("WAVELENGTH_SUBSONIC_ADDR") != "" || os.Getenv("WAVELENGTH_SUBSONIC_USER") != "" {
+		return errors.New("WAVELENGTH_SUBSONIC_PASSWORD is required to enable the legacy listener")
+	}
+	return serve(ctx, servers)
 }
 
+// Bind all listeners before serving any, and stop both if either listener fails.
+func serve(ctx context.Context, servers []*http.Server) error {
+	listeners := make([]net.Listener, 0, len(servers))
+	defer func() {
+		for _, l := range listeners {
+			_ = l.Close()
+		}
+	}()
+	for _, server := range servers {
+		listener, err := net.Listen("tcp", server.Addr)
+		if err != nil {
+			return fmt.Errorf("listen %s: %w", server.Addr, err)
+		}
+		listeners = append(listeners, listener)
+	}
+	done := make(chan error, len(servers))
+	for i, server := range servers {
+		defer server.Close()
+		go func() { done <- server.Serve(listeners[i]) }()
+		slog.Info("wavelength listening", "protocol", []string{"native", "legacy-subsonic"}[i], "address", listeners[i].Addr().String())
+	}
+	var serveErr error
+	select {
+	case serveErr = <-done:
+	case <-ctx.Done():
+	}
+	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for _, server := range servers {
+		if err := server.Shutdown(shutdown); err != nil {
+			return err
+		}
+	}
+	if errors.Is(serveErr, http.ErrServerClosed) {
+		return nil
+	}
+	return serveErr
+}
+
+func validateNativeAddress(addr, token string) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return fmt.Errorf("invalid native listen address: %w", err)
+	}
+	ip := net.ParseIP(host)
+	if token == "" && (ip == nil || !ip.IsLoopback()) {
+		return errors.New("WAVELENGTH_TOKEN is required for non-loopback native listeners")
+	}
+	return nil
+}
 func env(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
