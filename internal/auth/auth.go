@@ -150,34 +150,57 @@ func (m *Manager) browserSession(r *http.Request) (Session, error) {
 }
 
 // Protect authenticates native API requests, with CSRF checks for cookie-authenticated writes.
+// RequestError carries transport-neutral authentication failures.
+type RequestError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *RequestError) Error() string { return e.Message }
+
+// Authorize is shared by HTTP media and protobuf RPC adapters.
+func (m *Manager) Authorize(r *http.Request) (context.Context, error) {
+	if authorization := r.Header.Get("Authorization"); authorization != "" {
+		if m.config.Token != "" && equal(authorization, "Bearer "+m.config.Token) {
+			return r.Context(), nil
+		}
+		return nil, &RequestError{401, "unauthorized"}
+	}
+	if !m.OIDCEnabled() && m.config.Token == "" {
+		return r.Context(), nil
+	}
+	session, err := m.browserSession(r)
+	if err != nil {
+		if errors.Is(err, ErrUnauthenticated) {
+			return nil, &RequestError{401, "unauthorized"}
+		}
+		return nil, &RequestError{500, "authentication unavailable"}
+	}
+	if !m.validCSRF(r, session) {
+		return nil, &RequestError{403, "invalid CSRF token or origin"}
+	}
+	return context.WithValue(r.Context(), userKey{}, session.User), nil
+}
 func (m *Manager) Protect(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
-		if authorization := r.Header.Get("Authorization"); authorization != "" {
-			if m.config.Token != "" && equal(authorization, "Bearer "+m.config.Token) {
-				next.ServeHTTP(w, r)
-				return
-			}
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			jsonError(w, 401, "unauthorized")
-			return
-		}
-		if !m.OIDCEnabled() && m.config.Token == "" {
-			next.ServeHTTP(w, r)
-			return
-		}
-		session, err := m.browserSession(r)
+		ctx, err := m.Authorize(r)
 		if err != nil {
-			sessionError(w, err)
+			var requestError *RequestError
+			if errors.As(err, &requestError) {
+				if requestError.StatusCode == 401 {
+					w.Header().Set("WWW-Authenticate", "Bearer")
+				}
+				jsonError(w, requestError.StatusCode, requestError.Message)
+			} else {
+				jsonError(w, 500, "authentication unavailable")
+			}
 			return
 		}
-		if !m.validCSRF(r, session) {
-			jsonError(w, 403, "invalid CSRF token or origin")
-			return
-		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userKey{}, session.User)))
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
 func (m *Manager) validCSRF(r *http.Request, s Session) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:

@@ -6,8 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
-	"encoding/xml"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -22,9 +20,15 @@ import (
 )
 
 // New constructs a legacy-only listener. Credentials must be nonempty.
-func New(addr string, lib *library.Library, user, password string) (*http.Server, error) {
+func New(addr string, lib *library.Library, user, password string, options ...Option) (*http.Server, error) {
 	if user == "" || password == "" {
 		return nil, errors.New("legacy Subsonic requires a username and password")
+	}
+	api := newAPI(lib, user, password)
+	for _, option := range options {
+		if err := option(api); err != nil {
+			return nil, err
+		}
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		result := response{XMLNS: "http://subsonic.org/restapi", Status: "ok", Version: "1.16.1", Type: "wavelength", ServerVersion: "0.1.0"}
@@ -34,16 +38,8 @@ func New(addr string, lib *library.Library, user, password string) (*http.Server
 		}
 		w.Header().Set("Cache-Control", "no-store")
 		defer func() {
-			if result.Status == "streamed" {
-				return
-			}
-			if r.Form.Get("f") == "json" {
-				w.Header().Set("Content-Type", "application/json")
-				_ = json.NewEncoder(w).Encode(map[string]any{"subsonic-response": result})
-			} else {
-				w.Header().Set("Content-Type", "application/xml; charset=utf-8")
-				_, _ = w.Write([]byte(xml.Header))
-				_ = xml.NewEncoder(w).Encode(result)
+			if result.Status != "streamed" {
+				writeResponse(w, r, result)
 			}
 		}()
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -55,11 +51,16 @@ func New(addr string, lib *library.Library, user, password string) (*http.Server
 			fail(0, "Unsupported HTTP method")
 			return
 		}
-		if format := r.Form.Get("f"); format != "" && format != "xml" && format != "json" {
+		if format := r.Form.Get("f"); format != "" && format != "xml" && format != "json" && format != "jsonp" {
 			fail(0, "Unsupported response format")
 			return
 		}
-		if !authenticated(r, user, password) {
+		current, ok, authErr := api.authenticate(r)
+		if authErr != nil {
+			failure(&result, 0, "Credential storage unavailable")
+			return
+		}
+		if !ok {
 			fail(40, "Wrong username or password")
 			return
 		}
@@ -72,6 +73,20 @@ func New(addr string, lib *library.Library, user, password string) (*http.Server
 			return
 		}
 		endpoint := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/rest/"), ".view")
+		if err := validateVersion(r.Form.Get("v")); err != nil {
+			fail(err.Code, err.Message)
+			return
+		}
+		if r.Form.Get("f") == "jsonp" && !callbackPattern.MatchString(r.Form.Get("callback")) {
+			fail(10, "Invalid callback")
+			return
+		}
+		if !api.authorized(r, endpoint, current, &result) {
+			return
+		}
+		if api.handle(w, r, endpoint, &result) {
+			return
+		}
 		switch endpoint {
 		case "ping":
 		case "getLicense":
@@ -220,43 +235,36 @@ func asSong(t library.Track) song {
 	artist, album := names(t)
 	artistID := id("artist\x00" + artist)
 	albumID := id("album\x00" + artist + "\x00" + album)
-	return song{ID: t.ID, Parent: albumID, Title: t.Title, Artist: t.Artist, Album: album, ArtistID: artistID, AlbumID: albumID, Track: t.TrackNumber, Year: t.Year, Size: t.Size, ContentType: t.ContentType, Suffix: strings.TrimPrefix(strings.ToLower(filepath.Ext(t.Path)), "."), Type: "music"}
+	created := t.CreatedAt
+	if created.IsZero() {
+		created = t.ModifiedAt
+	}
+	return song{Duration: int(t.Duration + 0.5), Genre: t.Genre, BitRate: t.BitRate, DiscNumber: t.DiscNumber, Created: created.UTC().Format(time.RFC3339), CoverArt: t.ID, ID: t.ID, Parent: albumID, Title: t.Title, Artist: t.Artist, Album: album, ArtistID: artistID, AlbumID: albumID, Track: t.TrackNumber, Year: t.Year, Size: t.Size, ContentType: t.ContentType, Suffix: strings.TrimPrefix(strings.ToLower(filepath.Ext(t.Path)), "."), Type: "music"}
 }
 func catalog(ctx context.Context, lib *library.Library) ([]artist, error) {
-	result := []artist{}
-	artists := map[string]int{}
-	albums := map[string][2]int{}
-	for offset := 0; ; offset += 500 {
-		page, err := lib.List(ctx, library.Query{Limit: 500, Offset: offset})
-		if err != nil {
-			return nil, err
-		}
-		for _, track := range page.Tracks {
-			artistName, albumName := names(track)
-			item := asSong(track)
-			ai, ok := artists[item.ArtistID]
-			if !ok {
-				ai = len(result)
-				artists[item.ArtistID] = ai
-				result = append(result, artist{ID: item.ArtistID, Name: artistName, Albums: []album{}})
-			}
-			location, ok := albums[item.AlbumID]
-			if !ok {
-				location = [2]int{ai, len(result[ai].Albums)}
-				albums[item.AlbumID] = location
-				result[ai].Albums = append(result[ai].Albums, album{ID: item.AlbumID, Name: albumName, Artist: artistName, ArtistID: item.ArtistID, Songs: []song{}})
-				result[ai].AlbumCount++
-			}
-			a := &result[location[0]].Albums[location[1]]
-			a.Songs = append(a.Songs, item)
-			a.SongCount++
-		}
-		if len(page.Tracks) < 500 {
-			break
-		}
+	snapshot, err := lib.Catalog(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return result, nil
+	out := []artist{}
+	for _, entry := range snapshot.Artists {
+		art := artist{ID: entry.ID, Name: entry.Name, AlbumCount: len(entry.Albums), Albums: []album{}}
+		for _, source := range entry.Albums {
+			value := album{ID: source.ID, Name: source.Name, Artist: source.Artist, ArtistID: source.ArtistID, Year: source.Year, Genre: source.Genre, Created: source.CreatedAt.UTC().Format(time.RFC3339), SongCount: len(source.Tracks), Duration: int(source.Duration + 0.5), Songs: []song{}}
+			for _, track := range source.Tracks {
+				value.Songs = append(value.Songs, asSong(track))
+			}
+			if len(value.Songs) > 0 {
+				value.CoverArt = value.Songs[0].ID
+				art.CoverArt = value.CoverArt
+			}
+			art.Albums = append(art.Albums, value)
+		}
+		out = append(out, art)
+	}
+	return out, nil
 }
+
 func number(r *http.Request, key string, fallback, max int) (int, error) {
 	value := r.Form.Get(key)
 	if value == "" {

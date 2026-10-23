@@ -1,0 +1,11 @@
+ALTER TABLE tracks ADD COLUMN genre TEXT NOT NULL DEFAULT '';
+ALTER TABLE tracks ADD COLUMN duration REAL NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN bit_rate INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE tracks ADD COLUMN created_at TEXT NOT NULL DEFAULT '';
+UPDATE tracks SET created_at=modified_at WHERE created_at='';
+CREATE TABLE app_state (
+ scope TEXT NOT NULL,
+ key TEXT NOT NULL,
+ value BLOB NOT NULL,
+ PRIMARY KEY(scope,key)
+);

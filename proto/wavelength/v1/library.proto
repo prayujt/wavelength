@@ -1,0 +1,64 @@
+syntax = "proto3";
+package wavelength.v1;
+option go_package = "github.com/prayujt/wavelength/gen/wavelength/v1;wavelengthv1";
+
+import "google/protobuf/timestamp.proto";
+
+// LibraryService is Wavelength's native API. Legacy Subsonic is not part of this contract.
+service LibraryService {
+  rpc ListTracks(ListTracksRequest) returns (ListTracksResponse);
+  rpc GetTrack(GetTrackRequest) returns (GetTrackResponse);
+  rpc ListArtists(ListArtistsRequest) returns (ListArtistsResponse);
+  rpc GetArtist(GetArtistRequest) returns (GetArtistResponse);
+  rpc ListAlbums(ListAlbumsRequest) returns (ListAlbumsResponse);
+  rpc GetAlbum(GetAlbumRequest) returns (GetAlbumResponse);
+  rpc StartScan(StartScanRequest) returns (StartScanResponse);
+  rpc GetScanStatus(GetScanStatusRequest) returns (GetScanStatusResponse);
+  // Browsers should use this range-capable HTTP path with their existing session cookie.
+  rpc GetPlaybackInfo(GetPlaybackInfoRequest) returns (GetPlaybackInfoResponse);
+  // Native clients may also consume audio directly over gRPC/Connect server streaming.
+  rpc StreamAudio(StreamAudioRequest) returns (stream StreamAudioResponse);
+}
+message Track {
+  string id = 1;
+  string title = 2;
+  string artist = 3;
+  string album = 4;
+  string album_artist = 5;
+  int32 track_number = 6;
+  int32 disc_number = 7;
+  int32 year = 8;
+  string genre = 9;
+  double duration_seconds = 10;
+  int64 size_bytes = 11;
+  string content_type = 12;
+  int32 bit_rate_kbps = 13;
+  google.protobuf.Timestamp created_at = 14;
+  google.protobuf.Timestamp modified_at = 15;
+}
+message Artist { string id = 1; string name = 2; int32 album_count = 3; }
+message Album {
+  string id = 1; string name = 2; string artist_id = 3; string artist = 4;
+  int32 year = 5; string genre = 6; int32 track_count = 7;
+  double duration_seconds = 8; google.protobuf.Timestamp created_at = 9;
+}
+message ListTracksRequest { string query = 1; int32 limit = 2; int32 offset = 3; }
+message ListTracksResponse { repeated Track tracks = 1; int32 total = 2; }
+message GetTrackRequest { string id = 1; }
+message GetTrackResponse { Track track = 1; }
+message ListArtistsRequest { string query = 1; int32 limit = 2; int32 offset = 3; }
+message ListArtistsResponse { repeated Artist artists = 1; int32 total = 2; }
+message GetArtistRequest { string id = 1; }
+message GetArtistResponse { Artist artist = 1; repeated Album albums = 2; }
+message ListAlbumsRequest { string query = 1; string artist_id = 2; int32 limit = 3; int32 offset = 4; }
+message ListAlbumsResponse { repeated Album albums = 1; int32 total = 2; }
+message GetAlbumRequest { string id = 1; }
+message GetAlbumResponse { Album album = 1; repeated Track tracks = 2; }
+message StartScanRequest {}
+message StartScanResponse { int32 indexed = 1; int32 metadata_warnings = 2; }
+message GetScanStatusRequest {}
+message GetScanStatusResponse { bool scanning = 1; int64 indexed = 2; }
+message GetPlaybackInfoRequest { string id = 1; }
+message GetPlaybackInfoResponse { Track track = 1; string http_path = 2; bool supports_ranges = 3; }
+message StreamAudioRequest { string id = 1; int64 offset_bytes = 2; int64 length_bytes = 3; }
+message StreamAudioResponse { bytes data = 1; int64 offset_bytes = 2; }

@@ -23,17 +23,17 @@ func (c Catalog) Replace(ctx context.Context, rootID, path string, tracks []libr
 		return err
 	}
 	scanID := rand.Text()
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO tracks (id,root_id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,scan_id)
- VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(root_id,path) DO UPDATE SET
+	stmt, err := tx.PrepareContext(ctx, `INSERT INTO tracks (id,root_id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,scan_id,genre,duration,bit_rate,created_at)
+ VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(root_id,path) DO UPDATE SET
  title=excluded.title,artist=excluded.artist,album=excluded.album,album_artist=excluded.album_artist,
  track_number=excluded.track_number,disc_number=excluded.disc_number,year=excluded.year,
- content_type=excluded.content_type,size=excluded.size,modified_at=excluded.modified_at,scan_id=excluded.scan_id`)
+ content_type=excluded.content_type,size=excluded.size,modified_at=excluded.modified_at,scan_id=excluded.scan_id,genre=excluded.genre,duration=excluded.duration,bit_rate=excluded.bit_rate`)
 	if err != nil {
 		return err
 	}
 	defer stmt.Close()
 	for _, t := range tracks {
-		if _, err = stmt.ExecContext(ctx, t.ID, rootID, t.Path, t.Title, t.Artist, t.Album, t.AlbumArtist, t.TrackNumber, t.DiscNumber, t.Year, t.ContentType, t.Size, t.ModifiedAt.Format(time.RFC3339Nano), scanID); err != nil {
+		if _, err = stmt.ExecContext(ctx, t.ID, rootID, t.Path, t.Title, t.Artist, t.Album, t.AlbumArtist, t.TrackNumber, t.DiscNumber, t.Year, t.ContentType, t.Size, t.ModifiedAt.Format(time.RFC3339Nano), scanID, t.Genre, t.Duration, t.BitRate, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 			return err
 		}
 	}
@@ -43,7 +43,7 @@ func (c Catalog) Replace(ctx context.Context, rootID, path string, tracks []libr
 	return tx.Commit()
 }
 
-const trackColumns = "id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at"
+const trackColumns = "id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,genre,duration,bit_rate,created_at"
 const trackFilter = "root_id=? AND (?='' OR instr(lower(title || ' ' || artist || ' ' || album),lower(?))>0)"
 
 func (c Catalog) List(ctx context.Context, rootID string, q library.Query) (library.Page, error) {
@@ -89,10 +89,16 @@ type rowScanner interface{ Scan(...any) error }
 
 func readTrack(row rowScanner) (library.Track, error) {
 	var t library.Track
-	var modified string
-	err := row.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist, &t.TrackNumber, &t.DiscNumber, &t.Year, &t.ContentType, &t.Size, &modified)
+	var modified, created string
+	err := row.Scan(&t.ID, &t.Path, &t.Title, &t.Artist, &t.Album, &t.AlbumArtist, &t.TrackNumber, &t.DiscNumber, &t.Year, &t.ContentType, &t.Size, &modified, &t.Genre, &t.Duration, &t.BitRate, &created)
 	if err != nil {
 		return t, err
+	}
+	if created != "" {
+		t.CreatedAt, err = time.Parse(time.RFC3339Nano, created)
+		if err != nil {
+			return t, err
+		}
 	}
 	t.ModifiedAt, err = time.Parse(time.RFC3339Nano, modified)
 	return t, err

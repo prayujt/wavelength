@@ -17,6 +17,7 @@ import (
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/subsonic"
 )
 
@@ -70,7 +71,7 @@ func run() error {
 	}
 	options := []httpserver.Option{httpserver.WithAuth(manager)}
 	if lib != nil {
-		options = append(options, httpserver.WithLibrary(lib, manager.Protect))
+		options = append(options, httpserver.WithNative(lib, manager))
 	}
 	servers := []*http.Server{httpserver.New(addr, db.PingContext, options...)}
 	// Legacy protocol is opt-in and has its own listener and credentials.
@@ -78,7 +79,11 @@ func run() error {
 		if lib == nil {
 			return errors.New("legacy Subsonic requires WAVELENGTH_MUSIC_DIR")
 		}
-		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password)
+		key, err := state.LoadKey(env("WAVELENGTH_DATA_DIR", "./data"))
+		if err != nil {
+			return err
+		}
+		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password, subsonic.WithState(database.StateStore{DB: db}), subsonic.WithContext(ctx), subsonic.WithEncryptionKey(key))
 		if err != nil {
 			return err
 		}

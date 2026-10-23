@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dhowden/tag"
@@ -34,6 +35,10 @@ type Track struct {
 	ContentType string    `json:"content_type"`
 	Size        int64     `json:"size"`
 	ModifiedAt  time.Time `json:"modified_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	Genre       string    `json:"genre"`
+	Duration    float64   `json:"duration"`
+	BitRate     int       `json:"bit_rate"`
 }
 
 type Query struct {
@@ -59,11 +64,13 @@ type Store interface {
 }
 
 type Library struct {
-	store  Store
-	root   *os.Root
-	rootID string
-	path   string
-	scan   sync.Mutex
+	store    Store
+	root     *os.Root
+	rootID   string
+	path     string
+	scan     sync.Mutex
+	scanning atomic.Bool
+	scanned  atomic.Int64
 }
 
 func Open(path string, store Store) (*Library, error) {
@@ -91,6 +98,8 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 		return ScanResult{}, ErrScanRunning
 	}
 	defer l.scan.Unlock()
+	l.scanning.Store(true)
+	defer l.scanning.Store(false)
 	tracks := make([]Track, 0)
 	result := ScanResult{}
 	err := fs.WalkDir(l.root.FS(), ".", func(path string, entry fs.DirEntry, walkErr error) error {
@@ -130,6 +139,7 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 		}
 		track := Track{ID: identifier(l.rootID + "\x00" + path), Path: path, Title: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), ContentType: mime, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}
 		metadata, tagErr := tag.ReadFrom(file)
+		probe(ctx, file, &track)
 		closeErr := file.Close()
 		if closeErr != nil {
 			return closeErr
@@ -137,6 +147,9 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 		if tagErr == nil {
 			if title := strings.TrimSpace(metadata.Title()); title != "" {
 				track.Title = title
+			}
+			if genre := metadata.Genre(); genre != "" {
+				track.Genre = genre
 			}
 			track.Artist = metadata.Artist()
 			track.Album = metadata.Album()
@@ -158,6 +171,7 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 		return result, err
 	}
 	result.Indexed = len(tracks)
+	l.scanned.Store(int64(len(tracks)))
 	return result, nil
 }
 
@@ -207,3 +221,5 @@ var contentTypes = map[string]string{
 	".mp3": "audio/mpeg", ".flac": "audio/flac", ".m4a": "audio/mp4", ".mp4": "audio/mp4",
 	".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav", ".aac": "audio/aac", ".aiff": "audio/aiff", ".aif": "audio/aiff",
 }
+
+func (l *Library) ScanStatus() (bool, int64) { return l.scanning.Load(), l.scanned.Load() }
