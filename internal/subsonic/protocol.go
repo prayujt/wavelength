@@ -15,10 +15,12 @@ import (
 
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type Option func(*api) error
 type api struct {
+	data           *userdata.Service
 	avatarDir      string
 	videoDir       string
 	podcastDir     string

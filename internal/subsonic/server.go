@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 // New constructs a legacy-only listener. Credentials must be nonempty.
@@ -29,6 +31,7 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 			return nil, err
 		}
 	}
+	api.data = userdata.New(api.store, lib)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if api.publicShare(w, r) {
 			return
@@ -203,6 +206,18 @@ func number(r *http.Request, key string, fallback, max int) (int, error) {
 func legacyError(result *response, err error) {
 	result.Status = "failed"
 	result.Error = &apiError{Code: 0, Message: "Library operation failed"}
+	if errors.Is(err, userdata.ErrInvalid) {
+		failure(result, 10, err.Error())
+		return
+	}
+	if errors.Is(err, userdata.ErrForbidden) {
+		failure(result, 50, err.Error())
+		return
+	}
+	if errors.Is(err, state.ErrNotFound) {
+		failure(result, 70, "Resource not found")
+		return
+	}
 	if errors.Is(err, library.ErrNotFound) {
 		result.Error = &apiError{Code: 70, Message: "Track not found"}
 		return
