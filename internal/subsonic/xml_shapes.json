@@ -1,0 +1,1137 @@
+{
+  "AlbumID3": {
+    "attrs": [
+      "id",
+      "name",
+      "artist",
+      "artistId",
+      "coverArt",
+      "songCount",
+      "duration",
+      "playCount",
+      "created",
+      "starred",
+      "year",
+      "genre"
+    ],
+    "children": [],
+    "text": false
+  },
+  "AlbumInfo": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "notes",
+        "type": "string"
+      },
+      {
+        "name": "musicBrainzId",
+        "type": "string"
+      },
+      {
+        "name": "lastFmUrl",
+        "type": "string"
+      },
+      {
+        "name": "smallImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "mediumImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "largeImageUrl",
+        "type": "string"
+      }
+    ],
+    "text": false
+  },
+  "AlbumList": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "album",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "AlbumList2": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "album",
+        "type": "AlbumID3"
+      }
+    ],
+    "text": false
+  },
+  "AlbumWithSongsID3": {
+    "attrs": [
+      "id",
+      "name",
+      "artist",
+      "artistId",
+      "coverArt",
+      "songCount",
+      "duration",
+      "playCount",
+      "created",
+      "starred",
+      "year",
+      "genre"
+    ],
+    "children": [
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Artist": {
+    "attrs": [
+      "id",
+      "name",
+      "artistImageUrl",
+      "starred",
+      "userRating",
+      "averageRating"
+    ],
+    "children": [],
+    "text": false
+  },
+  "ArtistID3": {
+    "attrs": [
+      "id",
+      "name",
+      "coverArt",
+      "artistImageUrl",
+      "albumCount",
+      "starred"
+    ],
+    "children": [],
+    "text": false
+  },
+  "ArtistInfo": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "biography",
+        "type": "string"
+      },
+      {
+        "name": "musicBrainzId",
+        "type": "string"
+      },
+      {
+        "name": "lastFmUrl",
+        "type": "string"
+      },
+      {
+        "name": "smallImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "mediumImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "largeImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "similarArtist",
+        "type": "Artist"
+      }
+    ],
+    "text": false
+  },
+  "ArtistInfo2": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "biography",
+        "type": "string"
+      },
+      {
+        "name": "musicBrainzId",
+        "type": "string"
+      },
+      {
+        "name": "lastFmUrl",
+        "type": "string"
+      },
+      {
+        "name": "smallImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "mediumImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "largeImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "similarArtist",
+        "type": "ArtistID3"
+      }
+    ],
+    "text": false
+  },
+  "ArtistInfoBase": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "biography",
+        "type": "string"
+      },
+      {
+        "name": "musicBrainzId",
+        "type": "string"
+      },
+      {
+        "name": "lastFmUrl",
+        "type": "string"
+      },
+      {
+        "name": "smallImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "mediumImageUrl",
+        "type": "string"
+      },
+      {
+        "name": "largeImageUrl",
+        "type": "string"
+      }
+    ],
+    "text": false
+  },
+  "ArtistWithAlbumsID3": {
+    "attrs": [
+      "id",
+      "name",
+      "coverArt",
+      "artistImageUrl",
+      "albumCount",
+      "starred"
+    ],
+    "children": [
+      {
+        "name": "album",
+        "type": "AlbumID3"
+      }
+    ],
+    "text": false
+  },
+  "ArtistsID3": {
+    "attrs": [
+      "ignoredArticles"
+    ],
+    "children": [
+      {
+        "name": "index",
+        "type": "IndexID3"
+      }
+    ],
+    "text": false
+  },
+  "AudioTrack": {
+    "attrs": [
+      "id",
+      "name",
+      "languageCode"
+    ],
+    "children": [],
+    "text": false
+  },
+  "Bookmark": {
+    "attrs": [
+      "position",
+      "username",
+      "comment",
+      "created",
+      "changed"
+    ],
+    "children": [
+      {
+        "name": "entry",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Bookmarks": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "bookmark",
+        "type": "Bookmark"
+      }
+    ],
+    "text": false
+  },
+  "Captions": {
+    "attrs": [
+      "id",
+      "name"
+    ],
+    "children": [],
+    "text": false
+  },
+  "ChatMessage": {
+    "attrs": [
+      "username",
+      "time",
+      "message"
+    ],
+    "children": [],
+    "text": false
+  },
+  "ChatMessages": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "chatMessage",
+        "type": "ChatMessage"
+      }
+    ],
+    "text": false
+  },
+  "Child": {
+    "attrs": [
+      "id",
+      "parent",
+      "isDir",
+      "title",
+      "album",
+      "artist",
+      "track",
+      "year",
+      "genre",
+      "coverArt",
+      "size",
+      "contentType",
+      "suffix",
+      "transcodedContentType",
+      "transcodedSuffix",
+      "duration",
+      "bitRate",
+      "path",
+      "isVideo",
+      "userRating",
+      "averageRating",
+      "playCount",
+      "discNumber",
+      "created",
+      "starred",
+      "albumId",
+      "artistId",
+      "type",
+      "bookmarkPosition",
+      "originalWidth",
+      "originalHeight"
+    ],
+    "children": [],
+    "text": false
+  },
+  "Directory": {
+    "attrs": [
+      "id",
+      "parent",
+      "name",
+      "starred",
+      "userRating",
+      "averageRating",
+      "playCount"
+    ],
+    "children": [
+      {
+        "name": "child",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Error": {
+    "attrs": [
+      "code",
+      "message"
+    ],
+    "children": [],
+    "text": false
+  },
+  "Genre": {
+    "attrs": [
+      "songCount",
+      "albumCount"
+    ],
+    "children": [],
+    "text": true
+  },
+  "Genres": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "genre",
+        "type": "Genre"
+      }
+    ],
+    "text": false
+  },
+  "Index": {
+    "attrs": [
+      "name"
+    ],
+    "children": [
+      {
+        "name": "artist",
+        "type": "Artist"
+      }
+    ],
+    "text": false
+  },
+  "IndexID3": {
+    "attrs": [
+      "name"
+    ],
+    "children": [
+      {
+        "name": "artist",
+        "type": "ArtistID3"
+      }
+    ],
+    "text": false
+  },
+  "Indexes": {
+    "attrs": [
+      "lastModified",
+      "ignoredArticles"
+    ],
+    "children": [
+      {
+        "name": "shortcut",
+        "type": "Artist"
+      },
+      {
+        "name": "index",
+        "type": "Index"
+      },
+      {
+        "name": "child",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "InternetRadioStation": {
+    "attrs": [
+      "id",
+      "name",
+      "streamUrl",
+      "homePageUrl"
+    ],
+    "children": [],
+    "text": false
+  },
+  "InternetRadioStations": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "internetRadioStation",
+        "type": "InternetRadioStation"
+      }
+    ],
+    "text": false
+  },
+  "JukeboxPlaylist": {
+    "attrs": [
+      "currentIndex",
+      "playing",
+      "gain",
+      "position"
+    ],
+    "children": [
+      {
+        "name": "entry",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "JukeboxStatus": {
+    "attrs": [
+      "currentIndex",
+      "playing",
+      "gain",
+      "position"
+    ],
+    "children": [],
+    "text": false
+  },
+  "License": {
+    "attrs": [
+      "valid",
+      "email",
+      "licenseExpires",
+      "trialExpires"
+    ],
+    "children": [],
+    "text": false
+  },
+  "Lyrics": {
+    "attrs": [
+      "artist",
+      "title"
+    ],
+    "children": [],
+    "text": true
+  },
+  "MusicFolder": {
+    "attrs": [
+      "id",
+      "name"
+    ],
+    "children": [],
+    "text": false
+  },
+  "MusicFolders": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "musicFolder",
+        "type": "MusicFolder"
+      }
+    ],
+    "text": false
+  },
+  "NewestPodcasts": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "episode",
+        "type": "PodcastEpisode"
+      }
+    ],
+    "text": false
+  },
+  "NowPlaying": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "entry",
+        "type": "NowPlayingEntry"
+      }
+    ],
+    "text": false
+  },
+  "NowPlayingEntry": {
+    "attrs": [
+      "id",
+      "parent",
+      "isDir",
+      "title",
+      "album",
+      "artist",
+      "track",
+      "year",
+      "genre",
+      "coverArt",
+      "size",
+      "contentType",
+      "suffix",
+      "transcodedContentType",
+      "transcodedSuffix",
+      "duration",
+      "bitRate",
+      "path",
+      "isVideo",
+      "userRating",
+      "averageRating",
+      "playCount",
+      "discNumber",
+      "created",
+      "starred",
+      "albumId",
+      "artistId",
+      "type",
+      "bookmarkPosition",
+      "originalWidth",
+      "originalHeight",
+      "username",
+      "minutesAgo",
+      "playerId",
+      "playerName"
+    ],
+    "children": [],
+    "text": false
+  },
+  "PlayQueue": {
+    "attrs": [
+      "current",
+      "position",
+      "username",
+      "changed",
+      "changedBy"
+    ],
+    "children": [
+      {
+        "name": "entry",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Playlist": {
+    "attrs": [
+      "id",
+      "name",
+      "comment",
+      "owner",
+      "public",
+      "songCount",
+      "duration",
+      "created",
+      "changed",
+      "coverArt"
+    ],
+    "children": [
+      {
+        "name": "allowedUser",
+        "type": "string"
+      }
+    ],
+    "text": false
+  },
+  "PlaylistWithSongs": {
+    "attrs": [
+      "id",
+      "name",
+      "comment",
+      "owner",
+      "public",
+      "songCount",
+      "duration",
+      "created",
+      "changed",
+      "coverArt"
+    ],
+    "children": [
+      {
+        "name": "allowedUser",
+        "type": "string"
+      },
+      {
+        "name": "entry",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Playlists": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "playlist",
+        "type": "Playlist"
+      }
+    ],
+    "text": false
+  },
+  "PodcastChannel": {
+    "attrs": [
+      "id",
+      "url",
+      "title",
+      "description",
+      "coverArt",
+      "originalImageUrl",
+      "status",
+      "errorMessage"
+    ],
+    "children": [
+      {
+        "name": "episode",
+        "type": "PodcastEpisode"
+      }
+    ],
+    "text": false
+  },
+  "PodcastEpisode": {
+    "attrs": [
+      "id",
+      "parent",
+      "isDir",
+      "title",
+      "album",
+      "artist",
+      "track",
+      "year",
+      "genre",
+      "coverArt",
+      "size",
+      "contentType",
+      "suffix",
+      "transcodedContentType",
+      "transcodedSuffix",
+      "duration",
+      "bitRate",
+      "path",
+      "isVideo",
+      "userRating",
+      "averageRating",
+      "playCount",
+      "discNumber",
+      "created",
+      "starred",
+      "albumId",
+      "artistId",
+      "type",
+      "bookmarkPosition",
+      "originalWidth",
+      "originalHeight",
+      "streamId",
+      "channelId",
+      "description",
+      "status",
+      "publishDate"
+    ],
+    "children": [],
+    "text": false
+  },
+  "Podcasts": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "channel",
+        "type": "PodcastChannel"
+      }
+    ],
+    "text": false
+  },
+  "Response": {
+    "attrs": [
+      "status",
+      "version"
+    ],
+    "children": [
+      {
+        "name": "musicFolders",
+        "type": "MusicFolders"
+      },
+      {
+        "name": "indexes",
+        "type": "Indexes"
+      },
+      {
+        "name": "directory",
+        "type": "Directory"
+      },
+      {
+        "name": "genres",
+        "type": "Genres"
+      },
+      {
+        "name": "artists",
+        "type": "ArtistsID3"
+      },
+      {
+        "name": "artist",
+        "type": "ArtistWithAlbumsID3"
+      },
+      {
+        "name": "album",
+        "type": "AlbumWithSongsID3"
+      },
+      {
+        "name": "song",
+        "type": "Child"
+      },
+      {
+        "name": "videos",
+        "type": "Videos"
+      },
+      {
+        "name": "videoInfo",
+        "type": "VideoInfo"
+      },
+      {
+        "name": "nowPlaying",
+        "type": "NowPlaying"
+      },
+      {
+        "name": "searchResult",
+        "type": "SearchResult"
+      },
+      {
+        "name": "searchResult2",
+        "type": "SearchResult2"
+      },
+      {
+        "name": "searchResult3",
+        "type": "SearchResult3"
+      },
+      {
+        "name": "playlists",
+        "type": "Playlists"
+      },
+      {
+        "name": "playlist",
+        "type": "PlaylistWithSongs"
+      },
+      {
+        "name": "jukeboxStatus",
+        "type": "JukeboxStatus"
+      },
+      {
+        "name": "jukeboxPlaylist",
+        "type": "JukeboxPlaylist"
+      },
+      {
+        "name": "license",
+        "type": "License"
+      },
+      {
+        "name": "users",
+        "type": "Users"
+      },
+      {
+        "name": "user",
+        "type": "User"
+      },
+      {
+        "name": "chatMessages",
+        "type": "ChatMessages"
+      },
+      {
+        "name": "albumList",
+        "type": "AlbumList"
+      },
+      {
+        "name": "albumList2",
+        "type": "AlbumList2"
+      },
+      {
+        "name": "randomSongs",
+        "type": "Songs"
+      },
+      {
+        "name": "songsByGenre",
+        "type": "Songs"
+      },
+      {
+        "name": "lyrics",
+        "type": "Lyrics"
+      },
+      {
+        "name": "podcasts",
+        "type": "Podcasts"
+      },
+      {
+        "name": "newestPodcasts",
+        "type": "NewestPodcasts"
+      },
+      {
+        "name": "internetRadioStations",
+        "type": "InternetRadioStations"
+      },
+      {
+        "name": "bookmarks",
+        "type": "Bookmarks"
+      },
+      {
+        "name": "playQueue",
+        "type": "PlayQueue"
+      },
+      {
+        "name": "shares",
+        "type": "Shares"
+      },
+      {
+        "name": "starred",
+        "type": "Starred"
+      },
+      {
+        "name": "starred2",
+        "type": "Starred2"
+      },
+      {
+        "name": "albumInfo",
+        "type": "AlbumInfo"
+      },
+      {
+        "name": "artistInfo",
+        "type": "ArtistInfo"
+      },
+      {
+        "name": "artistInfo2",
+        "type": "ArtistInfo2"
+      },
+      {
+        "name": "similarSongs",
+        "type": "SimilarSongs"
+      },
+      {
+        "name": "similarSongs2",
+        "type": "SimilarSongs2"
+      },
+      {
+        "name": "topSongs",
+        "type": "TopSongs"
+      },
+      {
+        "name": "scanStatus",
+        "type": "ScanStatus"
+      },
+      {
+        "name": "error",
+        "type": "Error"
+      }
+    ],
+    "text": false
+  },
+  "ScanStatus": {
+    "attrs": [
+      "scanning",
+      "count"
+    ],
+    "children": [],
+    "text": false
+  },
+  "SearchResult": {
+    "attrs": [
+      "offset",
+      "totalHits"
+    ],
+    "children": [
+      {
+        "name": "match",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "SearchResult2": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "artist",
+        "type": "Artist"
+      },
+      {
+        "name": "album",
+        "type": "Child"
+      },
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "SearchResult3": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "artist",
+        "type": "ArtistID3"
+      },
+      {
+        "name": "album",
+        "type": "AlbumID3"
+      },
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Share": {
+    "attrs": [
+      "id",
+      "url",
+      "description",
+      "username",
+      "created",
+      "expires",
+      "lastVisited",
+      "visitCount"
+    ],
+    "children": [
+      {
+        "name": "entry",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Shares": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "share",
+        "type": "Share"
+      }
+    ],
+    "text": false
+  },
+  "SimilarSongs": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "SimilarSongs2": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Songs": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Starred": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "artist",
+        "type": "Artist"
+      },
+      {
+        "name": "album",
+        "type": "Child"
+      },
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "Starred2": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "artist",
+        "type": "ArtistID3"
+      },
+      {
+        "name": "album",
+        "type": "AlbumID3"
+      },
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "TopSongs": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "song",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  },
+  "User": {
+    "attrs": [
+      "username",
+      "email",
+      "scrobblingEnabled",
+      "maxBitRate",
+      "adminRole",
+      "settingsRole",
+      "downloadRole",
+      "uploadRole",
+      "playlistRole",
+      "coverArtRole",
+      "commentRole",
+      "podcastRole",
+      "streamRole",
+      "jukeboxRole",
+      "shareRole",
+      "videoConversionRole",
+      "avatarLastChanged"
+    ],
+    "children": [
+      {
+        "name": "folder",
+        "type": "int"
+      }
+    ],
+    "text": false
+  },
+  "Users": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "user",
+        "type": "User"
+      }
+    ],
+    "text": false
+  },
+  "VideoConversion": {
+    "attrs": [
+      "id",
+      "bitRate",
+      "audioTrackId"
+    ],
+    "children": [],
+    "text": false
+  },
+  "VideoInfo": {
+    "attrs": [
+      "id"
+    ],
+    "children": [
+      {
+        "name": "captions",
+        "type": "Captions"
+      },
+      {
+        "name": "audioTrack",
+        "type": "AudioTrack"
+      },
+      {
+        "name": "conversion",
+        "type": "VideoConversion"
+      }
+    ],
+    "text": false
+  },
+  "Videos": {
+    "attrs": [],
+    "children": [
+      {
+        "name": "video",
+        "type": "Child"
+      }
+    ],
+    "text": false
+  }
+}

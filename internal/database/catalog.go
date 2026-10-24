@@ -44,7 +44,7 @@ func (c Catalog) Replace(ctx context.Context, rootID, path string, tracks []libr
 }
 
 const trackColumns = "id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,genre,duration,bit_rate,created_at"
-const trackFilter = "root_id=? AND (?='' OR instr(lower(title || ' ' || artist || ' ' || album),lower(?))>0)"
+const trackFilter = "root_id=? AND (? OR content_type NOT LIKE 'video/%') AND (?='' OR instr(lower(title || ' ' || artist || ' ' || album),lower(?))>0)"
 
 func (c Catalog) List(ctx context.Context, rootID string, q library.Query) (library.Page, error) {
 	page := library.Page{Tracks: []library.Track{}, Limit: q.Limit, Offset: q.Offset}
@@ -53,10 +53,10 @@ func (c Catalog) List(ctx context.Context, rootID string, q library.Query) (libr
 		return page, err
 	}
 	defer tx.Rollback()
-	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM tracks WHERE "+trackFilter, rootID, q.Search, q.Search).Scan(&page.Total); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT count(*) FROM tracks WHERE "+trackFilter, rootID, q.IncludeVideo, q.Search, q.Search).Scan(&page.Total); err != nil {
 		return page, err
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT "+trackColumns+" FROM tracks WHERE "+trackFilter+" ORDER BY artist COLLATE NOCASE,album COLLATE NOCASE,disc_number,track_number,path LIMIT ? OFFSET ?", rootID, q.Search, q.Search, q.Limit, q.Offset)
+	rows, err := tx.QueryContext(ctx, "SELECT "+trackColumns+" FROM tracks WHERE "+trackFilter+" ORDER BY artist COLLATE NOCASE,album COLLATE NOCASE,disc_number,track_number,path LIMIT ? OFFSET ?", rootID, q.IncludeVideo, q.Search, q.Search, q.Limit, q.Offset)
 	if err != nil {
 		return page, err
 	}

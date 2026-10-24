@@ -11,7 +11,11 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: test -z "$(gofmt -l cmd internal)"
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: test -z "$(gofmt -l cmd internal gen)"
       - run: go vet ./...
-      - run: go test -race ./...
-      - run: CGO_ENABLED=0 go build ./cmd/wavelength
+      - run: go test -race -timeout 90s ./...
+        env:
+          WAVELENGTH_REQUIRE_MEDIA_TOOLS: "1"
+      - run: CGO_ENABLED=0 go build -o bin/wavelength ./cmd/wavelength
+      - run: python3 scripts/smoke.py

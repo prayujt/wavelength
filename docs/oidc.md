@@ -40,7 +40,7 @@ client secret out of Git. These are environment variables; Wavelength does not l
 `.env` files automatically.
 
 The public URL is the externally visible **origin**, with no path prefix, query or
-fragment. Place TLS at a reverse proxy and forward `/auth/` and `/api/` to the native
+fragment. Place TLS at a reverse proxy and forward `/auth/`, `/wavelength.v1.LibraryService/` and `/media/` to the native
 listener. Neither forwarded identity headers nor an external auth proxy are required.
 The configured public URL—not incoming Host/X-Forwarded headers—determines callback
 URLs, secure cookies and allowed browser mutation origins.
@@ -70,7 +70,7 @@ only loopback binding is allowed and the native API is locally anonymous.
   Revokes the local session in SQLite and clears its cookie. It does not sign the
   browser out of the identity provider or revoke other devices' sessions.
 
-All `/api/` endpoints, including original-file streams, accept the session cookie.
+All native Connect RPC methods and `/media/` streams accept the session cookie.
 A same-origin future UI can use ordinary fetch calls and audio elements:
 
 ```js
@@ -78,18 +78,20 @@ const response = await fetch('/auth/me');
 if (response.status === 401) location.assign('/auth/login');
 const { csrf_token } = await response.json();
 
-await fetch('/api/scan', {
+await fetch('/wavelength.v1.LibraryService/StartScan', {
   method: 'POST',
-  headers: { 'X-CSRF-Token': csrf_token },
+  headers: { 'X-CSRF-Token': csrf_token, 'Content-Type': 'application/json' },
+  body: '{}',
 });
 // The browser supplies Origin automatically; cookies accompany same-origin requests.
 ```
 
 ```html
-<audio controls src="/api/tracks/ACTUAL_TRACK_ID/stream"></audio>
+<audio controls src="/media/tracks/ACTUAL_TRACK_ID"></audio>
 ```
 
-Cookie-authenticated mutations require both the exact public Origin and CSRF header.
+All cookie-authenticated POST requests, including read-only Connect RPC calls, require
+both the exact public Origin and CSRF header. GET/HEAD media playback does not.
 Bearer-authenticated API calls do not require CSRF, because the bearer credential is
 not automatically attached by a browser. An invalid explicit Authorization header
 is rejected, rather than falling back to a cookie. `/auth/me` and `/auth/logout` are
@@ -115,8 +117,8 @@ are not cached. No browser tokens need to be placed in localStorage or stream UR
 
 Legacy Subsonic on port 8081 still authenticates exclusively through its own configured
 username/password or salted protocol token. It does not accept OIDC sessions or the
-native bearer token. Per-user Subsonic app credentials and scoped/revocable native API
-tokens are future work, not features claimed by this initial OIDC integration.
+native bearer token. Subsonic has its own persisted app accounts and role checks. Scoped/revocable native
+API tokens remain future work.
 
 ## Verification
 

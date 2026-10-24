@@ -31,7 +31,7 @@ type fixture struct {
 	data, music string
 }
 
-func newFixture(t *testing.T, data, music string) *fixture {
+func newFixture(t *testing.T, data, music string, extra ...subsonic.Option) *fixture {
 	t.Helper()
 	if data == "" {
 		data = t.TempDir()
@@ -57,12 +57,15 @@ func newFixture(t *testing.T, data, music string) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server, err := subsonic.New("", lib, "admin", "secret", subsonic.WithState(database.StateStore{DB: db}), subsonic.WithEncryptionKey(key))
+	ctx, cancel := context.WithCancel(context.Background())
+	options := []subsonic.Option{subsonic.WithState(database.StateStore{DB: db}), subsonic.WithEncryptionKey(key), subsonic.WithContext(ctx), subsonic.WithPublicURL("https://music.example.test"), subsonic.WithPodcastDirectory(filepath.Join(data, "podcasts"))}
+	options = append(options, extra...)
+	server, err := subsonic.New("", lib, "admin", "secret", options...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	f := &fixture{lib: lib, db: db, server: server, data: data, music: music}
-	t.Cleanup(func() { lib.Close(); db.Close() })
+	t.Cleanup(func() { cancel(); lib.Close(); db.Close() })
 	return f
 }
 func writeSong(t *testing.T, root, path, title, artist, album string, track byte) {
@@ -301,5 +304,36 @@ func TestArtworkLyricsDownloadRadioChatAndScanning(t *testing.T) {
 	}
 	if _, err = io.Copy(io.Discard, strings.NewReader("")); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Optional export consumed by scripts/validate-subsonic.py's independent XSD validator.
+func TestExportXMLContractFixtures(t *testing.T) {
+	dir := os.Getenv("WAVELENGTH_XML_FIXTURES")
+	if dir == "" {
+		t.Skip("XML export is requested by the schema-validation script")
+	}
+	f := newFixture(t, "", "")
+	track, album, artist := f.ids(t)
+	playlist := f.ok(t, "createPlaylist", url.Values{"name": {"Contract"}, "songId": {track}})["playlist"].(map[string]any)["id"].(string)
+	f.ok(t, "star", url.Values{"id": {track}, "albumId": {album}, "artistId": {artist}})
+	f.ok(t, "scrobble", url.Values{"id": {track}, "submission": {"false"}})
+	f.ok(t, "createBookmark", url.Values{"id": {track}, "position": {"0"}})
+	f.ok(t, "savePlayQueue", url.Values{"id": {track}, "current": {track}})
+	f.ok(t, "addChatMessage", url.Values{"message": {"Contract"}})
+	f.ok(t, "createInternetRadioStation", url.Values{"name": {"Contract"}, "streamUrl": {"https://radio.example.test"}})
+	cases := map[string]url.Values{
+		"ping": {}, "getLicense": {}, "getMusicFolders": {}, "getArtists": {}, "getArtist": {"id": {artist}}, "getAlbum": {"id": {album}}, "getSong": {"id": {track}},
+		"getIndexes": {}, "getMusicDirectory": {"id": {"1"}}, "getGenres": {}, "getAlbumList": {"type": {"alphabeticalByName"}}, "getAlbumList2": {"type": {"alphabeticalByName"}}, "getRandomSongs": {}, "getSongsByGenre": {"genre": {"Rock"}},
+		"search": {"any": {"One"}}, "search2": {"query": {"Artist"}}, "search3": {"query": {"Artist"}}, "getStarred": {}, "getStarred2": {},
+		"getArtistInfo": {"id": {artist}}, "getArtistInfo2": {"id": {artist}}, "getAlbumInfo": {"id": {album}}, "getAlbumInfo2": {"id": {album}}, "getSimilarSongs": {"id": {track}}, "getSimilarSongs2": {"id": {artist}}, "getTopSongs": {"artist": {"Artist A"}},
+		"getUser": {"username": {"admin"}}, "getUsers": {}, "getPlaylists": {}, "getPlaylist": {"id": {playlist}}, "getNowPlaying": {}, "getBookmarks": {}, "getPlayQueue": {}, "getInternetRadioStations": {}, "getChatMessages": {}, "getScanStatus": {}, "getShares": {}, "getPodcasts": {}, "getNewestPodcasts": {}, "getVideos": {},
+	}
+	for endpoint, args := range cases {
+		args.Set("f", "xml")
+		response := f.raw(t, endpoint, args)
+		if err := os.WriteFile(filepath.Join(dir, endpoint+".xml"), response.Body.Bytes(), 0600); err != nil {
+			t.Fatal(err)
+		}
 	}
 }

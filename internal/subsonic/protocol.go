@@ -9,17 +9,25 @@ import (
 	"fmt"
 	"net/http"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
 
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/metadata"
 	"github.com/prayujt/wavelength/internal/state"
 )
 
 type Option func(*api) error
 type api struct {
+	metadata       metadata.Provider
+	scrobbler      metadata.Scrobbler
+	avatarDir      string
+	jukebox        jukeboxState
+	jukeboxBackend JukeboxBackend
+	podcastDir     string
+	hlsState       hlsState
+	publicURL      string
 	key            []byte
 	scanQueued     atomic.Bool
 	lib            *library.Library
@@ -91,89 +99,22 @@ func writeResponse(w http.ResponseWriter, r *http.Request, result response) {
 	out.WriteString(xml.Header)
 	encoder := xml.NewEncoder(&out)
 	root := xml.StartElement{Name: xml.Name{Local: "subsonic-response"}, Attr: []xml.Attr{{Name: xml.Name{Local: "xmlns"}, Value: "http://subsonic.org/restapi"}}}
-	for _, key := range []string{"status", "version", "type", "serverVersion"} {
+	for _, key := range []string{"status", "version"} {
 		root.Attr = append(root.Attr, xml.Attr{Name: xml.Name{Local: key}, Value: fmt.Sprint(body[key])})
-		delete(body, key)
 	}
 	_ = encoder.EncodeToken(root)
-	keys := sortedKeys(body)
-	for _, key := range keys {
-		_ = encodeNode(encoder, key, body[key])
+	for _, child := range xmlShapes["Response"].Children {
+		if value, ok := body[child.Name]; ok && value != nil {
+			if err := encodeSchemaNode(encoder, child.Name, child.Type, value); err != nil {
+				http.Error(w, "Response encoding failed", 500)
+				return
+			}
+		}
 	}
+
 	_ = encoder.EncodeToken(root.End())
 	_ = encoder.Flush()
 	_, _ = w.Write(out.Bytes())
-}
-func sortedKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-func encodeNode(e *xml.Encoder, name string, value any) error {
-	// Normalize typed payloads using JSON's field names, preserving integer values.
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return err
-	}
-	var normalized any
-	dec := json.NewDecoder(bytes.NewReader(raw))
-	dec.UseNumber()
-	if err = dec.Decode(&normalized); err != nil {
-		return err
-	}
-	return encodeValue(e, name, normalized)
-}
-func encodeValue(e *xml.Encoder, name string, value any) error {
-	if list, ok := value.([]any); ok {
-		for _, item := range list {
-			if err := encodeValue(e, name, item); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	start := xml.StartElement{Name: xml.Name{Local: name}}
-	if object, ok := value.(map[string]any); ok {
-		keys := sortedKeys(object)
-		for _, key := range keys {
-			switch object[key].(type) {
-			case map[string]any, []any:
-			default:
-				if key != "value" && object[key] != nil {
-					start.Attr = append(start.Attr, xml.Attr{Name: xml.Name{Local: key}, Value: fmt.Sprint(object[key])})
-				}
-			}
-		}
-		if err := e.EncodeToken(start); err != nil {
-			return err
-		}
-		if text, ok := object["value"]; ok {
-			if err := e.EncodeToken(xml.CharData(fmt.Sprint(text))); err != nil {
-				return err
-			}
-		}
-		for _, key := range keys {
-			switch object[key].(type) {
-			case map[string]any, []any:
-				if err := encodeValue(e, key, object[key]); err != nil {
-					return err
-				}
-			}
-		}
-	} else {
-		if err := e.EncodeToken(start); err != nil {
-			return err
-		}
-		if value != nil {
-			if err := e.EncodeToken(xml.CharData(fmt.Sprint(value))); err != nil {
-				return err
-			}
-		}
-	}
-	return e.EncodeToken(start.End())
 }
 func failure(result *response, code int, message string) {
 	result.Status = "failed"

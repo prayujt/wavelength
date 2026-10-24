@@ -42,6 +42,7 @@ type Track struct {
 }
 
 type Query struct {
+	IncludeVideo  bool
 	Search        string
 	Limit, Offset int
 }
@@ -218,8 +219,9 @@ func (l *Library) OpenTrack(ctx context.Context, id string) (*os.File, Track, er
 func identifier(value string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(value))) }
 
 var contentTypes = map[string]string{
-	".mp3": "audio/mpeg", ".flac": "audio/flac", ".m4a": "audio/mp4", ".mp4": "audio/mp4",
+	".mp3": "audio/mpeg", ".flac": "audio/flac", ".m4a": "audio/mp4", ".mp4": "video/mp4",
 	".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav", ".aac": "audio/aac", ".aiff": "audio/aiff", ".aif": "audio/aiff",
+	".mkv": "video/x-matroska", ".webm": "video/webm", ".m4v": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".flv": "video/x-flv", ".mpeg": "video/mpeg", ".mpg": "video/mpeg",
 }
 
 func (l *Library) ScanStatus() (bool, int64) { return l.scanning.Load(), l.scanned.Load() }

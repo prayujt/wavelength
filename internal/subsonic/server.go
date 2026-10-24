@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/library"
-	"github.com/prayujt/wavelength/internal/playback"
 )
 
 // New constructs a legacy-only listener. Credentials must be nonempty.
@@ -31,6 +30,9 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 		}
 	}
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if api.publicShare(w, r) {
+			return
+		}
 		result := response{XMLNS: "http://subsonic.org/restapi", Status: "ok", Version: "1.16.1", Type: "wavelength", ServerVersion: "0.1.0"}
 		fail := func(code int, message string) {
 			result.Status = "failed"
@@ -72,7 +74,7 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 			fail(70, "Endpoint not found")
 			return
 		}
-		endpoint := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/rest/"), ".view")
+		endpoint := strings.TrimSuffix(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/rest/"), ".view"), ".m3u8")
 		if err := validateVersion(r.Form.Get("v")); err != nil {
 			fail(err.Code, err.Message)
 			return
@@ -93,95 +95,6 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 			result.License = &license{Valid: true}
 		case "getMusicFolders":
 			result.Folders = &folders{Folders: []folder{{ID: "1", Name: "Music"}}}
-		case "stream":
-			if r.Form.Get("id") == "" {
-				fail(10, "Parameter id is required")
-				return
-			}
-			if err := playback.Stream(w, r, lib, r.Form.Get("id")); err != nil {
-				legacyError(&result, err)
-				return
-			}
-			result.Status = "streamed"
-		case "getSong":
-			if r.Form.Get("id") == "" {
-				fail(10, "Parameter id is required")
-				return
-			}
-			track, err := lib.Get(r.Context(), r.Form.Get("id"))
-			if err != nil {
-				legacyError(&result, err)
-				return
-			}
-			value := asSong(track)
-			result.Song = &value
-		case "search3":
-			count, err := number(r, "songCount", 20, 500)
-			if err != nil {
-				fail(10, err.Error())
-				return
-			}
-			offset, err := number(r, "songOffset", 0, int(^uint(0)>>1))
-			if err != nil {
-				fail(10, err.Error())
-				return
-			}
-			songs := []song{}
-			if count > 0 {
-				page, err := lib.List(r.Context(), library.Query{Search: r.Form.Get("query"), Limit: count, Offset: offset})
-				if err != nil {
-					legacyError(&result, err)
-					return
-				}
-				for _, track := range page.Tracks {
-					songs = append(songs, asSong(track))
-				}
-			}
-			result.Search = &searchResult{Songs: songs}
-		case "getArtists", "getArtist", "getAlbum":
-			if endpoint != "getArtists" && r.Form.Get("id") == "" {
-				fail(10, "Parameter id is required")
-				return
-			}
-			all, err := catalog(r.Context(), lib)
-			if err != nil {
-				legacyError(&result, err)
-				return
-			}
-			switch endpoint {
-			case "getArtists":
-				list := []artist{}
-				for _, a := range all {
-					a.Albums = nil
-					list = append(list, a)
-				}
-				result.Artists = &artists{Index: []artistIndex{{Name: "All", Artists: list}}}
-			case "getArtist":
-				for _, a := range all {
-					if a.ID == r.Form.Get("id") {
-						for i := range a.Albums {
-							a.Albums[i].Songs = nil
-						}
-						result.Artist = &a
-						break
-					}
-				}
-				if result.Artist == nil {
-					fail(70, "Artist not found")
-				}
-			case "getAlbum":
-				for _, a := range all {
-					for _, album := range a.Albums {
-						if album.ID == r.Form.Get("id") {
-							result.Album = &album
-							break
-						}
-					}
-				}
-				if result.Album == nil {
-					fail(70, "Album not found")
-				}
-			}
 		default:
 			fail(70, "Endpoint not implemented")
 		}

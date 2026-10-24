@@ -17,8 +17,9 @@ import xml.etree.ElementTree as ET
 BINARY = Path(__file__).resolve().parents[1] / 'bin/wavelength'
 
 
-def request(url, *, method='GET', headers=None):
-    req = urllib.request.Request(url, method=method, headers=headers or {})
+def request(url, *, method='GET', headers=None, body=None):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
             return response.status, response.headers, response.read()
@@ -70,18 +71,26 @@ def main():
             assert len(addresses) == 2, addresses
             native, legacy = addresses['native'], addresses['legacy-subsonic']
             auth = {'Authorization': 'Bearer smoke-native'}
-            status, _, body = request(native + '/api/tracks', headers=auth)
+            rpc_headers = auth | {'Content-Type': 'application/json', 'Connect-Protocol-Version': '1'}
+            def rpc(method, payload):
+                return request(native + '/wavelength.v1.LibraryService/' + method, method='POST', headers=rpc_headers, body=payload)
+            def source_path(track):
+                return music / ('tone.flac' if track['contentType'] == 'audio/flac' else 'tone.mp3')
+            status, _, body = rpc('ListTracks', {})
             page = json.loads(body)
             assert status == 200 and page['total'] == 2, page
-            assert request(native + '/api/tracks')[0] == 401
+            assert request(native + '/wavelength.v1.LibraryService/ListTracks', method='POST', headers={'Content-Type': 'application/json'}, body={})[0] == 401
+            assert request(native + '/api/tracks')[0] == 404
             assert request(native + '/rest/ping')[0] == 404
             for track in page['tracks']:
                 assert track['title'] == 'Smoke Tone' and track['artist'] == 'Wavelength Test', track
-                original = (music / track['path']).read_bytes()
-                stream = native + '/api/tracks/' + track['id'] + '/stream'
+                original = source_path(track).read_bytes()
+                info_status, _, info_body = rpc('GetPlaybackInfo', {'id': track['id']})
+                assert info_status == 200
+                stream = native + json.loads(info_body)['httpPath']
                 status, _, audio = request(stream, headers=auth)
                 assert status == 200 and audio == original
-                output = root / ('streamed.' + track['path'].split('.')[-1])
+                output = root / ('streamed.' + source_path(track).suffix.lstrip('.'))
                 output.write_bytes(audio)
                 subprocess.run(['ffmpeg', '-v', 'error', '-i', str(output), '-f', 'null', '-'], check=True, capture_output=True)
                 status, headers, audio = request(stream, headers=auth | {'Range': 'bytes=0-15'})
@@ -100,16 +109,16 @@ def main():
             assert status == 200 and len(songs) == 2
             status, _, audio = request(legacy_url('stream', id=songs[0]['id']), headers={'Range': 'bytes=0-15'})
             source = next(t for t in page['tracks'] if t['id'] == songs[0]['id'])
-            assert status == 206 and audio == (music / source['path']).read_bytes()[:16]
+            assert status == 206 and audio == source_path(source).read_bytes()[:16]
             _, _, body = request(legacy_url('getAlbum', id=songs[0]['albumId']))
             assert json.loads(body)['subsonic-response']['album']['songCount'] == 2
             _, _, body = request(legacy_url('ping', f='xml'))
             assert ET.fromstring(body).attrib['status'] == 'ok'
             assert before == {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in fixtures}
             fixtures[1].unlink()
-            status, _, body = request(native + '/api/scan', method='POST', headers=auth)
+            status, _, body = rpc('StartScan', {})
             assert status == 200 and json.loads(body)['indexed'] == 1
-            _, _, body = request(native + '/api/tracks', headers=auth)
+            _, _, body = rpc('ListTracks', {})
             surviving_id = json.loads(body)['tracks'][0]['id']
         finally:
             process.send_signal(signal.SIGTERM)

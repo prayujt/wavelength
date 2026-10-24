@@ -26,7 +26,7 @@ type account struct {
 }
 
 func (a *api) defaultAccount() account {
-	return account{Username: a.user, Roles: map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true}, Folders: []string{"1"}}
+	return account{Username: a.user, Roles: map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true, "jukeboxRole": a.jukeboxBackend != nil}, Folders: []string{"1"}}
 }
 func (a *api) account(ctx context.Context, name string) (account, error) {
 	raw, err := a.store.Get(ctx, "subsonic-users", name)
@@ -96,7 +96,7 @@ func (a *api) authenticate(r *http.Request) (account, bool, error) {
 func (a *api) authorized(r *http.Request, endpoint string, user account, result *response) bool {
 	role := ""
 	switch endpoint {
-	case "stream", "hls":
+	case "stream", "hls", "hlsSegment":
 		role = "streamRole"
 	case "setRating":
 		role = "commentRole"
@@ -161,7 +161,11 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 		sort.Strings(keys)
 		out := []map[string]any{}
 		for _, key := range keys {
-			out = append(out, accountNode(users[key]))
+			node := accountNode(users[key])
+			if a.scrobbler != nil {
+				node["scrobblingEnabled"] = a.scrobbler.Enabled(users[key].Username)
+			}
+			out = append(out, node)
 		}
 		payload(result, "users", map[string]any{"user": out})
 		return true
@@ -177,7 +181,14 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 		} else if err != nil {
 			legacyError(result, err)
 		} else {
-			payload(result, "user", accountNode(current))
+			node := accountNode(current)
+			if changed := a.avatarChanged(current.Username); changed != "" {
+				node["avatarLastChanged"] = changed
+			}
+			if a.scrobbler != nil {
+				node["scrobblingEnabled"] = a.scrobbler.Enabled(current.Username)
+			}
+			payload(result, "user", node)
 		}
 		return true
 	}

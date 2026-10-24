@@ -10,6 +10,9 @@ import (
 // Enrichment uses only real catalog relationships and local listening history.
 // External biographies/Last.fm rankings are intentionally absent without a provider.
 func (a *api) enrichment(r *http.Request, result *response, c collection, endpoint string) {
+	if a.providerEnrichment(r, result, c, endpoint) {
+		return
+	}
 	if endpoint == "getTopSongs" {
 		name := required(r, result, "artist")
 		if result.Error != nil {

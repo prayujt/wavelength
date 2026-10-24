@@ -2,8 +2,10 @@ package subsonic
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"image"
+	_ "image/gif"
 	"image/jpeg"
 	_ "image/png"
 	"io"
@@ -21,6 +23,24 @@ import (
 )
 
 func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
+	if endpoint == "jukeboxControl" {
+		return a.jukeboxControl(r, result)
+	}
+	if a.video(w, r, endpoint, result) {
+		return true
+	}
+	if a.podcastMedia(w, r, endpoint, result) {
+		return true
+	}
+	if a.podcasts(r, endpoint, result) {
+		return true
+	}
+	if a.hls(w, r, endpoint, result) {
+		return true
+	}
+	if a.shares(r, endpoint, result) {
+		return true
+	}
 	if a.users(r, endpoint, result) {
 		return true
 	}
@@ -51,7 +71,7 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 			result.Status = "streamed"
 			return true
 		}
-		bitrate, err := number(r, "maxBitRate", 0, 1024)
+		bitrate, err := number(r, "maxBitRate", 0, 100000)
 		if err != nil {
 			failure(result, 10, err.Error())
 			return true
@@ -60,6 +80,9 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		track, err := a.lib.Get(r.Context(), id)
 		if err != nil {
 			legacyError(result, err)
+			return true
+		}
+		if a.maybeVideoTranscode(w, r, result, track.ContentType, id, format, bitrate) {
 			return true
 		}
 		transcode := format != "raw" && ((format != "" && format != strings.TrimPrefix(filepath.Ext(track.Path), ".")) || (bitrate > 0 && (track.BitRate == 0 || track.BitRate > bitrate)))
@@ -76,6 +99,9 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		}
 		if bitrate == 0 {
 			bitrate = 192
+		}
+		if format == "mp3" && bitrate > 320 {
+			bitrate = 320
 		}
 		started, err := a.transcode(w, r, id, format, bitrate)
 		if started {
@@ -194,7 +220,7 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		payload(result, "lyrics", map[string]any{"artist": r.Form.Get("artist"), "title": r.Form.Get("title"), "value": lyrics})
 		return true
 	case "getAvatar":
-		failure(result, 70, "User has no avatar")
+		a.avatar(w, r, result)
 		return true
 	case "getScanStatus", "startScan":
 		if endpoint == "startScan" && a.scanQueued.CompareAndSwap(false, true) {
@@ -250,7 +276,9 @@ func (a *api) transcode(w http.ResponseWriter, r *http.Request, id, format strin
 		args = append(args, "-movflags", "frag_keyframe+empty_moov")
 	}
 	args = append(args, "-f", container, "pipe:1")
-	command := exec.CommandContext(r.Context(), "ffmpeg", args...)
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
+	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	command.ExtraFiles = []*os.File{file}
 	output, err := command.StdoutPipe()
 	if err != nil {
@@ -274,6 +302,9 @@ func (a *api) transcode(w http.ResponseWriter, r *http.Request, id, format strin
 		}
 	} else {
 		_, err = io.Copy(io.Discard, output)
+	}
+	if err != nil {
+		cancel()
 	}
 	waitErr := command.Wait()
 	if err != nil {

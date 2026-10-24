@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -17,6 +20,7 @@ import (
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/metadata"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/subsonic"
 )
@@ -83,7 +87,26 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password, subsonic.WithState(database.StateStore{DB: db}), subsonic.WithContext(ctx), subsonic.WithEncryptionKey(key))
+		legacyOptions := []subsonic.Option{}
+		if apiKey := os.Getenv("WAVELENGTH_LASTFM_API_KEY"); apiKey != "" {
+			sessions := map[string]string{}
+			if raw := os.Getenv("WAVELENGTH_LASTFM_SESSIONS"); raw != "" {
+				if err := json.Unmarshal([]byte(raw), &sessions); err != nil {
+					return errors.New("invalid WAVELENGTH_LASTFM_SESSIONS JSON")
+				}
+			}
+			provider := &metadata.LastFM{APIKey: apiKey, Secret: os.Getenv("WAVELENGTH_LASTFM_SECRET"), Sessions: sessions}
+			legacyOptions = append(legacyOptions, subsonic.WithMetadataProvider(provider), subsonic.WithScrobbler(provider))
+		}
+		if player := os.Getenv("WAVELENGTH_JUKEBOX_PLAYER"); player != "" {
+			resolved, err := exec.LookPath(player)
+			if err != nil {
+				return fmt.Errorf("jukebox player: %w", err)
+			}
+			legacyOptions = append(legacyOptions, subsonic.WithJukeboxBackend(subsonic.FFplayBackend{Executable: resolved}))
+		}
+		legacyOptions = append(legacyOptions, subsonic.WithState(database.StateStore{DB: db}), subsonic.WithContext(ctx), subsonic.WithEncryptionKey(key), subsonic.WithPublicURL(os.Getenv("WAVELENGTH_SUBSONIC_PUBLIC_URL")), subsonic.WithPodcastDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "podcasts")), subsonic.WithAvatarDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "avatars")))
+		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password, legacyOptions...)
 		if err != nil {
 			return err
 		}
