@@ -20,6 +20,7 @@ import (
 	"github.com/prayujt/wavelength/internal/podcasts"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/transcode"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
@@ -42,6 +43,12 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 	if err != nil {
 		return nil, err
 	}
+	transcoder, err := transcode.New(api.ctx, lib, api.videoDir)
+	if err != nil {
+		podcastService.Close()
+		return nil, err
+	}
+	api.transcoder = transcoder
 	api.podcastsService = podcastService
 	api.sharesService = sharing.New(api.store, lib)
 	api.accounts = accountService
@@ -220,7 +227,7 @@ func number(r *http.Request, key string, fallback, max int) (int, error) {
 func legacyError(result *response, err error) {
 	result.Status = "failed"
 	result.Error = &apiError{Code: 0, Message: "Library operation failed"}
-	if errors.Is(err, sharing.ErrInvalid) || errors.Is(err, userdata.ErrInvalid) || errors.Is(err, accounts.ErrInvalid) || errors.Is(err, podcasts.ErrInvalid) {
+	if errors.Is(err, transcode.ErrInvalid) || errors.Is(err, sharing.ErrInvalid) || errors.Is(err, userdata.ErrInvalid) || errors.Is(err, accounts.ErrInvalid) || errors.Is(err, podcasts.ErrInvalid) {
 		failure(result, 10, err.Error())
 		return
 	}

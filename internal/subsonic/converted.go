@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 // WithVideoDirectory configures optional preconverted MP4 files named <videoID>.mp4.
@@ -22,26 +21,6 @@ func WithVideoDirectory(dir string) Option {
 		return nil
 	}
 }
-func (a *api) openConverted(id string) (*os.File, error) {
-	if a.videoDir == "" || id == "" || strings.ContainsAny(id, "/\\.") {
-		return nil, os.ErrNotExist
-	}
-	root, err := os.OpenRoot(a.videoDir)
-	if err != nil {
-		return nil, err
-	}
-	defer root.Close()
-	file, err := root.Open(id + ".mp4")
-	if err != nil {
-		return nil, err
-	}
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
-		file.Close()
-		return nil, os.ErrNotExist
-	}
-	return file, nil
-}
 func (a *api) converted(w http.ResponseWriter, r *http.Request, result *response, id string) bool {
 	requested := false
 	if r.Form.Has("converted") {
@@ -55,7 +34,7 @@ func (a *api) converted(w http.ResponseWriter, r *http.Request, result *response
 	if !requested {
 		return false
 	}
-	file, err := a.openConverted(id)
+	file, err := a.transcoder.OpenConverted(id)
 	if errors.Is(err, os.ErrNotExist) {
 		return false
 	} // Contract says to fall back when no conversion exists.

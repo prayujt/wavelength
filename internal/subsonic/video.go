@@ -1,15 +1,9 @@
 package subsonic
 
 import (
-	"bytes"
-	"context"
-	"fmt"
 	"net/http"
-	"os"
-	"os/exec"
 	"strconv"
 	"strings"
-	"time"
 )
 
 func (a *api) video(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
@@ -76,7 +70,7 @@ func (a *api) video(w http.ResponseWriter, r *http.Request, endpoint string, res
 			captions = append(captions, map[string]any{"id": "sidecar", "name": format})
 		}
 		conversions := []map[string]any{}
-		if file, err := a.openConverted(id); err == nil {
+		if file, err := a.transcoder.OpenConverted(id); err == nil {
 			file.Close()
 			conversions = append(conversions, map[string]any{"id": id})
 		}
@@ -91,66 +85,9 @@ func (a *api) video(w http.ResponseWriter, r *http.Request, endpoint string, res
 		failure(result, 10, "Caption format must be srt or vtt")
 		return true
 	}
-	if body, source, err := a.lib.CaptionSidecar(r.Context(), id); err == nil {
-		if source != format {
-			ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-			defer cancel()
-			input, output := source, format
-			if input == "vtt" {
-				input = "webvtt"
-			}
-			if output == "vtt" {
-				output = "webvtt"
-			}
-			command := exec.CommandContext(ctx, "ffmpeg", "-v", "error", "-f", input, "-i", "pipe:0", "-f", output, "pipe:1")
-			command.Stdin = bytes.NewReader(body)
-			converted, err := command.Output()
-			if err != nil {
-				failure(result, 0, "Could not convert captions")
-				return true
-			}
-			body = converted
-		}
-
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		if format == "vtt" {
-			w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
-		}
-		if r.Method != "HEAD" {
-			_, _ = w.Write(body)
-		}
-		result.Status = "streamed"
-		return true
-	}
-	subtitle := -1
-	for _, s := range streams {
-		if s.Type == "subtitle" {
-			subtitle = s.Index
-			break
-		}
-	}
-	if subtitle < 0 {
-		failure(result, 70, "Captions not found")
-		return true
-	}
-	file, _, err := a.lib.OpenTrack(r.Context(), id)
+	body, err := a.transcoder.Captions(r.Context(), id, format)
 	if err != nil {
 		legacyError(result, err)
-		return true
-	}
-	defer file.Close()
-	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-	defer cancel()
-	container := format
-	if format == "vtt" {
-		container = "webvtt"
-	}
-	cmd := exec.CommandContext(ctx, "ffmpeg", "-v", "error", "-nostdin", "-i", "/dev/fd/3", "-map", fmt.Sprintf("0:%d", subtitle), "-f", container, "pipe:1")
-	cmd.ExtraFiles = []*os.File{file}
-	var body bytes.Buffer
-	cmd.Stdout = &body
-	if err = cmd.Run(); err != nil {
-		failure(result, 0, "Could not extract captions")
 		return true
 	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -158,7 +95,7 @@ func (a *api) video(w http.ResponseWriter, r *http.Request, endpoint string, res
 		w.Header().Set("Content-Type", "text/vtt; charset=utf-8")
 	}
 	if r.Method != "HEAD" {
-		_, _ = w.Write(body.Bytes())
+		_, _ = w.Write(body)
 	}
 	result.Status = "streamed"
 	return true

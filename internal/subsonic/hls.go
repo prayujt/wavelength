@@ -1,35 +1,14 @@
 package subsonic
 
 import (
-	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
+	"github.com/prayujt/wavelength/internal/transcode"
 	"net/http"
 	"net/url"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
-	"sync"
-	"time"
 )
-
-type hlsJob struct {
-	ID, Owner, Dir, Key string
-	Expires             time.Time
-	Cancel              context.CancelFunc
-	Done                chan struct{}
-	Err                 error
-}
-type hlsState struct {
-	mu   sync.Mutex
-	jobs map[string]*hlsJob
-}
-
-var segmentName = regexp.MustCompile(`^segment[0-9]+\.ts$`)
 
 func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
 	if endpoint != "hls" && endpoint != "hlsSegment" {
@@ -77,25 +56,9 @@ func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, resul
 	}
 
 	if endpoint == "hlsSegment" {
-		key := required(r, result, "id")
-		name := r.Form.Get("name")
-		if result.Error != nil {
-			return true
-		}
-		if !segmentName.MatchString(name) {
-			failure(result, 10, "Invalid HLS segment")
-			return true
-		}
-		a.hlsState.mu.Lock()
-		job, ok := a.hlsState.jobs[key]
-		a.hlsState.mu.Unlock()
-		if !ok || job.Owner != user || time.Now().After(job.Expires) {
-			failure(result, 70, "HLS session not found")
-			return true
-		}
-		file, err := os.Open(filepath.Join(job.Dir, name))
+		file, err := a.transcoder.Segment(user, r.Form.Get("id"), r.Form.Get("name"))
 		if err != nil {
-			failure(result, 70, "HLS segment not found")
+			legacyError(result, err)
 			return true
 		}
 		defer file.Close()
@@ -105,201 +68,48 @@ func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, resul
 			return true
 		}
 		w.Header().Set("Content-Type", "video/mp2t")
-		http.ServeContent(w, r, name, info.ModTime(), file)
+		http.ServeContent(w, r, file.Name(), info.ModTime(), file)
 		result.Status = "streamed"
-		return true
-	}
-	trackID := required(r, result, "id")
-	if result.Error != nil {
 		return true
 	}
 	value := r.Form.Get("bitRate")
 	if value == "" {
 		value = "192"
 	}
-	bitrate, requestedSize, err := parseHLSBitRate(value)
+	bitrate, size, err := parseHLSBitRate(value)
 	if err != nil {
 		failure(result, 10, "Invalid HLS bitrate")
 		return true
 	}
-	if _, err = exec.LookPath("ffmpeg"); err != nil {
-		failure(result, 0, "HLS requires ffmpeg")
-		return true
+	if size == "" {
+		size = r.Form.Get("size")
 	}
-	if requestedSize != "" {
-		r.Form.Set("size", requestedSize)
-	}
-	current, err := a.account(r.Context(), user)
+	account, err := a.account(r.Context(), user)
 	if err != nil {
 		legacyError(result, err)
 		return true
 	}
-	if current.MaxBitRate > 0 && bitrate > current.MaxBitRate {
-		bitrate = current.MaxBitRate
+	if account.MaxBitRate > 0 && bitrate > account.MaxBitRate {
+		bitrate = account.MaxBitRate
 	}
-	key := user + "/" + trackID + "/" + strconv.Itoa(bitrate) + "/" + r.Form.Get("size") + "/" + r.Form.Get("audioTrack")
-	a.hlsState.mu.Lock()
-	if a.hlsState.jobs == nil {
-		a.hlsState.jobs = map[string]*hlsJob{}
-	}
-	var job *hlsJob
-	for id, candidate := range a.hlsState.jobs {
-		if time.Now().After(candidate.Expires) {
-			candidate.Cancel()
-			<-candidate.Done
-			os.RemoveAll(candidate.Dir)
-			delete(a.hlsState.jobs, id)
-			continue
-		}
-		if candidate.Key == key {
-			job = candidate
-		}
-	}
-	if job == nil {
-		if len(a.hlsState.jobs) >= 8 {
-			a.hlsState.mu.Unlock()
-			failure(result, 0, "HLS session capacity reached; retry later")
-			return true
-		}
-		source, _, err := a.lib.OpenTrack(r.Context(), trackID)
+	options := transcode.HLSOptions{BitRate: bitrate, Size: size}
+	if r.Form.Has("audioTrack") {
+		index, err := strconv.Atoi(r.Form.Get("audioTrack"))
 		if err != nil {
-			a.hlsState.mu.Unlock()
-			legacyError(result, err)
+			failure(result, 10, "Invalid audioTrack")
 			return true
 		}
-		dir, err := os.MkdirTemp("", "wavelength-hls-")
-		if err != nil {
-			source.Close()
-			a.hlsState.mu.Unlock()
-			legacyError(result, err)
-			return true
-		}
-		ctx, cancel := context.WithTimeout(a.ctx, 2*time.Hour)
-		job = &hlsJob{ID: rand.Text(), Owner: user, Dir: dir, Key: key, Expires: time.Now().Add(2 * time.Hour), Cancel: cancel, Done: make(chan struct{})}
-		args := []string{"-v", "error", "-nostdin", "-i", "/dev/fd/3"}
-		track, err := a.lib.Get(r.Context(), trackID)
-		if err != nil {
-			source.Close()
-			cancel()
-			os.RemoveAll(dir)
-			a.hlsState.mu.Unlock()
-			legacyError(result, err)
-			return true
-		}
-		if strings.HasPrefix(track.ContentType, "video/") {
-			size, err := scaleArgument(r.Form.Get("size"))
-			if err != nil {
-				source.Close()
-				cancel()
-				os.RemoveAll(dir)
-				a.hlsState.mu.Unlock()
-				failure(result, 10, err.Error())
-				return true
-			}
-			audioMap := "0:a:0?"
-			if requested := r.Form.Get("audioTrack"); requested != "" {
-				index, err := strconv.Atoi(requested)
-				if err != nil || index < 0 {
-					source.Close()
-					cancel()
-					os.RemoveAll(dir)
-					a.hlsState.mu.Unlock()
-					failure(result, 10, "Invalid audioTrack")
-					return true
-				}
-				streams, err := a.lib.MediaStreams(r.Context(), trackID)
-				if err != nil {
-					source.Close()
-					cancel()
-					os.RemoveAll(dir)
-					a.hlsState.mu.Unlock()
-					failure(result, 0, "Cannot inspect audio tracks")
-					return true
-				}
-				found := false
-				for _, stream := range streams {
-					found = found || (stream.Type == "audio" && stream.Index == index)
-				}
-				if !found {
-					source.Close()
-					cancel()
-					os.RemoveAll(dir)
-					a.hlsState.mu.Unlock()
-					failure(result, 70, "Audio track not found")
-					return true
-				}
-				audioMap = "0:" + strconv.Itoa(index)
-			}
-			args = append(args, "-map", "0:v:0", "-map", audioMap, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-b:v", strconv.Itoa(bitrate)+"k", "-c:a", "aac", "-b:a", "128k")
-			if size != "" {
-				args = append(args, "-vf", "scale="+size)
-			}
-		} else {
-			args = append(args, "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", strconv.Itoa(bitrate)+"k")
-		}
-		args = append(args, "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod", "-hls_segment_filename", filepath.Join(dir, "segment%06d.ts"), filepath.Join(dir, "index.m3u8"))
-		command := exec.CommandContext(ctx, "ffmpeg", args...)
-		command.ExtraFiles = []*os.File{source}
-		if err = command.Start(); err != nil {
-			cancel()
-			source.Close()
-			os.RemoveAll(dir)
-			a.hlsState.mu.Unlock()
-			failure(result, 0, "Could not start HLS transcoder")
-			return true
-		}
-		source.Close()
-		a.hlsState.jobs[job.ID] = job
-		go func(j *hlsJob) {
-			j.Err = command.Wait()
-			close(j.Done)
-			select {
-			case <-a.ctx.Done():
-				j.Cancel()
-				os.RemoveAll(j.Dir)
-			case <-ctx.Done():
-				os.RemoveAll(j.Dir)
-			}
-		}(job)
+		options.AudioTrack = &index
 	}
-	a.hlsState.mu.Unlock()
-	ticker := time.NewTicker(50 * time.Millisecond)
-	defer ticker.Stop()
-	deadline := time.NewTimer(30 * time.Second)
-	defer deadline.Stop()
-	var playlist []byte
-	for {
-		playlist, err = os.ReadFile(filepath.Join(job.Dir, "index.m3u8"))
-		if err == nil && len(playlist) > 0 {
-			break
-		}
-		select {
-		case <-job.Done:
-			if job.Err != nil {
-				failure(result, 0, "HLS conversion failed")
-				return true
-			}
-			// The previous ReadFile may have raced the final playlist rename.
-			playlist, err = os.ReadFile(filepath.Join(job.Dir, "index.m3u8"))
-			if err != nil || len(playlist) == 0 {
-				failure(result, 0, "HLS playlist unavailable")
-				return true
-			}
-			goto playlistReady
-		case <-r.Context().Done():
-			failure(result, 0, "HLS request cancelled")
-			return true
-		case <-deadline.C:
-			failure(result, 0, "HLS playlist is not ready")
-			return true
-		case <-ticker.C:
-		}
+	playlist, err := a.transcoder.HLS(r.Context(), user, r.Form.Get("id"), options)
+	if err != nil {
+		legacyError(result, err)
+		return true
 	}
-playlistReady:
-	lines := strings.Split(string(playlist), "\n")
+	lines := strings.Split(string(playlist.Body), "\n")
 	for i, line := range lines {
-		if segmentName.MatchString(line) {
-			query := url.Values{"id": {job.ID}, "name": {line}, "u": {user}, "v": {r.Form.Get("v")}, "c": {r.Form.Get("c")}}
+		if transcode.IsSegment(line) {
+			query := url.Values{"id": {playlist.SessionID}, "name": {line}, "u": {user}, "v": {r.Form.Get("v")}, "c": {r.Form.Get("c")}}
 			if token := r.Form.Get("t"); token != "" {
 				query.Set("t", token)
 				query.Set("s", r.Form.Get("s"))
@@ -311,9 +121,7 @@ playlistReady:
 	}
 	w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 	if r.Method != "HEAD" {
-		_, err = fmt.Fprint(w, strings.Join(lines, "\n"))
-		if err != nil && !errors.Is(err, context.Canceled) {
-		}
+		_, _ = fmt.Fprint(w, strings.Join(lines, "\n"))
 	}
 	result.Status = "streamed"
 	return true
