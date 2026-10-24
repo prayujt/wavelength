@@ -178,17 +178,6 @@ func (a *api) userData(w http.ResponseWriter, r *http.Request, endpoint string, 
 			}
 		}
 		for i, id := range ids {
-			if a.scrobbler != nil && a.scrobbler.Enabled(user) {
-				track, err := a.lib.Get(ctx, id)
-				if err != nil {
-					legacyError(result, err)
-					return true
-				}
-				if err = a.scrobbler.Submit(ctx, user, track.Artist, track.Title, track.Album, stamps[i], submission); err != nil {
-					failure(result, 0, "Scrobble provider unavailable")
-					return true
-				}
-			}
 			if submission {
 				err = a.annotation(ctx, user, id, func(record *annotation) {
 					record.Plays++

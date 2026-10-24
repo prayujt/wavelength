@@ -23,7 +23,7 @@ func TestDocumentedRequiredParameters(t *testing.T) {
 		t.Fatalf("contract has %d endpoints", len(contract.Endpoints))
 	}
 	f := newFixture(t, "", "")
-	f.ok(t, "updateUser", url.Values{"username": {"admin"}, "shareRole": {"true"}, "podcastRole": {"true"}, "jukeboxRole": {"true"}})
+	f.ok(t, "updateUser", url.Values{"username": {"admin"}, "shareRole": {"true"}, "podcastRole": {"true"}})
 	for endpoint, params := range contract.Endpoints {
 		for _, param := range params {
 			if !strings.EqualFold(param.Required, "yes") || endpoint == "savePlayQueue" {
@@ -41,6 +41,16 @@ func TestDocumentedRequiredParameters(t *testing.T) {
 			})
 		}
 	}
+}
+
+func TestJukeboxIsExplicitlyUnsupported(t *testing.T) {
+	f := newFixture(t, "", "")
+	expectCode(t, f.call(t, "jukeboxControl", url.Values{"action": {"status"}}), 0)
+	user := f.ok(t, "getUser", url.Values{"username": {"admin"}})["user"].(map[string]any)
+	if user["jukeboxRole"] != false || user["scrobblingEnabled"] != false {
+		t.Fatal("removed integrations advertised as enabled")
+	}
+	expectCode(t, f.call(t, "updateUser", url.Values{"username": {"admin"}, "jukeboxRole": {"true"}}), 50)
 }
 func TestFilesystemIDsRoundTripAcrossLegacyEndpoints(t *testing.T) {
 	f := newFixture(t, "", "")

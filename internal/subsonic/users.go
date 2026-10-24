@@ -27,7 +27,7 @@ type account struct {
 }
 
 func (a *api) defaultAccount() account {
-	return account{Username: a.user, Roles: map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true, "jukeboxRole": a.jukeboxBackend != nil}, Folders: []string{"1"}}
+	return account{Username: a.user, Roles: map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true, "jukeboxRole": false}, Folders: []string{"1"}}
 }
 func (a *api) account(ctx context.Context, name string) (account, error) {
 	raw, err := a.store.Get(ctx, "subsonic-users", name)
@@ -105,8 +105,6 @@ func (a *api) authorized(r *http.Request, endpoint string, user account, result 
 		role = "downloadRole"
 	case "getUsers", "createUser", "updateUser", "deleteUser", "createInternetRadioStation", "updateInternetRadioStation", "deleteInternetRadioStation", "startScan":
 		role = "adminRole"
-	case "jukeboxControl":
-		role = "jukeboxRole"
 	case "createShare", "updateShare", "deleteShare":
 		role = "shareRole"
 	case "createPodcastChannel", "deletePodcastChannel", "downloadPodcastEpisode", "deletePodcastEpisode", "refreshPodcasts":
@@ -135,6 +133,7 @@ func accountNode(user account) map[string]any {
 	for _, role := range accountRoles {
 		out[role] = user.Roles[role]
 	}
+	out["jukeboxRole"] = false
 	return out
 }
 func (a *api) users(r *http.Request, endpoint string, result *response) bool {
@@ -167,9 +166,6 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 		out := []map[string]any{}
 		for _, key := range keys {
 			node := accountNode(users[key])
-			if a.scrobbler != nil {
-				node["scrobblingEnabled"] = a.scrobbler.Enabled(users[key].Username)
-			}
 			out = append(out, node)
 		}
 		payload(result, "users", map[string]any{"user": out})
@@ -189,9 +185,6 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 			node := accountNode(current)
 			if changed := a.avatarChanged(current.Username); changed != "" {
 				node["avatarLastChanged"] = changed
-			}
-			if a.scrobbler != nil {
-				node["scrobblingEnabled"] = a.scrobbler.Enabled(current.Username)
 			}
 			payload(result, "user", node)
 		}
@@ -255,6 +248,10 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 			current.Email = r.Form.Get("email")
 		}
 		for _, role := range accountRoles {
+			if role == "jukeboxRole" && r.Form.Get(role) == "true" {
+				failure(result, 50, "Jukebox playback is not supported")
+				return true
+			}
 			if !r.Form.Has(role) {
 				continue
 			}

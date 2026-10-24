@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,7 +12,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -248,45 +246,4 @@ func TestPodcastRSSDownloadPlaybackAndDeletion(t *testing.T) {
 	if len(list(f.ok(t, "getPodcasts", nil), "podcasts", "channel")) != 0 {
 		t.Fatal("channel deletion failed")
 	}
-}
-
-type silentPlayer struct {
-	started atomic.Int32
-	stopped atomic.Int32
-}
-
-func (p *silentPlayer) Play(ctx context.Context, file *os.File, offset, gain float64) error {
-	p.started.Add(1)
-	_, _ = io.Copy(io.Discard, file)
-	<-ctx.Done()
-	p.stopped.Add(1)
-	return ctx.Err()
-}
-func TestJukeboxBackendAndControlsWithoutHardware(t *testing.T) {
-	player := &silentPlayer{}
-	f := newFixture(t, "", "", subsonic.WithJukeboxBackend(player))
-	track, _, _ := f.ids(t)
-	f.ok(t, "jukeboxControl", url.Values{"action": {"set"}, "id": {track, track}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"start"}})
-	deadline := time.Now().Add(time.Second)
-	for player.started.Load() == 0 && time.Now().Before(deadline) {
-		time.Sleep(time.Millisecond)
-	}
-	if player.started.Load() == 0 {
-		t.Fatal("backend did not start")
-	}
-	status := f.ok(t, "jukeboxControl", url.Values{"action": {"status"}})["jukeboxStatus"].(map[string]any)
-	if status["playing"] != true {
-		t.Fatal(status)
-	}
-	f.ok(t, "jukeboxControl", url.Values{"action": {"setGain"}, "gain": {"0.5"}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"skip"}, "index": {"1"}, "offset": {"0"}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"shuffle"}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"remove"}, "index": {"0"}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"stop"}})
-	f.ok(t, "jukeboxControl", url.Values{"action": {"clear"}})
-	if len(list(f.ok(t, "jukeboxControl", url.Values{"action": {"get"}}), "jukeboxPlaylist", "entry")) != 0 {
-		t.Fatal("queue did not clear")
-	}
-	expectCode(t, f.call(t, "jukeboxControl", url.Values{"action": {"setGain"}, "gain": {"NaN"}}), 10)
 }

@@ -61,7 +61,7 @@ together; neither serves if either configured port cannot bind.
 
 Legacy features include browsing/search, playlists, stars/ratings, bookmarks/queues,
 scrobbling/history, cover art/lyrics, account roles, radio/chat, scanning, downloads,
-transcoding, HLS, video/captions, public shares, podcasts and optional jukebox output.
+transcoding, HLS, video/captions, public shares, podcasts.
 XML, JSON and JSONP are supported with `.view` aliases and salted-token/password auth.
 **Broad endpoint coverage is not a claim of complete client/behavioral parity.**
 See [compatibility and verification](docs/subsonic-compatibility.md) for conditions and gaps.
@@ -69,10 +69,6 @@ See [compatibility and verification](docs/subsonic-compatibility.md) for conditi
 Optional settings:
 
 - `WAVELENGTH_SUBSONIC_PUBLIC_URL`: public legacy origin, required to create shares.
-- `WAVELENGTH_JUKEBOX_PLAYER=ffplay`: enable actual server-side jukebox output.
-- `WAVELENGTH_LASTFM_API_KEY`: enable external metadata enrichment.
-- `WAVELENGTH_LASTFM_SECRET` and `WAVELENGTH_LASTFM_SESSIONS`: enable signed Last.fm
-  submissions; sessions is a JSON map of legacy usernames to Last.fm session keys.
 - Avatar images: `data/avatars/<username>.png`, `.jpg`, `.jpeg` or `.gif` (URL-escape
   usernames containing special path characters).
 

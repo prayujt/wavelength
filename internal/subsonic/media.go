@@ -23,7 +23,8 @@ import (
 
 func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
 	if endpoint == "jukeboxControl" {
-		return a.jukeboxControl(r, result)
+		failure(result, 0, "Jukebox playback is not supported")
+		return true
 	}
 	if a.video(w, r, endpoint, result) {
 		return true

@@ -449,31 +449,6 @@
     ],
     "text": false
   },
-  "JukeboxPlaylist": {
-    "attrs": [
-      "currentIndex",
-      "playing",
-      "gain",
-      "position"
-    ],
-    "children": [
-      {
-        "name": "entry",
-        "type": "Child"
-      }
-    ],
-    "text": false
-  },
-  "JukeboxStatus": {
-    "attrs": [
-      "currentIndex",
-      "playing",
-      "gain",
-      "position"
-    ],
-    "children": [],
-    "text": false
-  },
   "License": {
     "attrs": [
       "valid",
@@ -783,14 +758,6 @@
       {
         "name": "playlist",
         "type": "PlaylistWithSongs"
-      },
-      {
-        "name": "jukeboxStatus",
-        "type": "JukeboxStatus"
-      },
-      {
-        "name": "jukeboxPlaylist",
-        "type": "JukeboxPlaylist"
       },
       {
         "name": "license",

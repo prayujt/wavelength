@@ -14,18 +14,13 @@ import (
 	"sync/atomic"
 
 	"github.com/prayujt/wavelength/internal/library"
-	"github.com/prayujt/wavelength/internal/metadata"
 	"github.com/prayujt/wavelength/internal/state"
 )
 
 type Option func(*api) error
 type api struct {
-	metadata       metadata.Provider
-	scrobbler      metadata.Scrobbler
 	avatarDir      string
 	videoDir       string
-	jukebox        jukeboxState
-	jukeboxBackend JukeboxBackend
 	podcastDir     string
 	hlsState       hlsState
 	publicURL      string
