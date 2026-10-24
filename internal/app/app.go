@@ -10,6 +10,7 @@ import (
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 // Run serves the persisted catalog without inspecting or indexing source files.
@@ -35,13 +36,14 @@ func Run(ctx context.Context, c config.Config) error {
 	manager, err := auth.New(ctx, auth.Config{
 		Issuer: c.OIDC.Issuer, ClientID: c.OIDC.ClientID, ClientSecret: c.OIDC.ClientSecret,
 		PublicURL: c.PublicURL, Token: c.Token,
-	}, database.AuthStore{DB: db})
+	}, database.AuthStore{DB: db}, auth.WithOAuthStore(database.StateStore{DB: db}))
 	if err != nil {
 		return fmt.Errorf("initialize authentication: %w", err)
 	}
 	options := []httpserver.Option{httpserver.WithAuth(manager)}
 	if lib != nil {
-		options = append(options, httpserver.WithNative(lib, manager))
+		data := userdata.New(database.StateStore{DB: db}, lib)
+		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager))
 	}
 	servers := []server{{name: "native", http: httpserver.New(c.Addr, db.PingContext, options...)}}
 	if c.Subsonic.Enabled() {

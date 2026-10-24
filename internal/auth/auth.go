@@ -1,4 +1,4 @@
-// Package auth owns provider-neutral OIDC login and native browser sessions.
+// Package auth owns provider-neutral OIDC login, browser sessions and delegated OAuth.
 // Legacy Subsonic credentials are deliberately outside this package.
 package auth
 
@@ -16,7 +16,9 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/prayujt/wavelength/internal/state"
 	"golang.org/x/oauth2"
+	"golang.org/x/time/rate"
 )
 
 var ErrUnauthenticated = errors.New("unauthenticated")
@@ -39,6 +41,7 @@ type User struct {
 }
 type Flow struct {
 	TokenHash, StateHash, Nonce, Verifier string
+	ReturnTo                              string
 	ExpiresAt                             time.Time
 }
 type Session struct {
@@ -66,16 +69,29 @@ type Manager struct {
 	secure        bool
 	sessionCookie string
 	flowCookie    string
+	oauthStore    state.Store
+	oauthLimit    *rate.Limiter
+}
+
+type Option func(*Manager)
+
+// WithOAuthStore enables delegated API authorization using the same OIDC app.
+func WithOAuthStore(store state.Store) Option {
+	return func(m *Manager) { m.oauthStore = store }
 }
 
 // New fails closed on partial/invalid OIDC settings or failed provider discovery.
-func New(ctx context.Context, c Config, store Store) (*Manager, error) {
+func New(ctx context.Context, c Config, store Store, options ...Option) (*Manager, error) {
 	m := &Manager{
 		config:        c,
 		store:         store,
 		client:        &http.Client{Timeout: 10 * time.Second},
 		sessionCookie: "wavelength_session",
 		flowCookie:    "wavelength_login",
+		oauthLimit:    rate.NewLimiter(5, 20),
+	}
+	for _, option := range options {
+		option(m)
 	}
 	if c.Issuer == "" && c.ClientID == "" && c.ClientSecret == "" && c.PublicURL == "" {
 		return m, nil
@@ -176,6 +192,9 @@ func (m *Manager) Authorize(r *http.Request) (context.Context, error) {
 		if m.config.Token != "" && equal(authorization, "Bearer "+m.config.Token) {
 			return r.Context(), nil
 		}
+		if m.OAuthEnabled() {
+			return m.authorizeOAuth(r)
+		}
 		return nil, &RequestError{401, "unauthorized"}
 	}
 	if !m.OIDCEnabled() && m.config.Token == "" {
@@ -248,7 +267,7 @@ func secret() string { return rand.Text() }
 
 type userKey struct{}
 
-// UserFromContext returns the signed-in browser identity after native authentication.
+// UserFromContext returns the OIDC identity for browser and delegated API requests.
 func UserFromContext(ctx context.Context) (User, bool) {
 	user, ok := ctx.Value(userKey{}).(User)
 	return user, ok

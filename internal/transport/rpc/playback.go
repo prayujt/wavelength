@@ -7,6 +7,7 @@ import (
 
 	"connectrpc.com/connect"
 	pb "github.com/prayujt/wavelength/gen/wavelength/v1"
+	"github.com/prayujt/wavelength/internal/auth"
 )
 
 func (s *service) GetPlaybackInfo(ctx context.Context, r *connect.Request[pb.GetPlaybackInfoRequest]) (*connect.Response[pb.GetPlaybackInfoResponse], error) {
@@ -20,6 +21,9 @@ func (s *service) GetPlaybackInfo(ctx context.Context, r *connect.Request[pb.Get
 	return connect.NewResponse(&pb.GetPlaybackInfoResponse{Track: track(t), HttpPath: "/media/tracks/" + t.ID, SupportsRanges: true}), nil
 }
 func (s *service) StreamAudio(ctx context.Context, r *connect.Request[pb.StreamAudioRequest], stream *connect.ServerStream[pb.StreamAudioResponse]) error {
+	if err := auth.RequireScope(ctx, auth.ScopeStream); err != nil {
+		return failure(err)
+	}
 	if r.Msg.Id == "" || r.Msg.OffsetBytes < 0 || r.Msg.LengthBytes < 0 {
 		return invalid("id and nonnegative byte offset/length are required")
 	}

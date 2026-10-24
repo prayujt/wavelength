@@ -27,6 +27,7 @@ import (
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 // This fixture is an actual HTTP discovery/authorize/token/JWKS provider, not a
@@ -48,7 +49,7 @@ func provider(t *testing.T, mode string) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	type grant struct{ nonce, challenge, redirect string }
+	type grant struct{ nonce, challenge, redirect, subject string }
 	var mu sync.Mutex
 	grants := map[string]grant{}
 	var server *httptest.Server
@@ -78,7 +79,11 @@ func provider(t *testing.T, mode string) *httptest.Server {
 		}
 		code := rand.Text()
 		mu.Lock()
-		grants[code] = grant{q.Get("nonce"), q.Get("code_challenge"), q.Get("redirect_uri")}
+		subject := q.Get("login_hint")
+		if subject == "" {
+			subject = "subject-1"
+		}
+		grants[code] = grant{q.Get("nonce"), q.Get("code_challenge"), q.Get("redirect_uri"), subject}
 		mu.Unlock()
 		callback, err := url.Parse(q.Get("redirect_uri"))
 		if err != nil {
@@ -113,7 +118,7 @@ func provider(t *testing.T, mode string) *httptest.Server {
 		claims := map[string]any{
 			"iss":   server.URL,
 			"aud":   "wavelength",
-			"sub":   "subject-1",
+			"sub":   grant.subject,
 			"exp":   time.Now().Add(time.Hour).Unix(),
 			"iat":   time.Now().Unix(),
 			"nonce": grant.nonce,
@@ -166,11 +171,11 @@ func app(t *testing.T, issuer, dataDir, music string) (*httptest.Server, *sql.DB
 	testutil.SeedCatalog(t, db, music)
 	server := httptest.NewUnstartedServer(nil)
 	publicURL := "http://" + server.Listener.Addr().String()
-	manager, err := auth.New(context.Background(), auth.Config{Issuer: issuer, ClientID: "wavelength", ClientSecret: "test-secret", PublicURL: publicURL, Token: "test-native"}, database.AuthStore{DB: db})
+	manager, err := auth.New(context.Background(), auth.Config{Issuer: issuer, ClientID: "wavelength", ClientSecret: "test-secret", PublicURL: publicURL, Token: "test-native"}, database.AuthStore{DB: db}, auth.WithOAuthStore(database.StateStore{DB: db}))
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager)).Handler
+	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, userdata.New(database.StateStore{DB: db}, lib), manager)).Handler
 	server.Start()
 	t.Cleanup(func() { server.Close(); lib.Close(); db.Close() })
 	return server, db

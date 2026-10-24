@@ -14,8 +14,9 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
 | `database` | SQLite implementations of catalog, authentication and record storage |
-| `auth` | OIDC browser sessions, native bearer authentication and CSRF protection |
-| `transport/rpc` | The small protobuf/Connect/gRPC library contract |
+| `auth` | OIDC browser sessions, delegated OAuth, scoped API authentication and CSRF |
+| `transport/rpc` | Protobuf/Connect/gRPC library and personal-state contracts |
+| `transport/mcp` | Stateless Streamable HTTP tools over the same feature services |
 | `transport/httpserver` | Native routing, authentication mounting and health endpoints |
 | `transport/media` | HTTP range/HEAD playback and encoded response delivery |
 | `transport/subsonic` | Legacy credentials, parameters, IDs, XML/JSON projections and stateless stubs |
@@ -41,8 +42,11 @@ their temporary files and remove them on expiry or shutdown.
 
 Native bearer/OIDC authentication and the single environment-configured Subsonic
 identity remain separate. Stored legacy accounts are not consulted. User-management
-requests cannot change the configured credentials. No identity mapping or native
-per-user role model is implied by sharing storage.
+requests cannot change the configured credentials. Native/MCP personal state uses
+the verified OIDC issuer/subject's `oidc:<identity-id>` namespace. No legacy account
+is mapped to a named user. Default-private playlists, queues, bookmarks and history
+are shared across a listener's native/MCP sessions; only explicit public playlists
+are readable by other users, and all playlist writes require ownership.
 
 ## Catalog and storage
 
@@ -79,14 +83,20 @@ Discovery and listening history stay local.
 Put a new capability in a focused feature package with the methods its callers need.
 Define small dependency interfaces where that package consumes storage, tracks or an
 external system, then assemble implementations in `app`. A downloader can own its
-download policy and publish explicit catalog records after storing files. An MCP transport can
-call the same feature services with its own authentication and response mapping.
+download policy and publish explicit catalog records after storing files. The MCP
+transport calls the same library/userdata feature services as native RPCs, with its
+own schemas and response mapping. It does not tunnel through a legacy or native
+HTTP endpoint, enumerate files, or own a second persistence model.
 
 Keep protocol DTOs, parameter parsing and status codes in the relevant transport.
-The native v1 contract currently covers library browsing and playback; adding
-services does not automatically expand it. There is no plugin registry or parallel
+The native v1 contract covers library browsing/playback and personal collections.
+MCP exposes all of those operations except audio-byte streaming, returning an
+authenticated playback link instead. External discovery, ingestion and download
+jobs remain absent from both contracts. There is no plugin registry or parallel
 implementation of feature behavior inside the legacy adapter.
 
 See [OIDC](oidc.md) and [legacy compatibility](subsonic-compatibility.md) for current
 boundaries. Actual-client certification, managed ingestion, a browser UI and finer
-native authorization remain future work.
+catalog authorization remain future work. Delegated OAuth reuses the existing OIDC
+application and issues resource-bound local credentials for MCP and native clients;
+see [OIDC](oidc.md#delegated-oauth-for-mcp-and-native-clients) for scopes and lifecycle.

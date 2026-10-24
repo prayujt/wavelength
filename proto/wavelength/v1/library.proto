@@ -17,6 +17,67 @@ service LibraryService {
   // Native clients may also consume audio directly over gRPC/Connect server streaming.
   rpc StreamAudio(StreamAudioRequest) returns (stream StreamAudioResponse);
 }
+
+// Personal state always belongs to the authenticated OIDC subject. Callers cannot
+// supply an owner or impersonate another user. Public playlists are readable by
+// other authenticated users; only their owner can change them.
+service UserDataService {
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse);
+  rpc ListPlaylists(ListPlaylistsRequest) returns (ListPlaylistsResponse);
+  rpc GetPlaylist(GetPlaylistRequest) returns (GetPlaylistResponse);
+  rpc CreatePlaylist(CreatePlaylistRequest) returns (GetPlaylistResponse);
+  rpc UpdatePlaylist(UpdatePlaylistRequest) returns (GetPlaylistResponse);
+  rpc DeletePlaylist(DeletePlaylistRequest) returns (EmptyResponse);
+  rpc GetQueue(GetQueueRequest) returns (GetQueueResponse);
+  rpc SaveQueue(SaveQueueRequest) returns (GetQueueResponse);
+  rpc ListBookmarks(ListBookmarksRequest) returns (ListBookmarksResponse);
+  rpc SaveBookmark(SaveBookmarkRequest) returns (EmptyResponse);
+  rpc DeleteBookmark(DeleteBookmarkRequest) returns (EmptyResponse);
+  rpc GetHistory(GetHistoryRequest) returns (GetHistoryResponse);
+  rpc RecordPlay(RecordPlayRequest) returns (EmptyResponse);
+  rpc GetNowPlaying(GetNowPlayingRequest) returns (GetNowPlayingResponse);
+}
+message EmptyResponse {}
+message User { string id = 1; string name = 2; string email = 3; }
+message GetCurrentUserRequest {}
+message GetCurrentUserResponse { User user = 1; }
+message Playlist {
+  string id = 1; string name = 2; string comment = 3; string owner_id = 4;
+  bool public = 5; repeated string track_ids = 6;
+  string created_at = 7; string changed_at = 8;
+}
+message ListPlaylistsRequest { int32 limit = 1; int32 offset = 2; }
+message ListPlaylistsResponse { repeated Playlist playlists = 1; int32 total = 2; }
+message GetPlaylistRequest { string id = 1; }
+message GetPlaylistResponse { Playlist playlist = 1; }
+message CreatePlaylistRequest { string name = 1; repeated string track_ids = 2; }
+message TrackIDs { repeated string ids = 1; }
+message UpdatePlaylistRequest {
+  string id = 1; optional string name = 2; optional string comment = 3;
+  optional bool public = 4; TrackIDs replace_tracks = 5;
+  repeated string add_track_ids = 6; repeated int32 remove_indices = 7;
+}
+message DeletePlaylistRequest { string id = 1; }
+// Playback position is in milliseconds in the native API and MCP.
+message Queue {
+  repeated string track_ids = 1; string current_track_id = 2;
+  int64 position_ms = 3; string changed_at = 4; string changed_by = 5;
+}
+message GetQueueRequest {}
+message GetQueueResponse { Queue queue = 1; }
+message SaveQueueRequest { repeated string track_ids = 1; string current_track_id = 2; int64 position_ms = 3; }
+message Bookmark { string track_id = 1; int64 position_ms = 2; string comment = 3; string created_at = 4; string changed_at = 5; }
+message ListBookmarksRequest { int32 limit = 1; int32 offset = 2; }
+message ListBookmarksResponse { repeated Bookmark bookmarks = 1; int32 total = 2; }
+message SaveBookmarkRequest { string track_id = 1; int64 position_ms = 2; string comment = 3; }
+message DeleteBookmarkRequest { string track_id = 1; }
+message GetHistoryRequest { int32 limit = 1; int32 offset = 2; }
+message HistoryEntry { string track_id = 1; int32 plays = 2; string last_played_at = 3; }
+message GetHistoryResponse { repeated HistoryEntry entries = 1; int32 total = 2; }
+message RecordPlayRequest { string track_id = 1; google.protobuf.Timestamp played_at = 2; bool now_playing_only = 3; }
+message GetNowPlayingRequest {}
+message NowPlaying { string track_id = 1; string played_at = 2; }
+message GetNowPlayingResponse { repeated NowPlaying entries = 1; }
 message Track {
   string id = 1;
   string title = 2;

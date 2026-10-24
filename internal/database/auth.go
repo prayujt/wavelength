@@ -21,7 +21,7 @@ func (s AuthStore) SaveFlow(ctx context.Context, f auth.Flow) error {
 	if _, err = tx.ExecContext(ctx, "DELETE FROM auth_flows WHERE expires_at<=?", time.Now().Unix()); err != nil {
 		return err
 	}
-	if _, err = tx.ExecContext(ctx, "INSERT INTO auth_flows (token_hash,state_hash,nonce,verifier,expires_at) VALUES (?,?,?,?,?)", f.TokenHash, f.StateHash, f.Nonce, f.Verifier, f.ExpiresAt.Unix()); err != nil {
+	if _, err = tx.ExecContext(ctx, "INSERT INTO auth_flows (token_hash,state_hash,nonce,verifier,expires_at,return_to) VALUES (?,?,?,?,?,?)", f.TokenHash, f.StateHash, f.Nonce, f.Verifier, f.ExpiresAt.Unix(), f.ReturnTo); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -29,7 +29,7 @@ func (s AuthStore) SaveFlow(ctx context.Context, f auth.Flow) error {
 func (s AuthStore) ConsumeFlow(ctx context.Context, hash string) (auth.Flow, error) {
 	f := auth.Flow{TokenHash: hash}
 	var expires int64
-	err := s.DB.QueryRowContext(ctx, `DELETE FROM auth_flows WHERE token_hash=? AND expires_at>? RETURNING state_hash,nonce,verifier,expires_at`, hash, time.Now().Unix()).Scan(&f.StateHash, &f.Nonce, &f.Verifier, &expires)
+	err := s.DB.QueryRowContext(ctx, `DELETE FROM auth_flows WHERE token_hash=? AND expires_at>? RETURNING state_hash,nonce,verifier,expires_at,return_to`, hash, time.Now().Unix()).Scan(&f.StateHash, &f.Nonce, &f.Verifier, &expires, &f.ReturnTo)
 	if errors.Is(err, sql.ErrNoRows) {
 		return f, auth.ErrUnauthenticated
 	}
