@@ -69,6 +69,8 @@ func (m *Manager) showConsent(w http.ResponseWriter, r *http.Request, id string)
 			view.Permissions = append(view.Permissions, permission{"Read your music", "Browse the shared library and read your playlists, queue, bookmarks, and listening history."})
 		case ScopeWrite:
 			view.Permissions = append(view.Permissions, permission{"Manage your collections", "Create and update your playlists, playback queue, bookmarks, and listening history."})
+		case ScopeIngest:
+			view.Permissions = append(view.Permissions, permission{"Acquire music", "Download music into the shared library and manage your own import jobs."})
 		case ScopeStream:
 			view.Permissions = append(view.Permissions, permission{"Play music", "Stream audio files from the shared library."})
 		}

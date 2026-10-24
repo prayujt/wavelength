@@ -4,12 +4,18 @@ package app
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/config"
 	"github.com/prayujt/wavelength/internal/database"
+	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/providers/itunes"
+	"github.com/prayujt/wavelength/internal/providers/youtube"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
+	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
@@ -43,7 +49,15 @@ func Run(ctx context.Context, c config.Config) error {
 	options := []httpserver.Option{httpserver.WithAuth(manager)}
 	if lib != nil {
 		data := userdata.New(database.StateStore{DB: db}, lib)
-		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager))
+		source := youtube.New()
+		discovery := discovery.New(itunes.New(), source)
+		rootID, rootPath := lib.SourceRoot()
+		imports, err := ingest.New(ctx, ingest.Root{ID: rootID, Path: rootPath}, filepath.Join(c.DataDir, "ingest"), ingest.Dependencies{Store: database.IngestStore{DB: db}, Discovery: discovery, Downloader: source, Media: ingest.NewAudioMedia(), Playlists: data})
+		if err != nil {
+			return fmt.Errorf("initialize ingestion: %w", err)
+		}
+		defer imports.Close()
+		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Acquisition{Discovery: discovery, Ingest: imports}))
 	}
 	servers := []server{{name: "native", http: httpserver.New(c.Addr, db.PingContext, options...)}}
 	if c.Subsonic.Enabled() {

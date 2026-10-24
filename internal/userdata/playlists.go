@@ -15,6 +15,7 @@ type Playlist struct {
 	ID, Name, Comment, Owner, Created, Changed string
 	Public                                     bool
 	IDs                                        []string
+	Imports                                    map[string]bool `json:"imports,omitempty"`
 }
 
 type PlaylistChanges struct {
@@ -142,5 +143,45 @@ func (s *Service) DeletePlaylist(ctx context.Context, user, id string) error {
 			return nil, ErrForbidden
 		}
 		return nil, nil
+	})
+}
+
+// CheckImport verifies ownership before an acquisition job is accepted.
+func (s *Service) CheckImport(ctx context.Context, user, id string) error {
+	p, err := s.Playlist(ctx, user, id)
+	if err != nil {
+		return err
+	}
+	if p.Owner != user {
+		return ErrForbidden
+	}
+	return nil
+}
+
+// AppendImport records its receipt with the playlist change, so recovery cannot
+// append the same completed batch twice after an interrupted job finalization.
+func (s *Service) AppendImport(ctx context.Context, user, id, importID string, ids []string) error {
+	for _, id := range ids {
+		if _, err := s.tracks.Get(ctx, id); err != nil {
+			return err
+		}
+	}
+	return state.Modify(ctx, s.store, "playlists", id, func(p *Playlist, exists bool) error {
+		if !exists {
+			return state.ErrNotFound
+		}
+		if p.Owner != user {
+			return ErrForbidden
+		}
+		if p.Imports[importID] {
+			return nil
+		}
+		if p.Imports == nil {
+			p.Imports = map[string]bool{}
+		}
+		p.IDs = append(p.IDs, ids...)
+		p.Imports[importID] = true
+		p.Changed = time.Now().UTC().Format(time.RFC3339Nano)
+		return nil
 	})
 }

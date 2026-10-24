@@ -27,6 +27,7 @@ import (
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
+	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
@@ -158,7 +159,7 @@ func provider(t *testing.T, mode string) *httptest.Server {
 	return server
 }
 
-func app(t *testing.T, issuer, dataDir, music string) (*httptest.Server, *sql.DB) {
+func app(t *testing.T, issuer, dataDir, music string, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Acquisition) (*httptest.Server, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(context.Background(), dataDir)
 	if err != nil {
@@ -175,9 +176,21 @@ func app(t *testing.T, issuer, dataDir, music string) (*httptest.Server, *sql.DB
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, userdata.New(database.StateStore{DB: db}, lib), manager)).Handler
+	data := userdata.New(database.StateStore{DB: db}, lib)
+	features := []transportmcp.Acquisition{}
+	if len(acquisition) > 0 {
+		features = append(features, acquisition[0](db, lib, data))
+	}
+	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...)).Handler
 	server.Start()
-	t.Cleanup(func() { server.Close(); lib.Close(); db.Close() })
+	t.Cleanup(func() {
+		server.Close()
+		for _, feature := range features {
+			feature.Ingest.Close()
+		}
+		lib.Close()
+		db.Close()
+	})
 	return server, db
 }
 func browser(t *testing.T) *http.Client {

@@ -9,6 +9,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/prayujt/wavelength/internal/auth"
+	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -35,9 +37,9 @@ type albumsInput struct {
 	Offset   int    `json:"offset,omitempty"`
 }
 
-func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager) http.Handler {
+func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager, acquisition ...Acquisition) http.Handler {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wavelength", Version: "1.0.0"}, &mcp.ServerOptions{
-		Instructions: "Manage the authenticated listener's music library and personal collections. Library search is local; external discovery and song acquisition are not available. Playback links require authentication and never contain credentials.",
+		Instructions: "Manage the authenticated listener's music library and personal collections. Library tools search local tracks. When available, search_music discovers external metadata and import_music starts a durable download job; poll get_import for results. Playback links require authentication and never contain credentials.",
 	})
 	add(s, "get_current_user", "Show the signed-in Wavelength listener.", false, false, func(ctx context.Context, _ empty) (object, error) {
 		u, ok := auth.UserFromContext(ctx)
@@ -132,6 +134,9 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 		return object{"track": track(t), "http_path": path, "url": strings.TrimSuffix(manager.ResourceURL(), "/mcp") + path, "supports_ranges": true, "authentication_required": true}, nil
 	})
 	registerPersonal(s, data)
+	if len(acquisition) > 0 {
+		registerAcquisition(s, manager, acquisition[0])
+	}
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 1 << 20, PropagateRequestCancellation: true,
 	})
@@ -169,9 +174,15 @@ func toolError(err error) *mcp.CallToolResult {
 		message = denied.Message
 	case errors.Is(err, userdata.ErrForbidden):
 		message = "You do not have permission to access or change this collection."
-	case errors.Is(err, userdata.ErrInvalid):
+	case errors.Is(err, ingest.ErrConflict):
+		message = "The import request conflicts with an existing request or job state."
+	case errors.Is(err, ingest.ErrCapacity):
+		message = "The import queue is full. Try again later."
+	case errors.Is(err, discovery.ErrUnavailable):
+		message = "The external music provider is unavailable. Try again later."
+	case errors.Is(err, userdata.ErrInvalid), errors.Is(err, ingest.ErrInvalid), errors.Is(err, discovery.ErrInvalid):
 		message = "Invalid input. Check IDs, limits, positions and timestamps."
-	case errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound):
+	case errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, ingest.ErrNotFound), errors.Is(err, discovery.ErrNotFound):
 		message = "The requested item was not found."
 	case errors.Is(err, context.Canceled):
 		message = "Operation cancelled."

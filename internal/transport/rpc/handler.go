@@ -9,6 +9,8 @@ import (
 	"connectrpc.com/connect"
 	"github.com/prayujt/wavelength/gen/wavelength/v1/wavelengthv1connect"
 	"github.com/prayujt/wavelength/internal/auth"
+	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -53,14 +55,23 @@ func failure(err error) error {
 		}
 		return connect.NewError(code, err)
 	}
-	if errors.Is(err, userdata.ErrInvalid) {
-		return invalid("invalid collection or listening input")
+	if errors.Is(err, ingest.ErrConflict) {
+		return connect.NewError(connect.CodeAlreadyExists, err)
+	}
+	if errors.Is(err, ingest.ErrCapacity) {
+		return connect.NewError(connect.CodeResourceExhausted, err)
+	}
+	if errors.Is(err, discovery.ErrUnavailable) {
+		return connect.NewError(connect.CodeUnavailable, errors.New("music provider is unavailable"))
+	}
+	if errors.Is(err, userdata.ErrInvalid) || errors.Is(err, ingest.ErrInvalid) || errors.Is(err, discovery.ErrInvalid) {
+		return invalid("invalid request parameters")
 	}
 	if errors.Is(err, userdata.ErrForbidden) {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("operation is not permitted"))
 	}
-	if errors.Is(err, library.ErrNotFound) || errors.Is(err, state.ErrNotFound) {
-		return connect.NewError(connect.CodeNotFound, errors.New("media not found"))
+	if errors.Is(err, library.ErrNotFound) || errors.Is(err, state.ErrNotFound) || errors.Is(err, ingest.ErrNotFound) || errors.Is(err, discovery.ErrNotFound) {
+		return connect.NewError(connect.CodeNotFound, errors.New("requested item not found"))
 	}
 	if errors.Is(err, context.Canceled) {
 		return connect.NewError(connect.CodeCanceled, err)
@@ -68,7 +79,7 @@ func failure(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return connect.NewError(connect.CodeDeadlineExceeded, err)
 	}
-	return connect.NewError(connect.CodeInternal, errors.New("library operation failed"))
+	return connect.NewError(connect.CodeInternal, errors.New("operation failed"))
 }
 func invalid(message string) error {
 	return connect.NewError(connect.CodeInvalidArgument, errors.New(message))

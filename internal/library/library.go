@@ -55,6 +55,7 @@ type Library struct {
 	store  Store
 	root   *os.Root
 	rootID string
+	path   string
 }
 
 func Open(path string, store Store) (*Library, error) {
@@ -70,7 +71,7 @@ func Open(path string, store Store) (*Library, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open music root: %w", err)
 	}
-	return &Library{store: store, root: root, rootID: identifier(absolute)}, nil
+	return &Library{store: store, root: root, rootID: identifier(absolute), path: absolute}, nil
 }
 
 func (l *Library) Close() error {
@@ -123,3 +124,6 @@ func identifier(value string) string { return fmt.Sprintf("%x", sha256.Sum256([]
 func (l *Library) Revision(ctx context.Context) (int64, error) {
 	return l.store.Revision(ctx, l.rootID)
 }
+
+// SourceRoot identifies the configured root for explicit ingestion; it does not inspect files.
+func (l *Library) SourceRoot() (id, path string) { return l.rootID, l.path }
