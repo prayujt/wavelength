@@ -29,7 +29,7 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 	if err != nil {
 		return c, err
 	}
-	annotations, err := a.annotations(ctx, user)
+	annotations, err := a.data.Annotations(ctx, user)
 	if err != nil {
 		return c, err
 	}

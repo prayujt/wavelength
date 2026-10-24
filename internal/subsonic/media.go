@@ -47,7 +47,7 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 	if a.browse(w, r, endpoint, result) {
 		return true
 	}
-	if a.userData(w, r, endpoint, result) {
+	if a.userData(r, endpoint, result) {
 		return true
 	}
 	switch endpoint {
