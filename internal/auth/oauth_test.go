@@ -21,7 +21,9 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	mcpauth "github.com/modelcontextprotocol/go-sdk/auth"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/oauthex"
 	pb "github.com/prayujt/wavelength/gen/wavelength/v1"
 	"github.com/prayujt/wavelength/gen/wavelength/v1/wavelengthv1connect"
 	"github.com/prayujt/wavelength/internal/auth"
@@ -89,8 +91,14 @@ func authorizationURL(s *httptest.Server, c registeredClient, verifier, scope st
 // same-origin CSRF-protected approval. No provider or resource auth is bypassed.
 func authorizeClient(t *testing.T, s *httptest.Server, c registeredClient, verifier, scope, subject string) (string, *http.Client) {
 	t.Helper()
+	redirect, b := approveAuthorization(t, s, authorizationURL(s, c, verifier, scope), subject)
+	return redirect.Query().Get("code"), b
+}
+func approveAuthorization(t *testing.T, s *httptest.Server, target, subject string) (*url.URL, *http.Client) {
+	t.Helper()
+	input, _ := url.Parse(target)
 	b := browser(t)
-	start := do(t, b, "GET", authorizationURL(s, c, verifier, scope), nil)
+	start := do(t, b, "GET", target, nil)
 	if start.StatusCode != 302 {
 		t.Fatalf("authorization start %d", start.StatusCode)
 	}
@@ -125,10 +133,10 @@ func authorizeClient(t *testing.T, s *httptest.Server, c registeredClient, verif
 		t.Fatalf("consent approval %d", approved.StatusCode)
 	}
 	redirect, _ := url.Parse(approved.Header.Get("Location"))
-	if redirect.Query().Get("state") != "test-state" || redirect.Query().Get("iss") != s.URL || redirect.Query().Get("keep") != "1" {
+	if redirect.Query().Get("state") != input.Query().Get("state") || redirect.Query().Get("iss") != s.URL || redirect.Query().Get("keep") != "1" {
 		t.Fatal("authorization redirect lost binding values")
 	}
-	return redirect.Query().Get("code"), b
+	return redirect, b
 }
 func exchange(t *testing.T, s *httptest.Server, c registeredClient, code, verifier string) *http.Response {
 	t.Helper()
@@ -774,5 +782,47 @@ func TestMCPLegacyProtocolVersionsAndSessionIdentity(t *testing.T) {
 		if identity["id"] == "" {
 			t.Fatal("session header overrode authenticated identity")
 		}
+	}
+}
+
+func TestOfficialMCPOAuthClientDiscoversRegistersAndAuthorizes(t *testing.T) {
+	s, _ := oauthFixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	flows := 0
+	handler, err := mcpauth.NewAuthorizationCodeHandler(&mcpauth.AuthorizationCodeHandlerConfig{
+		DynamicClientRegistrationConfig: &mcpauth.DynamicClientRegistrationConfig{Metadata: &oauthex.ClientRegistrationMetadata{
+			ClientName: "Test AI", RedirectURIs: []string{"http://127.0.0.1:54321/callback?keep=1"}, TokenEndpointAuthMethod: "none", GrantTypes: []string{"authorization_code", "refresh_token"},
+		}},
+		RequestRefreshToken: true,
+		AuthorizationCodeFetcher: func(ctx context.Context, args *mcpauth.AuthorizationArgs) (*mcpauth.AuthorizationResult, error) {
+			flows++
+			redirect, _ := approveAuthorization(t, s, args.URL, "subject-1")
+			q := redirect.Query()
+			return &mcpauth.AuthorizationResult{Code: q.Get("code"), State: q.Get("state"), Iss: q.Get("iss")}, nil
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := mcp.NewClient(&mcp.Implementation{Name: "automatic-oauth", Version: "1"}, nil)
+	session, err := client.Connect(ctx, &mcp.StreamableClientTransport{Endpoint: s.URL + "/mcp", OAuthHandler: handler, DisableStandaloneSSE: true, MaxRetries: -1}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	if flows != 1 {
+		t.Fatalf("expected one consent flow, got %d", flows)
+	}
+	tool(t, session, "get_current_user", map[string]any{}, false)
+	// The discovery challenge must request management permissions by default.
+	tool(t, session, "create_playlist", map[string]any{"name": "Created after automatic OAuth"}, false)
+	source, err := handler.TokenSource(ctx)
+	if err != nil || source == nil {
+		t.Fatal("OAuth client has no token source")
+	}
+	token, err := source.Token()
+	if err != nil || token.RefreshToken == "" {
+		t.Fatal("automatic client did not receive a renewable grant")
 	}
 }

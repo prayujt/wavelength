@@ -211,7 +211,9 @@ needed for the tests. Delegated OAuth tests additionally cover discovery, dynami
 registration, all three client-auth methods, real upstream login and consent,
 resource/redirect/client/PKCE binding, expiry, concurrent code redemption, refresh
 rotation/replay, revocation, database reopen, and issuer/resource isolation. The
-official MCP Go client exercises every tool and shared data across Connect,
+official MCP Go client also completes automatic metadata discovery, client
+registration, login/consent, and a renewable token exchange before creating a
+playlist. It exercises every tool and shared data across Connect,
 Connect JSON, gRPC-Web and gRPC, with cross-user and read-only mutation denials.
 Raw HTTP checks also cover the three 2025 MCP protocol versions. Tests use only
 temporary local credentials and databases; third-party AI client certification is
