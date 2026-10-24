@@ -52,8 +52,8 @@ func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, resul
 		var master strings.Builder
 		master.WriteString("#EXTM3U\n")
 		for _, value := range r.Form["bitRate"] {
-			rate, err := strconv.Atoi(value)
-			if err != nil || rate < 16 || rate > 100000 {
+			rate, size, err := parseHLSBitRate(value)
+			if err != nil {
 				failure(result, 10, "Invalid HLS bitrate")
 				return true
 			}
@@ -62,7 +62,11 @@ func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, resul
 				query[key] = append([]string{}, values...)
 			}
 			query.Set("bitRate", value)
-			_, _ = fmt.Fprintf(&master, "#EXT-X-STREAM-INF:BANDWIDTH=%d\n/rest/hls.m3u8?%s\n", rate*1000, query.Encode())
+			resolution := ""
+			if size != "" {
+				resolution = ",RESOLUTION=" + size
+			}
+			_, _ = fmt.Fprintf(&master, "#EXT-X-STREAM-INF:BANDWIDTH=%d%s\n/rest/hls.m3u8?%s\n", rate*1000, resolution, query.Encode())
 		}
 		w.Header().Set("Content-Type", "application/vnd.apple.mpegurl")
 		if r.Method != "HEAD" {
@@ -109,14 +113,29 @@ func (a *api) hls(w http.ResponseWriter, r *http.Request, endpoint string, resul
 	if result.Error != nil {
 		return true
 	}
-	bitrate, err := number(r, "bitRate", 192, 100000)
-	if err != nil || bitrate < 16 {
+	value := r.Form.Get("bitRate")
+	if value == "" {
+		value = "192"
+	}
+	bitrate, requestedSize, err := parseHLSBitRate(value)
+	if err != nil {
 		failure(result, 10, "Invalid HLS bitrate")
 		return true
 	}
 	if _, err = exec.LookPath("ffmpeg"); err != nil {
 		failure(result, 0, "HLS requires ffmpeg")
 		return true
+	}
+	if requestedSize != "" {
+		r.Form.Set("size", requestedSize)
+	}
+	current, err := a.account(r.Context(), user)
+	if err != nil {
+		legacyError(result, err)
+		return true
+	}
+	if current.MaxBitRate > 0 && bitrate > current.MaxBitRate {
+		bitrate = current.MaxBitRate
 	}
 	key := user + "/" + trackID + "/" + strconv.Itoa(bitrate) + "/" + r.Form.Get("size") + "/" + r.Form.Get("audioTrack")
 	a.hlsState.mu.Lock()
@@ -298,4 +317,27 @@ playlistReady:
 	}
 	result.Status = "streamed"
 	return true
+}
+
+// Subsonic encodes optional video dimensions inside each bitrate value.
+func parseHLSBitRate(value string) (int, string, error) {
+	parts := strings.Split(value, "@")
+	if len(parts) > 2 {
+		return 0, "", errors.New("invalid HLS bitrate")
+	}
+	rate, err := strconv.Atoi(parts[0])
+	if err != nil || rate < 16 || rate > 100000 {
+		return 0, "", errors.New("invalid HLS bitrate")
+	}
+	size := ""
+	if len(parts) == 2 {
+		size = parts[1]
+		if size == "" {
+			return 0, "", errors.New("invalid HLS size")
+		}
+		if _, err = scaleArgument(size); err != nil {
+			return 0, "", err
+		}
+	}
+	return rate, size, nil
 }

@@ -75,7 +75,12 @@ func (a *api) video(w http.ResponseWriter, r *http.Request, endpoint string, res
 		if _, format, err := a.lib.CaptionSidecar(r.Context(), id); err == nil {
 			captions = append(captions, map[string]any{"id": "sidecar", "name": format})
 		}
-		payload(result, "videoInfo", map[string]any{"id": id, "captions": captions, "audioTrack": audio, "conversion": []any{}})
+		conversions := []map[string]any{}
+		if file, err := a.openConverted(id); err == nil {
+			file.Close()
+			conversions = append(conversions, map[string]any{"id": id})
+		}
+		payload(result, "videoInfo", map[string]any{"id": id, "captions": captions, "audioTrack": audio, "conversion": conversions})
 		return true
 	}
 	format := r.Form.Get("format")

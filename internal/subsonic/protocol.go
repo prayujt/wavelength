@@ -23,6 +23,7 @@ type api struct {
 	metadata       metadata.Provider
 	scrobbler      metadata.Scrobbler
 	avatarDir      string
+	videoDir       string
 	jukebox        jukeboxState
 	jukeboxBackend JukeboxBackend
 	podcastDir     string

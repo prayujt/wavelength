@@ -1,4 +1,4 @@
-// Package subsonic implements a deliberately limited legacy protocol adapter.
+// Package subsonic implements a legacy Subsonic protocol adapter.
 // It does not own catalog storage and is served on a separate listener.
 package subsonic
 
@@ -68,6 +68,8 @@ type album struct {
 	Songs      []song `xml:"song,omitempty" json:"song,omitempty"`
 }
 type song struct {
+	IsVideo     bool   `json:"isVideo"`
+	Path        string `json:"path,omitempty"`
 	ID          string `xml:"id,attr" json:"id"`
 	Parent      string `xml:"parent,attr" json:"parent"`
 	IsDir       bool   `xml:"isDir,attr" json:"isDir"`

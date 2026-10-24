@@ -41,6 +41,7 @@ func (a *api) playlists(r *http.Request, result *response, endpoint string) bool
 		}
 		items := []map[string]any{}
 		requested := r.Form.Get("username")
+		adminView := requested != "" // authorized() requires admin when username is present.
 
 		for _, raw := range records {
 			var p savedPlaylist
@@ -48,7 +49,7 @@ func (a *api) playlists(r *http.Request, result *response, endpoint string) bool
 				legacyError(result, err)
 				return true
 			}
-			if (requested != "" && p.Owner != requested) || (p.Owner != user && !p.Public) {
+			if (requested != "" && p.Owner != requested) || (p.Owner != user && !p.Public && !adminView) {
 				continue
 			}
 			node, err := render(p, false)

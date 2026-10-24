@@ -15,11 +15,12 @@ import (
 )
 
 type collection struct {
-	artists    []artist
-	albums     []album
-	songs      []song
-	tracks     map[string]library.Track
-	lastPlayed map[string]string
+	artists     []artist
+	albums      []album
+	songs       []song
+	tracks      map[string]library.Track
+	lastPlayed  map[string]string
+	annotations map[string]annotation
 }
 
 func (a *api) collection(ctx context.Context, user string) (collection, error) {
@@ -32,6 +33,7 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 	if err != nil {
 		return c, err
 	}
+	c.annotations = annotations
 	for _, art := range all {
 		art.Starred = annotations[art.ID].Starred
 		for i := range art.Albums {
@@ -68,12 +70,16 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 		c.artists = append(c.artists, art)
 	}
 	for offset := 0; ; offset += 500 {
-		page, err := a.lib.List(ctx, library.Query{Limit: 500, Offset: offset})
+		page, err := a.lib.List(ctx, library.Query{IncludeVideo: true, Limit: 500, Offset: offset})
 		if err != nil {
 			return c, err
 		}
 		for _, t := range page.Tracks {
 			c.tracks[t.ID] = t
+			if strings.HasPrefix(t.ContentType, "video/") {
+				s := asSong(t)
+				c.songs = append(c.songs, s)
+			}
 		}
 		if len(page.Tracks) < 500 {
 			break
@@ -142,6 +148,9 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 	if folder != "" && folder != "1" {
 		failure(result, 70, "Music folder not found")
 		return true
+	}
+	if endpoint == "search2" || endpoint == "getAlbumList" || endpoint == "getStarred" {
+		c = c.filesystem()
 	}
 	switch endpoint {
 	case "getArtists":
@@ -342,7 +351,15 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 		if endpoint == "getStarred" {
 			name = "starred"
 		}
-		payload(result, name, map[string]any{"artist": arts, "album": albs, "song": songs})
+		if endpoint == "getStarred" {
+			dirs := []map[string]any{}
+			for _, alb := range albs {
+				dirs = append(dirs, albumDirectory(alb))
+			}
+			payload(result, name, map[string]any{"artist": arts, "album": dirs, "song": songs})
+		} else {
+			payload(result, name, map[string]any{"artist": arts, "album": albs, "song": songs})
+		}
 	case "getArtistInfo", "getArtistInfo2", "getAlbumInfo", "getAlbumInfo2", "getSimilarSongs", "getSimilarSongs2", "getTopSongs":
 		a.enrichment(r, result, c, endpoint)
 
@@ -522,7 +539,7 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 				nextID := directoryID(next)
 				if _, ok := dirs[nextID]; !ok {
 					dirs[nextID] = next
-					children[directoryID(current)] = append(children[directoryID(current)], map[string]any{"id": nextID, "parent": directoryID(current), "title": part, "isDir": true, "coverArt": s.ID})
+					children[directoryID(current)] = append(children[directoryID(current)], annotatedNode(map[string]any{"id": nextID, "parent": directoryID(current), "title": part, "isDir": true, "coverArt": s.ID}, c.annotations[nextID]))
 				}
 				current = next
 			}
@@ -542,7 +559,7 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 					group = string(unicode.ToUpper(r))
 					break
 				}
-				indices[group] = append(indices[group], map[string]any{"id": node["id"], "name": name})
+				indices[group] = append(indices[group], annotatedNode(map[string]any{"id": node["id"], "name": name}, c.annotations[node["id"].(string)]))
 			} else {
 				rootSongs = append(rootSongs, node)
 			}
@@ -589,6 +606,9 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 			return strings.ToLower(nodes[i]["title"].(string)) < strings.ToLower(nodes[j]["title"].(string))
 		})
 		node := map[string]any{"id": key, "name": path.Base(p), "child": nodes}
+		if ann := c.annotations[key]; ann.Starred != "" {
+			node["starred"] = ann.Starred
+		}
 		if key == "1" {
 			node["name"] = "Music"
 		} else {
@@ -618,4 +638,14 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 		}
 	}
 	failure(result, 70, "Directory not found")
+}
+
+func annotatedNode(node map[string]any, ann annotation) map[string]any {
+	if ann.Starred != "" {
+		node["starred"] = ann.Starred
+	}
+	if ann.Rating > 0 {
+		node["userRating"] = ann.Rating
+	}
+	return node
 }

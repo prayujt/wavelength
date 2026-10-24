@@ -86,6 +86,12 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 		if !api.authorized(r, endpoint, current, &result) {
 			return
 		}
+		for _, key := range requiredParameters[endpoint] {
+			if !r.Form.Has(key) || (r.Form.Get(key) == "" && key != "query") {
+				fail(10, "Parameter "+key+" is required")
+				return
+			}
+		}
 		if api.handle(w, r, endpoint, &result) {
 			return
 		}
@@ -152,7 +158,12 @@ func asSong(t library.Track) song {
 	if created.IsZero() {
 		created = t.ModifiedAt
 	}
-	return song{Duration: int(t.Duration + 0.5), Genre: t.Genre, BitRate: t.BitRate, DiscNumber: t.DiscNumber, Created: created.UTC().Format(time.RFC3339), CoverArt: t.ID, ID: t.ID, Parent: albumID, Title: t.Title, Artist: t.Artist, Album: album, ArtistID: artistID, AlbumID: albumID, Track: t.TrackNumber, Year: t.Year, Size: t.Size, ContentType: t.ContentType, Suffix: strings.TrimPrefix(strings.ToLower(filepath.Ext(t.Path)), "."), Type: "music"}
+	kind := "music"
+	isVideo := strings.HasPrefix(t.ContentType, "video/")
+	if isVideo {
+		kind = "video"
+	}
+	return song{IsVideo: isVideo, Path: t.Path, Duration: int(t.Duration + 0.5), Genre: t.Genre, BitRate: t.BitRate, DiscNumber: t.DiscNumber, Created: created.UTC().Format(time.RFC3339), CoverArt: t.ID, ID: t.ID, Parent: directoryID(filepath.ToSlash(filepath.Dir(t.Path))), Title: t.Title, Artist: t.Artist, Album: album, ArtistID: artistID, AlbumID: albumID, Track: t.TrackNumber, Year: t.Year, Size: t.Size, ContentType: t.ContentType, Suffix: strings.TrimPrefix(strings.ToLower(filepath.Ext(t.Path)), "."), Type: kind}
 }
 func catalog(ctx context.Context, lib *library.Library) ([]artist, error) {
 	snapshot, err := lib.Catalog(ctx)

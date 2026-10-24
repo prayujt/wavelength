@@ -105,7 +105,7 @@ func run() error {
 			}
 			legacyOptions = append(legacyOptions, subsonic.WithJukeboxBackend(subsonic.FFplayBackend{Executable: resolved}))
 		}
-		legacyOptions = append(legacyOptions, subsonic.WithState(database.StateStore{DB: db}), subsonic.WithContext(ctx), subsonic.WithEncryptionKey(key), subsonic.WithPublicURL(os.Getenv("WAVELENGTH_SUBSONIC_PUBLIC_URL")), subsonic.WithPodcastDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "podcasts")), subsonic.WithAvatarDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "avatars")))
+		legacyOptions = append(legacyOptions, subsonic.WithState(database.StateStore{DB: db}), subsonic.WithContext(ctx), subsonic.WithEncryptionKey(key), subsonic.WithPublicURL(os.Getenv("WAVELENGTH_SUBSONIC_PUBLIC_URL")), subsonic.WithPodcastDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "podcasts")), subsonic.WithVideoDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "converted")), subsonic.WithAvatarDirectory(filepath.Join(env("WAVELENGTH_DATA_DIR", "./data"), "avatars")))
 		legacy, err := subsonic.New(env("WAVELENGTH_SUBSONIC_ADDR", "127.0.0.1:8081"), lib, env("WAVELENGTH_SUBSONIC_USER", "admin"), password, legacyOptions...)
 		if err != nil {
 			return err

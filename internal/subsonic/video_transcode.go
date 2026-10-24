@@ -3,7 +3,6 @@ package subsonic
 import (
 	"context"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -87,40 +86,7 @@ func (a *api) videoTranscode(w http.ResponseWriter, r *http.Request, id, format 
 	defer cancel()
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	command.ExtraFiles = []*os.File{file}
-	output, err := command.StdoutPipe()
-	if err != nil {
-		return false, err
-	}
-	if err = command.Start(); err != nil {
-		return false, err
-	}
-	buffer := make([]byte, 32<<10)
-	n, err := output.Read(buffer)
-	if n == 0 {
-		cancel()
-		_ = command.Wait()
-		return false, errors.New("could not decode source video")
-	}
-	w.Header().Set("Content-Type", contentType)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.Method != "HEAD" {
-		if _, err = w.Write(buffer[:n]); err == nil {
-			_, err = io.Copy(w, output)
-		}
-	} else {
-		cancel()
-	}
-	if err != nil {
-		cancel()
-	}
-	waitErr := command.Wait()
-	if r.Method == "HEAD" {
-		return true, nil
-	}
-	if err != nil {
-		return true, err
-	}
-	return true, waitErr
+	return serveEncoded(w, r, command, cancel, contentType)
 }
 func (a *api) maybeVideoTranscode(w http.ResponseWriter, r *http.Request, result *response, contentType, id, format string, bitrate int) bool {
 	if !strings.HasPrefix(contentType, "video/") || format == "raw" {

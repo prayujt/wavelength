@@ -89,7 +89,7 @@ func (a *api) userData(w http.ResponseWriter, r *http.Request, endpoint string, 
 			legacyError(result, err)
 			return true
 		}
-		valid := map[string]bool{}
+		valid := c.directoryIDs()
 		for _, s := range c.songs {
 			valid[s.ID] = true
 		}

@@ -1,0 +1,105 @@
+package subsonic
+
+import (
+	"path"
+	"sort"
+	"strings"
+)
+
+// filesystem projects directory identities independently of ID3 album identities.
+// Legacy directory IDs must round-trip through search, lists, stars and sharing.
+func (c collection) filesystem() collection {
+	out := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: c.tracks, lastPlayed: map[string]string{}, annotations: c.annotations}
+	albums := map[string]*album{}
+	artists := map[string]*artist{}
+	for _, source := range c.songs {
+		t := c.tracks[source.ID]
+		directory := path.Dir(t.Path)
+		parts := strings.Split(directory, "/")
+		root := parts[0]
+		if directory == "." {
+			root = "."
+		}
+		artistID := directoryID(root)
+		albumID := directoryID(directory)
+		art := artists[artistID]
+		if art == nil {
+			name := root
+			if root == "." {
+				name = "Music"
+			}
+			art = &artist{ID: artistID, Name: name, Starred: c.annotations[artistID].Starred, Albums: []album{}}
+			artists[artistID] = art
+		}
+		alb := albums[albumID]
+		if alb == nil {
+			name := path.Base(directory)
+			if directory == "." {
+				name = "Music"
+			}
+			ann := c.annotations[albumID]
+			alb = &album{ID: albumID, Name: name, Artist: art.Name, ArtistID: artistID, Created: source.Created, Genre: source.Genre, Year: source.Year, CoverArt: source.ID, Starred: ann.Starred, UserRating: ann.Rating, Songs: []song{}}
+			albums[albumID] = alb
+		}
+		s := source
+		s.Parent = albumID
+		alb.Songs = append(alb.Songs, s)
+		alb.SongCount++
+		alb.Duration += s.Duration
+		alb.PlayCount += s.PlayCount
+		if s.Created < alb.Created {
+			alb.Created = s.Created
+		}
+		if stamp := c.annotations[s.ID].LastPlayed; stamp > out.lastPlayed[albumID] {
+			out.lastPlayed[albumID] = stamp
+		}
+		art.CoverArt = alb.CoverArt
+		out.songs = append(out.songs, s)
+	}
+	for _, alb := range albums {
+		out.albums = append(out.albums, *alb)
+		art := artists[alb.ArtistID]
+		art.Albums = append(art.Albums, *alb)
+		art.AlbumCount++
+	}
+	for _, art := range artists {
+		sort.Slice(art.Albums, func(i, j int) bool { return art.Albums[i].Name < art.Albums[j].Name })
+		out.artists = append(out.artists, *art)
+	}
+	sort.Slice(out.albums, func(i, j int) bool { return strings.ToLower(out.albums[i].Name) < strings.ToLower(out.albums[j].Name) })
+	sort.Slice(out.artists, func(i, j int) bool {
+		return strings.ToLower(out.artists[i].Name) < strings.ToLower(out.artists[j].Name)
+	})
+	return out
+}
+func (c collection) directoryTracks(key string) []song {
+	songs := []song{}
+	for _, s := range c.songs {
+		directory := path.Dir(c.tracks[s.ID].Path)
+		for {
+			if directoryID(directory) == key {
+				songs = append(songs, s)
+				break
+			}
+			if directory == "." {
+				break
+			}
+			directory = path.Dir(directory)
+		}
+	}
+	return songs
+}
+func (c collection) directoryIDs() map[string]bool {
+	ids := map[string]bool{}
+	for _, s := range c.songs {
+		p := path.Dir(c.tracks[s.ID].Path)
+		for {
+			ids[directoryID(p)] = true
+			if p == "." {
+				break
+			}
+			p = path.Dir(p)
+		}
+	}
+	return ids
+}

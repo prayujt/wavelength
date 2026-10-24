@@ -1,0 +1,1069 @@
+{
+  "source": "https://www.subsonic.org/pages/api.jsp",
+  "version": "1.16.1",
+  "endpoints": {
+    "ping": [],
+    "getLicense": [],
+    "getMusicFolders": [],
+    "getIndexes": [
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "ifModifiedSince",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getMusicDirectory": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getGenres": [],
+    "getArtists": [
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getArtist": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getAlbum": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getSong": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getVideos": [],
+    "getVideoInfo": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getArtistInfo": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "includeNotPresent",
+        "required": "No",
+        "default": "false"
+      }
+    ],
+    "getArtistInfo2": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "includeNotPresent",
+        "required": "No",
+        "default": "false"
+      }
+    ],
+    "getAlbumInfo": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getAlbumInfo2": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getSimilarSongs": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "50"
+      }
+    ],
+    "getSimilarSongs2": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "50"
+      }
+    ],
+    "getTopSongs": [
+      {
+        "name": "artist",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "50"
+      }
+    ],
+    "getAlbumList": [
+      {
+        "name": "type",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "size",
+        "required": "No",
+        "default": "10"
+      },
+      {
+        "name": "offset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "fromYear",
+        "required": "Yes (if type is byYear)",
+        "default": ""
+      },
+      {
+        "name": "toYear",
+        "required": "Yes (if type is byYear)",
+        "default": ""
+      },
+      {
+        "name": "genre",
+        "required": "Yes (if type is byGenre)",
+        "default": ""
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getAlbumList2": [
+      {
+        "name": "type",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "size",
+        "required": "No",
+        "default": "10"
+      },
+      {
+        "name": "offset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "fromYear",
+        "required": "Yes (if type is byYear)",
+        "default": ""
+      },
+      {
+        "name": "toYear",
+        "required": "Yes (if type is byYear)",
+        "default": ""
+      },
+      {
+        "name": "genre",
+        "required": "Yes (if type is byGenre)",
+        "default": ""
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getRandomSongs": [
+      {
+        "name": "size",
+        "required": "No",
+        "default": "10"
+      },
+      {
+        "name": "genre",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "fromYear",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "toYear",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getSongsByGenre": [
+      {
+        "name": "genre",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "10"
+      },
+      {
+        "name": "offset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getNowPlaying": [],
+    "getStarred": [
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getStarred2": [
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "search": [
+      {
+        "name": "artist",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "album",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "title",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "any",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "count",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "offset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "newerThan",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "search2": [
+      {
+        "name": "query",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "artistCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "artistOffset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "albumCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "albumOffset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "songCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "search3": [
+      {
+        "name": "query",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "artistCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "artistOffset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "albumCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "albumOffset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "songCount",
+        "required": "No",
+        "default": "20"
+      },
+      {
+        "name": "songOffset",
+        "required": "No",
+        "default": "0"
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getPlaylists": [
+      {
+        "name": "username",
+        "required": "no",
+        "default": ""
+      }
+    ],
+    "getPlaylist": [
+      {
+        "name": "id",
+        "required": "yes",
+        "default": ""
+      }
+    ],
+    "createPlaylist": [
+      {
+        "name": "playlistId",
+        "required": "Yes (if updating)",
+        "default": ""
+      },
+      {
+        "name": "name",
+        "required": "Yes (if creating)",
+        "default": ""
+      },
+      {
+        "name": "songId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "updatePlaylist": [
+      {
+        "name": "playlistId",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "name",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "comment",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "public",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "songIdToAdd",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "songIndexToRemove",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "deletePlaylist": [
+      {
+        "name": "id",
+        "required": "yes",
+        "default": ""
+      }
+    ],
+    "stream": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "maxBitRate",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "format",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "timeOffset",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "size",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "estimateContentLength",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "converted",
+        "required": "No",
+        "default": "false"
+      }
+    ],
+    "download": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "hls": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "bitRate",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "audioTrack",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getCaptions": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "format",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getCoverArt": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "size",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getLyrics": [
+      {
+        "name": "artist",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "title",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getAvatar": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "star": [
+      {
+        "name": "id",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "albumId",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "artistId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "unstar": [
+      {
+        "name": "id",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "albumId",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "artistId",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "setRating": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "rating",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "scrobble": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "time",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "submission",
+        "required": "No",
+        "default": "True"
+      }
+    ],
+    "getShares": [],
+    "createShare": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "description",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "expires",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "updateShare": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "description",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "expires",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "deleteShare": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getPodcasts": [
+      {
+        "name": "includeEpisodes",
+        "required": "No",
+        "default": "true"
+      },
+      {
+        "name": "id",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getNewestPodcasts": [
+      {
+        "name": "count",
+        "required": "No",
+        "default": "20"
+      }
+    ],
+    "refreshPodcasts": [],
+    "createPodcastChannel": [
+      {
+        "name": "url",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "deletePodcastChannel": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "deletePodcastEpisode": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "downloadPodcastEpisode": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "jukeboxControl": [
+      {
+        "name": "action",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "index",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "offset",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "id",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "gain",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getInternetRadioStations": [],
+    "createInternetRadioStation": [
+      {
+        "name": "streamUrl",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "name",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "homepageUrl",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "updateInternetRadioStation": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "streamUrl",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "name",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "homepageUrl",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "deleteInternetRadioStation": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getChatMessages": [
+      {
+        "name": "since",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "addChatMessage": [
+      {
+        "name": "message",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getUser": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getUsers": [],
+    "createUser": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "password",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "email",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "ldapAuthenticated",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "adminRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "settingsRole",
+        "required": "No",
+        "default": "true"
+      },
+      {
+        "name": "streamRole",
+        "required": "No",
+        "default": "true"
+      },
+      {
+        "name": "jukeboxRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "downloadRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "uploadRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "playlistRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "coverArtRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "commentRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "podcastRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "shareRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "videoConversionRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": "All folders"
+      }
+    ],
+    "updateUser": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "password",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "email",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "ldapAuthenticated",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "adminRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "settingsRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "streamRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "jukeboxRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "downloadRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "uploadRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "coverArtRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "commentRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "podcastRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "shareRole",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "videoConversionRole",
+        "required": "No",
+        "default": "false"
+      },
+      {
+        "name": "musicFolderId",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "maxBitRate",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "deleteUser": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "changePassword": [
+      {
+        "name": "username",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "password",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getBookmarks": [],
+    "createBookmark": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "position",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "comment",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "deleteBookmark": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      }
+    ],
+    "getPlayQueue": [],
+    "savePlayQueue": [
+      {
+        "name": "id",
+        "required": "Yes",
+        "default": ""
+      },
+      {
+        "name": "current",
+        "required": "No",
+        "default": ""
+      },
+      {
+        "name": "position",
+        "required": "No",
+        "default": ""
+      }
+    ],
+    "getScanStatus": [],
+    "startScan": []
+  }
+}

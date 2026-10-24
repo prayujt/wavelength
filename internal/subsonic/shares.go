@@ -126,6 +126,12 @@ func (a *api) shares(r *http.Request, endpoint string, result *response) bool {
 				}
 			}
 			if !found {
+				for _, s := range c.directoryTracks(key) {
+					expanded = append(expanded, s.ID)
+					found = true
+				}
+			}
+			if !found {
 				failure(result, 70, "Media not found")
 				return true
 			}

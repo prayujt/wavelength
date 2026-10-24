@@ -8,7 +8,6 @@ import (
 	_ "image/gif"
 	"image/jpeg"
 	_ "image/png"
-	"io"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -76,10 +75,21 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 			failure(result, 10, err.Error())
 			return true
 		}
+		current, err := a.account(r.Context(), r.Form.Get("u"))
+		if err != nil {
+			legacyError(result, err)
+			return true
+		}
+		if current.MaxBitRate > 0 && (bitrate == 0 || bitrate > current.MaxBitRate) {
+			bitrate = current.MaxBitRate
+		}
 		format := r.Form.Get("format")
 		track, err := a.lib.Get(r.Context(), id)
 		if err != nil {
 			legacyError(result, err)
+			return true
+		}
+		if strings.HasPrefix(track.ContentType, "video/") && a.converted(w, r, result, id) {
 			return true
 		}
 		if a.maybeVideoTranscode(w, r, result, track.ContentType, id, format, bitrate) {
@@ -129,6 +139,9 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 			if e != nil {
 				legacyError(result, e)
 				return true
+			}
+			if entries := c.directoryTracks(id); len(entries) > 0 {
+				trackID = entries[0].ID
 			}
 			for _, alb := range c.albums {
 				if alb.ID == id && len(alb.Songs) > 0 {
@@ -280,38 +293,5 @@ func (a *api) transcode(w http.ResponseWriter, r *http.Request, id, format strin
 	defer cancel()
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	command.ExtraFiles = []*os.File{file}
-	output, err := command.StdoutPipe()
-	if err != nil {
-		return false, err
-	}
-	if err = command.Start(); err != nil {
-		return false, errors.New("Could not start transcoder")
-	}
-	// Wait for actual encoded output before committing a successful audio response.
-	buffer := make([]byte, 32<<10)
-	n, readErr := output.Read(buffer)
-	if n == 0 {
-		_ = command.Wait()
-		return false, errors.New("Could not decode source media")
-	}
-	w.Header().Set("Content-Type", mimeType)
-	w.Header().Set("X-Content-Type-Options", "nosniff")
-	if r.Method != "HEAD" {
-		if _, err = w.Write(buffer[:n]); err == nil {
-			_, err = io.Copy(w, output)
-		}
-	} else {
-		_, err = io.Copy(io.Discard, output)
-	}
-	if err != nil {
-		cancel()
-	}
-	waitErr := command.Wait()
-	if err != nil {
-		return true, err
-	}
-	if readErr != nil && !errors.Is(readErr, io.EOF) {
-		return true, readErr
-	}
-	return true, waitErr
+	return serveEncoded(w, r, command, cancel, mimeType)
 }

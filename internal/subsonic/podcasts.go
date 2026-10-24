@@ -40,6 +40,26 @@ type rssItem struct {
 		Length int64  `xml:"length,attr"`
 	} `xml:"enclosure"`
 }
+type atomFeed struct {
+	Title    string `xml:"title"`
+	Subtitle string `xml:"subtitle"`
+	Logo     string `xml:"logo"`
+	Entries  []struct {
+		ID        string `xml:"id"`
+		Title     string `xml:"title"`
+		Summary   string `xml:"summary"`
+		Content   string `xml:"content"`
+		Published string `xml:"published"`
+		Updated   string `xml:"updated"`
+		Links     []struct {
+			Rel    string `xml:"rel,attr"`
+			Href   string `xml:"href,attr"`
+			Type   string `xml:"type,attr"`
+			Length int64  `xml:"length,attr"`
+		} `xml:"link"`
+	} `xml:"entry"`
+}
+
 type rssFeed struct {
 	Channel struct {
 		Title       string `xml:"title"`
@@ -128,14 +148,38 @@ func podcastDate(value string) string {
 func (a *api) refreshChannel(ctx context.Context, channel podcastChannel) error {
 	body, _, err := a.fetch(ctx, channel.URL, 10<<20)
 	if err != nil {
-		channel.Status = "error"
-		channel.Error = "Could not fetch podcast feed"
-		_ = a.save(ctx, "podcasts", channel.ID, channel)
-		return err
+		return a.feedError(ctx, channel.ID, "Could not fetch podcast feed")
 	}
 	var feed rssFeed
-	if err = xml.Unmarshal(body, &feed); err != nil || feed.Channel.Title == "" {
-		return errors.New("source is not a valid RSS podcast feed")
+	if err = xml.Unmarshal(body, &feed); err != nil {
+		return a.feedError(ctx, channel.ID, "Invalid podcast XML")
+	}
+	if feed.Channel.Title == "" {
+		var atom atomFeed
+		if err = xml.Unmarshal(body, &atom); err != nil || atom.Title == "" {
+			return a.feedError(ctx, channel.ID, "Source is not an RSS or Atom podcast")
+		}
+		feed.Channel.Title = atom.Title
+		feed.Channel.Description = atom.Subtitle
+		feed.Channel.Image.URL = atom.Logo
+		for _, entry := range atom.Entries {
+			for _, link := range entry.Links {
+				if link.Rel == "enclosure" {
+					item := rssItem{GUID: entry.ID, Title: entry.Title, Description: entry.Summary, Published: entry.Published}
+					if item.Description == "" {
+						item.Description = entry.Content
+					}
+					if item.Published == "" {
+						item.Published = entry.Updated
+					}
+					item.Enclosure.URL = link.Href
+					item.Enclosure.Type = link.Type
+					item.Enclosure.Length = link.Length
+					feed.Channel.Items = append(feed.Channel.Items, item)
+					break
+				}
+			}
+		}
 	}
 	base, _ := url.Parse(channel.URL)
 	episodes := []podcastEpisode{}
@@ -158,6 +202,9 @@ func (a *api) refreshChannel(ctx context.Context, channel podcastChannel) error 
 		episodes = append(episodes, podcastEpisode{ID: id(channel.ID + "\x00" + identity), URL: address, Title: item.Title, Description: item.Description, Published: podcastDate(item.Published), ContentType: item.Enclosure.Type, Size: item.Enclosure.Length, Duration: durationSeconds(item.Duration), Status: "new"})
 	}
 	return a.store.Update(ctx, "podcasts", channel.ID, func(raw json.RawMessage) (json.RawMessage, error) {
+		if len(raw) == 0 {
+			return nil, state.ErrNotFound
+		}
 		if len(raw) > 0 {
 			if err := json.Unmarshal(raw, &channel); err != nil {
 				return nil, err
@@ -303,6 +350,15 @@ func (a *api) podcasts(r *http.Request, endpoint string, result *response) bool 
 			return true
 		}
 		c := podcastChannel{ID: id("podcast\x00" + address), URL: address, Status: "new", Episodes: []podcastEpisode{}}
+		if err = a.store.Update(ctx, "podcasts", c.ID, func(raw json.RawMessage) (json.RawMessage, error) {
+			if len(raw) > 0 {
+				return raw, nil
+			}
+			return json.Marshal(c)
+		}); err != nil {
+			legacyError(result, err)
+			return true
+		}
 		if err = a.refreshChannel(ctx, c); err != nil {
 			failure(result, 0, "Could not import podcast feed")
 		}
@@ -322,23 +378,28 @@ func (a *api) podcasts(r *http.Request, endpoint string, result *response) bool 
 		return true
 	}
 	if endpoint == "deletePodcastChannel" {
-		found := false
-		for _, c := range channels {
-			if c.ID == key {
-				found = true
-				for _, e := range c.Episodes {
-					if a.podcastDir != "" {
-						_ = os.Remove(filepath.Join(a.podcastDir, e.ID+".media"))
-					}
-				}
+		var removed podcastChannel
+		err = a.store.Update(ctx, "podcasts", key, func(raw json.RawMessage) (json.RawMessage, error) {
+			if len(raw) == 0 {
+				return nil, state.ErrNotFound
 			}
-		}
-		if !found {
+			if err := json.Unmarshal(raw, &removed); err != nil {
+				return nil, err
+			}
+			return nil, nil
+		})
+		if errors.Is(err, state.ErrNotFound) {
 			failure(result, 70, "Podcast channel not found")
 			return true
 		}
-		if err = a.remove(ctx, "podcasts", key); err != nil {
+		if err != nil {
 			legacyError(result, err)
+			return true
+		}
+		for _, e := range removed.Episodes {
+			if a.podcastDir != "" {
+				_ = os.Remove(filepath.Join(a.podcastDir, e.ID+".media"))
+			}
 		}
 		return true
 	}
@@ -357,11 +418,12 @@ func (a *api) podcasts(r *http.Request, endpoint string, result *response) bool 
 		return true
 	}
 	if endpoint == "deletePodcastEpisode" {
-		if a.podcastDir != "" {
-			_ = os.Remove(filepath.Join(a.podcastDir, key+".media"))
-		}
 		if err = a.updateEpisode(ctx, channelID, key, func(e *podcastEpisode) { e.Status = "deleted"; e.Error = "" }); err != nil {
 			legacyError(result, err)
+			return true
+		}
+		if a.podcastDir != "" {
+			_ = os.Remove(filepath.Join(a.podcastDir, key+".media"))
 		}
 		return true
 	}
@@ -369,14 +431,20 @@ func (a *api) podcasts(r *http.Request, endpoint string, result *response) bool 
 		failure(result, 0, "Podcast download directory is not configured")
 		return true
 	}
-	if episode.Status == "completed" || episode.Status == "downloading" {
-		return true
-	}
-	if err = a.updateEpisode(ctx, channelID, key, func(e *podcastEpisode) { e.Status = "downloading"; e.Error = "" }); err != nil {
+	claimed := false
+	if err = a.updateEpisode(ctx, channelID, key, func(e *podcastEpisode) {
+		if e.Status != "completed" && e.Status != "downloading" {
+			e.Status = "downloading"
+			e.Error = ""
+			claimed = true
+		}
+	}); err != nil {
 		legacyError(result, err)
 		return true
 	}
-	go a.downloadEpisode(channelID, episode)
+	if claimed {
+		go a.downloadEpisode(channelID, episode)
+	}
 	return true
 }
 func stringValue(value any) string { s, _ := value.(string); return s }
@@ -406,6 +474,12 @@ func (a *api) updateEpisode(ctx context.Context, channelID, episodeID string, up
 func (a *api) downloadEpisode(channelID string, e podcastEpisode) {
 	ctx, cancel := context.WithTimeout(a.ctx, 30*time.Minute)
 	defer cancel()
+	temporary := ""
+	defer func() {
+		if temporary != "" {
+			_ = os.Remove(temporary)
+		}
+	}()
 	err := func() error {
 		if _, err := validSource(e.URL); err != nil {
 			return err
@@ -434,7 +508,7 @@ func (a *api) downloadEpisode(channelID string, e podcastEpisode) {
 			return err
 		}
 		name := file.Name()
-		defer os.Remove(name)
+		temporary = name
 		n, err := io.Copy(file, io.LimitReader(response.Body, 1<<30+1))
 		if closeErr := file.Close(); err == nil {
 			err = closeErr
@@ -445,10 +519,10 @@ func (a *api) downloadEpisode(channelID string, e podcastEpisode) {
 		if n > 1<<30 {
 			return errors.New("episode exceeds 1 GiB limit")
 		}
-		if err = os.Rename(name, filepath.Join(a.podcastDir, e.ID+".media")); err != nil {
-			return err
-		}
 		e.Size = n
+		if contentType := response.Header.Get("Content-Type"); contentType != "" {
+			e.ContentType = contentType
+		}
 		return nil
 	}()
 	status := "completed"
@@ -457,19 +531,54 @@ func (a *api) downloadEpisode(channelID string, e podcastEpisode) {
 		status = "error"
 		message = "Episode download failed"
 	}
-	// A deleted channel/episode cannot be resurrected by an in-flight download.
-	_ = a.updateEpisode(a.ctx, channelID, e.ID, func(current *podcastEpisode) {
-		if current.Status == "deleted" {
-			_ = os.Remove(filepath.Join(a.podcastDir, e.ID+".media"))
-			return
+	_ = a.store.Update(a.ctx, "podcasts", channelID, func(raw json.RawMessage) (json.RawMessage, error) {
+		if len(raw) == 0 {
+			return nil, state.ErrNotFound
 		}
-		current.Status = status
-		current.Error = message
-		if status == "completed" {
-			current.Size = e.Size
+		var c podcastChannel
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return nil, err
 		}
+		for i := range c.Episodes {
+			current := &c.Episodes[i]
+			if current.ID != e.ID {
+				continue
+			}
+			if current.Status != "downloading" {
+				return raw, nil
+			}
+			if status == "completed" {
+				if err := os.Rename(temporary, filepath.Join(a.podcastDir, e.ID+".media")); err != nil {
+					status = "error"
+					message = "Episode storage failed"
+				} else {
+					current.Size = e.Size
+					current.ContentType = e.ContentType
+				}
+			}
+			current.Status = status
+			current.Error = message
+			break
+		}
+		return json.Marshal(c)
 	})
 }
+func (a *api) feedError(ctx context.Context, id, message string) error {
+	_ = a.store.Update(ctx, "podcasts", id, func(raw json.RawMessage) (json.RawMessage, error) {
+		if len(raw) == 0 {
+			return nil, state.ErrNotFound
+		}
+		var c podcastChannel
+		if err := json.Unmarshal(raw, &c); err != nil {
+			return nil, err
+		}
+		c.Status = "error"
+		c.Error = message
+		return json.Marshal(c)
+	})
+	return errors.New(message)
+}
+
 func (a *api) podcastMedia(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
 	key := r.Form.Get("id")
 	if !strings.HasPrefix(key, "podcast_") || (endpoint != "getSong" && endpoint != "stream" && endpoint != "download") {

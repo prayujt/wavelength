@@ -97,6 +97,7 @@ go run ./cmd/wavelength --scan-only
 make generate                 # protoc required; pinned Go generators installed locally
 make check                    # vet and race tests
 make smoke                    # real binary, Python 3, FFmpeg and ffprobe
+make compatibility            # independent client, all legacy endpoints + XSD
 uv run scripts/validate-subsonic.py  # pinned official XSD and lxml
 ```
 

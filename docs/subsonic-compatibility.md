@@ -32,13 +32,18 @@ paths, but endpoint presence alone does not establish full compatibility.
 
 ## Remaining differences and unverified areas
 
-- No end-to-end certification with real Subsonic clients or a live Navidrome migration
-  has been performed. Successful fixtures are not a substitute for that work.
+- Real-binary interoperability is verified with py-sonic 1.0.3 for 74 endpoints; its
+  two video methods have upstream integer-ID/JSON-caption assumptions and are checked
+  directly over HTTP instead. This is not certification of every mobile/desktop app
+  or a live Navidrome migration.
 - One configured library root; no LDAP authentication integration or original Subsonic
   administration/UI. Native per-user roles and a browser UI are not implemented.
-- Transcoded Content-Length estimation and preconverted-video variants are not provided.
-  Codec/container support depends on the installed FFmpeg build.
-- Podcast support is RSS/enclosures, not a general Atom feed implementation.
+- Transcoded Content-Length requests are supported using disk-backed completion to
+  provide an exact length. Optional preconverted MP4 files live at
+  `data/converted/<videoID>.mp4`; getVideoInfo advertises them and converted=true
+  streams them with range support. Codec availability depends on the FFmpeg build.
+- Podcast subscriptions support RSS and Atom enclosures. Downloads are claimed
+  atomically and channel/episode deletion cannot resurrect in-flight downloads.
 - Real hardware jukebox playback and live Last.fm/OIDC deployments are not verified;
   their integrations use controlled test providers/backends.
 - OpenSubsonic extension parity is outside this legacy target.
@@ -60,3 +65,23 @@ playback, pruning, restart persistence, source immutability and graceful shutdow
 pinned official 1.16.1 XSD. It documents one schema correction: PlayQueue.current is
 made a string to accommodate the API's string media IDs. This is fixture/schema
 coverage, not exhaustive validation of every optional resource and request parameter.
+
+## Executable endpoint contract
+
+The official endpoint/parameter inventory is recorded in
+`internal/subsonic/testdata/contract.json`. `TestDocumentedRequiredParameters` checks
+missing required inputs across that inventory; filesystem-ID and account-limit
+regressions cover cross-endpoint behavior rather than dispatch presence alone.
+
+`uv run scripts/client-compatibility.py` starts the real binary with isolated media
+and SQLite, then checks all 76 documented endpoints through 172 operations in its
+current fixture run. It includes actual podcast downloads, video/captions, sharing,
+account administration, playlists, original and transcoded playback and HLS.
+The unmodified py-sonic client handles 74 endpoints; direct HTTP covers the two video
+methods described above. Its repeated-parameter GET helpers reference Python 2's
+urllib2, so those client calls use POST; GET connectivity is checked separately.
+
+Additional media tests verify encoded GET/HEAD Content-Length, per-account bitrate
+limits, adaptive HLS bitrate@dimensions, caption conversion and preconverted MP4s.
+Legacy filesystem IDs are distinct from ID3 identities and round-trip through search,
+stars, lists, artwork, metadata and public sharing.

@@ -1,4 +1,4 @@
-.PHONY: run build test check fmt smoke generate
+.PHONY: run build test check fmt smoke generate compatibility
 run:
 	go run ./cmd/wavelength
 build:
@@ -16,3 +16,7 @@ smoke: build
 
 generate:
 	sh scripts/generate.sh
+
+compatibility: build
+	uv run scripts/client-compatibility.py
+	uv run scripts/validate-subsonic.py

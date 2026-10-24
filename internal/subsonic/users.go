@@ -23,6 +23,7 @@ type account struct {
 	Username, Email, Password string
 	Roles                     map[string]bool
 	Folders                   []string
+	MaxBitRate                int
 }
 
 func (a *api) defaultAccount() account {
@@ -115,6 +116,10 @@ func (a *api) authorized(r *http.Request, endpoint string, user account, result 
 		failure(result, 50, "User is not authorized for this operation")
 		return false
 	}
+	if endpoint == "getPlaylists" && r.Form.Has("username") && !user.Roles["adminRole"] {
+		failure(result, 50, "Listing another user requires administrator role")
+		return false
+	}
 	if (endpoint == "getUser" || endpoint == "changePassword") && r.Form.Get("username") != user.Username && !user.Roles["adminRole"] {
 		failure(result, 50, "User cannot manage another account")
 		return false
@@ -126,7 +131,7 @@ func (a *api) authorized(r *http.Request, endpoint string, user account, result 
 	return true
 }
 func accountNode(user account) map[string]any {
-	out := map[string]any{"username": user.Username, "email": user.Email, "scrobblingEnabled": false, "folder": user.Folders}
+	out := map[string]any{"username": user.Username, "email": user.Email, "scrobblingEnabled": false, "folder": user.Folders, "maxBitRate": user.MaxBitRate}
 	for _, role := range accountRoles {
 		out[role] = user.Roles[role]
 	}
@@ -225,7 +230,7 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 		if result.Error != nil {
 			return true
 		}
-		current = account{Username: name, Roles: map[string]bool{"settingsRole": true, "streamRole": true, "playlistRole": true}, Folders: []string{"1"}}
+		current = account{Username: name, Roles: map[string]bool{"settingsRole": true, "streamRole": true}, Folders: []string{"1"}}
 	}
 	if endpoint == "changePassword" {
 		required(r, result, "password")
@@ -259,6 +264,18 @@ func (a *api) users(r *http.Request, endpoint string, result *response) bool {
 				return true
 			}
 			current.Roles[role] = flag
+		}
+		if r.Form.Has("maxBitRate") {
+			rate, err := number(r, "maxBitRate", 0, 320)
+			valid := false
+			for _, legal := range []int{0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320} {
+				valid = valid || rate == legal
+			}
+			if err != nil || !valid {
+				failure(result, 10, "Invalid maxBitRate")
+				return true
+			}
+			current.MaxBitRate = rate
 		}
 		if r.Form.Has("musicFolderId") {
 			for _, folder := range r.Form["musicFolderId"] {

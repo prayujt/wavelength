@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -66,6 +67,31 @@ func TestRealTranscodingHLSVideoAndCaptions(t *testing.T) {
 		t.Fatalf("transcode: %s", transcoded.Body)
 	}
 	decode(t, transcoded.Body.Bytes(), "mp3")
+	for _, method := range []string{"GET", "HEAD"} {
+		args := url.Values{"id": {track}, "format": {"mp3"}, "estimateContentLength": {"true"}, "u": {"admin"}, "p": {"secret"}, "v": {"1.16.1"}, "c": {"tests"}}
+		recorder := httptest.NewRecorder()
+		f.server.Handler.ServeHTTP(recorder, httptest.NewRequest(method, "/rest/stream?"+args.Encode(), nil))
+		length, err := strconv.Atoi(recorder.Header().Get("Content-Length"))
+		if err != nil || length == 0 {
+			t.Fatalf("%s length: %v %s", method, err, recorder.Body)
+		}
+		if method == "GET" {
+			if length != recorder.Body.Len() {
+				t.Fatal("wrong encoded length")
+			}
+			decode(t, recorder.Body.Bytes(), "mp3")
+		} else if recorder.Body.Len() != 0 {
+			t.Fatal("HEAD wrote a body")
+		}
+	}
+	f.ok(t, "createUser", url.Values{"username": {"capped"}, "password": {"app"}, "email": {"a@example.test"}})
+	f.ok(t, "updateUser", url.Values{"username": {"capped"}, "maxBitRate": {"64"}})
+	capped := f.raw(t, "stream", url.Values{"u": {"capped"}, "p": {"app"}, "id": {track}})
+	if capped.Header().Get("Content-Type") != "audio/mpeg" {
+		t.Fatalf("account bitrate not applied: %s", capped.Body)
+	}
+	decode(t, capped.Body.Bytes(), "mp3")
+
 	playlist := f.raw(t, "hls", url.Values{"id": {track}, "bitRate": {"64"}}).Body.String()
 	if !strings.Contains(playlist, "#EXTM3U") {
 		t.Fatal(playlist)
@@ -91,6 +117,16 @@ func TestRealTranscodingHLSVideoAndCaptions(t *testing.T) {
 		t.Fatal(videos)
 	}
 	videoID := videos[0].(map[string]any)["id"].(string)
+	f.ok(t, "getSong", url.Values{"id": {videoID}})
+	master := f.raw(t, "hls", url.Values{"id": {videoID}, "bitRate": {"256@80x60", "512@160x120"}}).Body.String()
+	if !strings.Contains(master, "RESOLUTION=80x60") || strings.Count(master, "#EXT-X-STREAM-INF") != 2 {
+		t.Fatal(master)
+	}
+	variant := f.raw(t, "hls", url.Values{"id": {videoID}, "bitRate": {"256@80x60"}, "audioTrack": {"1"}})
+	if !strings.Contains(variant.Body.String(), "#EXTM3U") {
+		t.Fatal(variant.Body)
+	}
+
 	info := f.ok(t, "getVideoInfo", url.Values{"id": {videoID}})
 	if len(list(info, "videoInfo", "audioTrack")) != 1 {
 		t.Fatal(info)
@@ -104,6 +140,28 @@ func TestRealTranscodingHLSVideoAndCaptions(t *testing.T) {
 		t.Fatal(conversion.Body)
 	}
 	decode(t, conversion.Body.Bytes(), "mp4")
+	convertedDir := filepath.Join(f.data, "converted")
+	if err := os.MkdirAll(convertedDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(convertedDir, videoID+".mp4"), conversion.Body.Bytes(), 0600); err != nil {
+		t.Fatal(err)
+	}
+	// Reopen on the same persistent catalog with a configured converted-file directory.
+	withConverted := newFixture(t, f.data, f.music, subsonic.WithVideoDirectory(convertedDir))
+	info = withConverted.ok(t, "getVideoInfo", url.Values{"id": {videoID}})
+	if len(list(info, "videoInfo", "conversion")) != 1 {
+		t.Fatal(info)
+	}
+	stored := withConverted.raw(t, "stream", url.Values{"id": {videoID}, "converted": {"true"}})
+	if !bytes.Equal(stored.Body.Bytes(), conversion.Body.Bytes()) {
+		t.Fatal("converted=true did not return stored MP4")
+	}
+	captionSRT := f.raw(t, "getCaptions", url.Values{"id": {videoID}, "format": {"srt"}})
+	if !strings.Contains(captionSRT.Body.String(), "00:00:00,000") {
+		t.Fatal(captionSRT.Body)
+	}
+
 }
 func TestPublicShareExpirationRevocationAndScope(t *testing.T) {
 	f := newFixture(t, "", "")
