@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="same-origin">
+  <title>{{if .ErrorTitle}}{{.ErrorTitle}}{{else}}Connect {{.ClientName}}{{end}} · Wavelength</title>
+  <style nonce="{{.StyleNonce}}">
+    :root { color-scheme: light; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172033; background: #f5f5fa; font-synthesis: none; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; min-height: 100svh; display: grid; place-items: center; padding: 36px 20px; background: radial-gradient(ellipse at 50% 0%, #eae7fc 0%, #f5f5fa 55%); }
+    main { width: 100%; max-width: 488px; }
+    .brand { display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 25px; font-size: 17px; font-weight: 700; letter-spacing: -.4px; }
+    .brand-icon { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px; background: #6355df; color: white; box-shadow: 0 3px 8px #6355df24; }
+    svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+    .card { background: #fff; border: 1px solid #e5e5ef; border-radius: 20px; padding: 32px; box-shadow: 0 18px 60px -30px #2d24592b, 0 2px 8px #18203905; }
+    .eyebrow { display: flex; gap: 6px; align-items: center; color: #6c668b; font-size: 11px; font-weight: 650; letter-spacing: 1.3px; text-transform: uppercase; margin: 0 0 17px; }
+    .eyebrow svg { width: 13px; height: 13px; }
+    h1 { margin: 0; font-size: 27px; line-height: 1.25; font-weight: 700; letter-spacing: -.9px; overflow-wrap: anywhere; }
+    .subtitle { margin: 12px 0 24px; color: #667085; font-size: 14px; line-height: 1.6; }
+    .identity { display: flex; align-items: center; gap: 11px; padding: 13px 14px; border: 1px solid #e9e8f2; border-radius: 11px; margin-bottom: 27px; }
+    .avatar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #eeebfc; color: #6c59cc; }
+    .avatar svg { width: 18px; height: 18px; }
+    .identity-label { display: block; color: #667085; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; }
+    .identity-name { display: block; margin-top: 2px; font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+    .identity-email { display: block; margin-top: 2px; color: #667085; font-size: 11px; overflow-wrap: anywhere; }
+    h2 { font-size: 12px; font-weight: 650; margin: 0 0 16px; color: #535b70; }
+    .permissions { list-style: none; margin: 0; padding: 0; display: grid; gap: 19px; }
+    .permissions li { display: flex; align-items: flex-start; gap: 12px; }
+    .check { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 8px; background: #eeebfc; color: #7965d8; flex: none; }
+    .check svg { width: 15px; height: 15px; }
+    .permission-title { display: block; font-size: 13px; font-weight: 600; line-height: 1.4; }
+    .permission-description { display: block; margin-top: 4px; color: #667085; font-size: 12px; line-height: 1.6; }
+    details { margin-top: 26px; padding-top: 18px; border-top: 1px solid #efeff5; font-size: 11px; color: #667085; }
+    summary { cursor: pointer; width: fit-content; }
+    details p { line-height: 1.6; margin: 10px 0 0; overflow-wrap: anywhere; }
+    code { font: inherit; color: #50586c; }
+    .actions { display: grid; grid-template-columns: 1fr 1.7fr; gap: 10px; margin-top: 27px; }
+    button { min-height: 45px; border: 1px solid transparent; border-radius: 10px; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background .12s ease; }
+    .cancel { background: #fff; border-color: #e3e4ed; color: #687085; }
+    .cancel:hover { background: #f7f7fb; }
+    .connect { background: #6755d9; color: #fff; display: flex; justify-content: center; align-items: center; gap: 7px; box-shadow: 0 3px 5px #6755d920; }
+    .connect:hover { background: #5846c5; }
+    .connect svg { width: 15px; height: 15px; }
+    button:focus-visible, summary:focus-visible { outline: 3px solid #afa4f3; outline-offset: 3px; }
+    .revoke-note { margin: 16px 0 0; color: #667085; font-size: 11px; line-height: 1.6; text-align: center; }
+    footer { margin: 20px 8px 0; color: #626979; font-size: 11px; line-height: 1.7; text-align: center; }
+    footer strong { color: #626979; font-weight: 500; }
+    .failure { margin-bottom: 0; }
+    @media (max-width: 420px) { body { padding: 25px 15px; } .card { padding: 25px 23px; border-radius: 17px; } h1 { font-size: 25px; } }
+    @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand"><span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10v4m4-8v12m4-15v18m4-15v12m4-8v4"/></svg></span>Wavelength</div>
+  <section class="card" aria-labelledby="title">
+    <p class="eyebrow"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Secure connection</p>
+    {{if .ErrorTitle}}
+    <h1 id="title">{{.ErrorTitle}}</h1>
+    <p class="subtitle failure">{{.ErrorMessage}}</p>
+    {{else}}
+    <h1 id="title">Connect {{.ClientName}}</h1>
+    <p class="subtitle">Allow this app to use your Wavelength account.</p>
+    <div class="identity">
+      <span class="avatar" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21v-2a7 7 0 0 1 14 0v2"/></svg></span>
+      <div><span class="identity-label">Signed in as</span><span class="identity-name">{{if .User.Name}}{{.User.Name}}{{else}}{{.User.Email}}{{end}}</span>{{if .User.Name}}{{if .User.Email}}<span class="identity-email">{{.User.Email}}</span>{{end}}{{end}}</div>
+    </div>
+    <h2>This app will be able to</h2>
+    <ul class="permissions">{{range .Permissions}}
+      <li><span class="check" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></svg></span><div><span class="permission-title">{{.Title}}</span><span class="permission-description">{{.Description}}</span></div></li>{{end}}
+    </ul>
+    <details><summary>Connection details</summary><p>Return address: <code>{{.Redirect}}</code></p><p>App names are provided by the connecting app and are not verified. Continue only if you started this connection.</p></details>
+    <form method="post" action="/oauth/authorize">
+      <input type="hidden" name="request" value="{{.ID}}">
+      <input type="hidden" name="csrf" value="{{.CSRF}}">
+      <div class="actions"><button class="cancel" name="decision" value="deny">Cancel</button><button class="connect" name="decision" value="allow">Connect<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></button></div>
+    </form>
+    <p class="revoke-note">You can revoke this connection from your account at any time.</p>
+    {{end}}
+  </section>
+  <footer>Music, connected. <strong>Your account stays in your control.</strong></footer>
+</main>
+</body>
+</html>

@@ -3,7 +3,7 @@
 A self-hosted music server written in Go, with an embedded SQLite catalog,
 Subsonic client compatibility, a native protobuf API, and authenticated MCP. It serves an existing
 music catalog and streams its source files. It runs
-as one binary and does not need an external database. A web UI is not included.
+as one binary and does not need an external database. A music player UI is not included.
 
 ## Run with Docker
 

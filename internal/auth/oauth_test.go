@@ -639,6 +639,11 @@ func TestOAuthConsentCSRFAndFreshProviderPolicy(t *testing.T) {
 	if r := form(t, b, s.URL+"/oauth/authorize", values, nil); r.StatusCode != 403 {
 		t.Fatal("consent accepted without Origin")
 	}
+	for _, origin := range []string{"null", "https://evil.example"} {
+		if r := form(t, b, s.URL+"/oauth/authorize", values, map[string]string{"Origin": origin}); r.StatusCode != 403 {
+			t.Fatal("consent accepted a null or foreign Origin")
+		}
+	}
 	values.Set("csrf", "wrong")
 	if r := form(t, b, s.URL+"/oauth/authorize", values, map[string]string{"Origin": s.URL}); r.StatusCode != 403 {
 		t.Fatal("consent accepted wrong CSRF")
