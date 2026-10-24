@@ -1,6 +1,7 @@
 package subsonic
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -15,7 +16,7 @@ func serveEncoded(w http.ResponseWriter, r *http.Request, stream *transcode.Stre
 		exact, err = strconv.ParseBool(r.Form.Get("estimateContentLength"))
 		if err != nil {
 			stream.Close()
-			return false, err
+			return false, fmt.Errorf("%w: invalid estimateContentLength", transcode.ErrInvalid)
 		}
 	}
 	return media.ServeEncoded(w, r, stream, exact)

@@ -6,6 +6,8 @@ import (
 	"strconv"
 )
 
+const maxResultCount = int(^uint(0) >> 1)
+
 // Required endpoint parameters from the published 1.16.1 contract. Validate before
 // resource lookup, so missing input is not reported as an absent resource.
 var requiredParameters = map[string][]string{

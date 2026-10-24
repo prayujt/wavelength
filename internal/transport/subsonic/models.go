@@ -31,7 +31,7 @@ type folders struct {
 	Folders []folder `xml:"musicFolder" json:"musicFolder"`
 }
 type folder struct {
-	ID   string `xml:"id,attr" json:"id"`
+	ID   int    `xml:"id,attr" json:"id"`
 	Name string `xml:"name,attr" json:"name"`
 }
 type artists struct {

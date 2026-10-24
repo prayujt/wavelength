@@ -117,8 +117,9 @@ are not cached. No browser tokens need to be placed in localStorage or stream UR
 
 Legacy Subsonic on port 8081 still authenticates exclusively through its own configured
 username/password or salted protocol token. It does not accept OIDC sessions or the
-native bearer token. Subsonic has its own persisted app accounts and role checks. Scoped/revocable native
-API tokens remain future work.
+native bearer token. It accepts only the configured legacy username and password;
+legacy account-management calls cannot change those credentials. Scoped/revocable
+native API tokens remain future work.
 
 ## Verification
 

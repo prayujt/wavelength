@@ -6,12 +6,13 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 )
 
 // filesystem projects directory identities independently of ID3 album identities.
 // Legacy directory IDs must round-trip through search and album lists.
 func (c collection) filesystem() collection {
-	out := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: c.tracks, lastPlayed: map[string]string{}, history: c.history}
+	out := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: c.tracks, lastPlayed: map[string]time.Time{}, history: c.history}
 	albums := map[string]*album{}
 	artists := map[string]*artist{}
 	for _, source := range c.songs {
@@ -61,7 +62,7 @@ func (c collection) filesystem() collection {
 		if s.Created < alb.Created {
 			alb.Created = s.Created
 		}
-		if stamp := c.history[s.ID].LastPlayed; stamp > out.lastPlayed[albumID] {
+		if stamp, _ := time.Parse(time.RFC3339Nano, c.history[s.ID].LastPlayed); stamp.After(out.lastPlayed[albumID]) {
 			out.lastPlayed[albumID] = stamp
 		}
 		art.CoverArt = alb.CoverArt

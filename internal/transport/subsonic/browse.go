@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/prayujt/wavelength/internal/library"
@@ -20,12 +21,12 @@ type collection struct {
 	albums     []album
 	songs      []song
 	tracks     map[string]library.Track
-	lastPlayed map[string]string
+	lastPlayed map[string]time.Time
 	history    map[string]userdata.History
 }
 
 func (a *api) collection(ctx context.Context, user string) (collection, error) {
-	c := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: map[string]library.Track{}, lastPlayed: map[string]string{}}
+	c := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: map[string]library.Track{}, lastPlayed: map[string]time.Time{}}
 	all, err := catalog(ctx, a.lib)
 	if err != nil {
 		return c, err
@@ -43,8 +44,9 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 				ann := history[s.ID]
 				s.PlayCount = ann.Plays
 				alb.PlayCount += ann.Plays
-				if ann.LastPlayed > c.lastPlayed[alb.ID] {
-					c.lastPlayed[alb.ID] = ann.LastPlayed
+				played, _ := time.Parse(time.RFC3339Nano, ann.LastPlayed)
+				if played.After(c.lastPlayed[alb.ID]) {
+					c.lastPlayed[alb.ID] = played
 				}
 			}
 			if len(alb.Songs) > 0 {
@@ -223,15 +225,15 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 				songs = append(songs, v)
 			}
 		}
-		ac, ao, ok := paging(r, result, "artistCount", "artistOffset", 20, 500)
+		ac, ao, ok := paging(r, result, "artistCount", "artistOffset", 20, maxResultCount)
 		if !ok {
 			return true
 		}
-		bc, bo, ok := paging(r, result, "albumCount", "albumOffset", 20, 500)
+		bc, bo, ok := paging(r, result, "albumCount", "albumOffset", 20, maxResultCount)
 		if !ok {
 			return true
 		}
-		sc, so, ok := paging(r, result, "songCount", "songOffset", 20, 500)
+		sc, so, ok := paging(r, result, "songCount", "songOffset", 20, maxResultCount)
 		if !ok {
 			return true
 		}
@@ -248,7 +250,7 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 			payload(result, "searchResult2", map[string]any{"artist": arts, "album": dirs, "song": songs})
 		}
 	case "search":
-		count, offset, ok := paging(r, result, "count", "offset", 20, 500)
+		count, offset, ok := paging(r, result, "count", "offset", 20, maxResultCount)
 		if !ok {
 			return true
 		}
@@ -391,12 +393,12 @@ func (a *api) albumList(r *http.Request, result *response, c collection, endpoin
 	case "recent":
 		filtered := []album{}
 		for _, v := range albums {
-			if c.lastPlayed[v.ID] != "" {
+			if !c.lastPlayed[v.ID].IsZero() {
 				filtered = append(filtered, v)
 			}
 		}
 		albums = filtered
-		sort.SliceStable(albums, func(i, j int) bool { return c.lastPlayed[albums[i].ID] > c.lastPlayed[albums[j].ID] })
+		sort.SliceStable(albums, func(i, j int) bool { return c.lastPlayed[albums[i].ID].After(c.lastPlayed[albums[j].ID]) })
 	case "byGenre":
 		genre := required(r, result, "genre")
 		if result.Error != nil {

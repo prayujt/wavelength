@@ -57,17 +57,19 @@ func (s *Service) RecordPlay(ctx context.Context, user, client, id string, stamp
 	if _, err := s.tracks.Get(ctx, id); err != nil {
 		return err
 	}
-	if !submitted {
-		return state.Write(ctx, s.store, "now-playing", user+"/"+client, Playing{ID: id, Username: user, Player: client, Time: stamp})
-	}
-	return state.Modify(ctx, s.store, "annotations/"+user, id, func(a *History, _ bool) error {
-		a.Plays++
-		value := stamp.UTC().Format(time.RFC3339Nano)
-		if value > a.LastPlayed {
-			a.LastPlayed = value
+	if submitted {
+		if err := state.Modify(ctx, s.store, "annotations/"+user, id, func(a *History, _ bool) error {
+			a.Plays++
+			previous, err := time.Parse(time.RFC3339Nano, a.LastPlayed)
+			if err != nil || stamp.After(previous) {
+				a.LastPlayed = stamp.UTC().Format(time.RFC3339Nano)
+			}
+			return nil
+		}); err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+	return state.Write(ctx, s.store, "now-playing", user+"/"+client, Playing{ID: id, Username: user, Player: client, Time: stamp})
 }
 
 func (s *Service) NowPlaying(ctx context.Context) ([]Playing, error) {
