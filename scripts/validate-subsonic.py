@@ -33,7 +33,7 @@ def main():
     schema = etree.XMLSchema(schema_doc)
     root = Path(__file__).resolve().parents[1]
     with tempfile.TemporaryDirectory(prefix='wavelength-xml-', dir=os.environ.get('TMPDIR')) as directory:
-        subprocess.run([args.go, 'test', '-timeout', '30s', './internal/subsonic', '-run', '^TestExportXMLContractFixtures$'], cwd=root, env=os.environ | {'WAVELENGTH_XML_FIXTURES': directory}, check=True)
+        subprocess.run([args.go, 'test', '-timeout', '30s', './internal/transport/subsonic', '-run', '^TestExportXMLContractFixtures$'], cwd=root, env=os.environ | {'WAVELENGTH_XML_FIXTURES': directory}, check=True)
         fixtures = sorted(Path(directory).glob('*.xml'))
         assert fixtures, 'No response fixtures exported'
         failures = []

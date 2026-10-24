@@ -71,7 +71,14 @@ func (s *Service) Create(ctx context.Context, user, description string, expires 
 			return Share{}, err
 		}
 	}
-	share := Share{ID: rand.Text(), Owner: user, Description: description, Expires: expires, Created: time.Now().UTC().Format(time.RFC3339), IDs: slices.Clone(ids)}
+	share := Share{
+		ID:          rand.Text(),
+		Owner:       user,
+		Description: description,
+		Expires:     expires,
+		Created:     time.Now().UTC().Format(time.RFC3339),
+		IDs:         slices.Clone(ids),
+	}
 	return share, state.Write(ctx, s.store, "shares", share.ID, share)
 }
 

@@ -26,6 +26,32 @@ type Catalog struct {
 	Tracks  []Track
 }
 
+type AlbumIdentity struct {
+	Artist, Album     string
+	ArtistID, AlbumID string
+}
+
+// AlbumIdentity applies the same grouping and fallback rules for every transport.
+func (t Track) AlbumIdentity() AlbumIdentity {
+	artist := t.AlbumArtist
+	if artist == "" {
+		artist = t.Artist
+	}
+	if artist == "" {
+		artist = "Unknown Artist"
+	}
+	album := t.Album
+	if album == "" {
+		album = "Unknown Album"
+	}
+	return AlbumIdentity{
+		Artist:   artist,
+		Album:    album,
+		ArtistID: identifier("artist\x00" + artist),
+		AlbumID:  identifier("album\x00" + artist + "\x00" + album),
+	}
+}
+
 func (l *Library) Catalog(ctx context.Context) (Catalog, error) {
 	c := Catalog{Artists: []Artist{}, Albums: []Album{}, Tracks: []Track{}}
 	artistIndices := map[string]int{}
@@ -36,19 +62,8 @@ func (l *Library) Catalog(ctx context.Context) (Catalog, error) {
 			return c, err
 		}
 		for _, track := range page.Tracks {
-			artist := track.AlbumArtist
-			if artist == "" {
-				artist = track.Artist
-			}
-			if artist == "" {
-				artist = "Unknown Artist"
-			}
-			name := track.Album
-			if name == "" {
-				name = "Unknown Album"
-			}
-			artistID := identifier("artist\x00" + artist)
-			albumID := identifier("album\x00" + artist + "\x00" + name)
+			group := track.AlbumIdentity()
+			artist, name, artistID, albumID := group.Artist, group.Album, group.ArtistID, group.AlbumID
 			if _, ok := artistIndices[artistID]; !ok {
 				artistIndices[artistID] = len(c.Artists)
 				c.Artists = append(c.Artists, Artist{ID: artistID, Name: artist, Albums: []Album{}})
@@ -57,7 +72,16 @@ func (l *Library) Catalog(ctx context.Context) (Catalog, error) {
 			if !ok {
 				index = len(c.Albums)
 				albumIndices[albumID] = index
-				c.Albums = append(c.Albums, Album{ID: albumID, Name: name, ArtistID: artistID, Artist: artist, Genre: track.Genre, Year: track.Year, CreatedAt: track.CreatedAt, Tracks: []Track{}})
+				c.Albums = append(c.Albums, Album{
+					ID:        albumID,
+					Name:      name,
+					ArtistID:  artistID,
+					Artist:    artist,
+					Genre:     track.Genre,
+					Year:      track.Year,
+					CreatedAt: track.CreatedAt,
+					Tracks:    []Track{},
+				})
 			}
 			album := &c.Albums[index]
 			album.Tracks = append(album.Tracks, track)

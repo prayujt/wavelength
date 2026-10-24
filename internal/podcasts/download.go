@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/prayujt/wavelength/internal/state"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/prayujt/wavelength/internal/state"
 )
 
 func (s *Service) updateEpisode(ctx context.Context, channelID, episodeID string, update func(*Episode)) error {

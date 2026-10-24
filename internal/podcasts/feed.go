@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"errors"
-	"github.com/prayujt/wavelength/internal/state"
 	"io"
 	"net/http"
 	"net/url"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/prayujt/wavelength/internal/state"
 )
 
 type Episode struct {
@@ -184,7 +185,17 @@ func (s *Service) refreshChannel(ctx context.Context, channel Channel) error {
 		if identity == "" {
 			identity = address
 		}
-		episodes = append(episodes, Episode{ID: id(channel.ID + "\x00" + identity), URL: address, Title: item.Title, Description: item.Description, Published: podcastDate(item.Published), ContentType: item.Enclosure.Type, Size: item.Enclosure.Length, Duration: durationSeconds(item.Duration), Status: "new"})
+		episodes = append(episodes, Episode{
+			ID:          id(channel.ID + "\x00" + identity),
+			URL:         address,
+			Title:       item.Title,
+			Description: item.Description,
+			Published:   podcastDate(item.Published),
+			ContentType: item.Enclosure.Type,
+			Size:        item.Enclosure.Length,
+			Duration:    durationSeconds(item.Duration),
+			Status:      "new",
+		})
 	}
 	return s.store.Update(ctx, "podcasts", channel.ID, func(raw json.RawMessage) (json.RawMessage, error) {
 		if len(raw) == 0 {

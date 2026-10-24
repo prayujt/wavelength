@@ -32,7 +32,10 @@ func New(ctx context.Context, store state.Store, directory string) (*Service, er
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	service := &Service{store: store, directory: directory, ctx: ctx, cancel: cancel}
-	go func() { <-ctx.Done(); service.Close() }()
+	go func() {
+		<-ctx.Done()
+		service.Close()
+	}()
 	return service, nil
 }
 

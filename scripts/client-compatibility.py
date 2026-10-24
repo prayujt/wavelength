@@ -209,7 +209,7 @@ def run():
                 covered.add('hls')
                 calls += 2
                 check('unstar', sids=[folder_artist, folder_album, track], albumIds=[tag_album], artistIds=[artist])
-            contract = json.loads((binary.parent.parent / 'internal/subsonic/testdata/contract.json').read_text())['endpoints']
+            contract = json.loads((binary.parent.parent / 'internal/transport/subsonic/testdata/contract.json').read_text())['endpoints']
             supported = set(contract) - {'jukeboxControl'}
             assert covered == supported, f'Endpoint coverage mismatch: missing={supported - covered}, extra={covered - supported}'
             print(f'PASS: all {len(covered)} supported legacy endpoints; {calls} operations (73 endpoints via py-sonic, 2 video endpoints via direct HTTP) against real binary; token/password POST and GET connectivity; filesystem and ID3 browsing, state, accounts, encoded playback, HLS and assets')

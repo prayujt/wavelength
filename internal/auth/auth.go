@@ -70,7 +70,13 @@ type Manager struct {
 
 // New fails closed on partial/invalid OIDC settings or failed provider discovery.
 func New(ctx context.Context, c Config, store Store) (*Manager, error) {
-	m := &Manager{config: c, store: store, client: &http.Client{Timeout: 10 * time.Second}, sessionCookie: "wavelength_session", flowCookie: "wavelength_login"}
+	m := &Manager{
+		config:        c,
+		store:         store,
+		client:        &http.Client{Timeout: 10 * time.Second},
+		sessionCookie: "wavelength_session",
+		flowCookie:    "wavelength_login",
+	}
 	if c.Issuer == "" && c.ClientID == "" && c.ClientSecret == "" && c.PublicURL == "" {
 		return m, nil
 	}
@@ -112,7 +118,13 @@ func New(ctx context.Context, c Config, store Store) (*Manager, error) {
 			return nil, fmt.Errorf("OIDC discovered endpoint: %w", err)
 		}
 	}
-	m.oauth = oauth2.Config{ClientID: c.ClientID, ClientSecret: c.ClientSecret, Endpoint: endpoint, RedirectURL: m.origin + "/auth/callback", Scopes: []string{oidc.ScopeOpenID, "profile", "email"}}
+	m.oauth = oauth2.Config{
+		ClientID:     c.ClientID,
+		ClientSecret: c.ClientSecret,
+		Endpoint:     endpoint,
+		RedirectURL:  m.origin + "/auth/callback",
+		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+	}
 	// A background context avoids tying future JWKS refreshes to startup's deadline.
 	m.verifier = provider.VerifierContext(oidc.ClientContext(context.Background(), m.client), &oidc.Config{ClientID: c.ClientID})
 	return m, nil
