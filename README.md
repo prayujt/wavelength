@@ -1,7 +1,7 @@
 # Wavelength
 
 A self-hosted music server written in Go, with an embedded SQLite catalog,
-Subsonic client compatibility, and a small native protobuf API. It serves an existing
+Subsonic client compatibility, a native protobuf API, and authenticated MCP. It serves an existing
 music catalog and streams its source files. It runs
 as one binary and does not need an external database. A web UI is not included.
 
@@ -73,9 +73,10 @@ Back up the data directory as well as your music collection.
 
 ## Native API
 
-The native API is intentionally small: browse and search tracks, artists, and
-albums; discover playback URLs; and stream
-audio. The contract is [library.proto](proto/wavelength/v1/library.proto), with
+The native API browses and searches tracks, artists, and albums, returns playback
+URLs, and streams audio. Its `UserDataService` manages the signed-in listener's
+playlists, queue, bookmarks, listening history, and now-playing state. The contract
+is [library.proto](proto/wavelength/v1/library.proto), with
 generated Go messages and Connect clients under `gen/`. The Connect handler serves
 Connect, gRPC, and gRPC-Web clients.
 
@@ -101,6 +102,33 @@ and visit `/auth/login`. Sessions authenticate API and media requests;
 cookie-authenticated Connect POSTs also require `Origin` and `X-CSRF-Token`.
 See [OIDC setup](docs/oidc.md). Terminate TLS at your deployment proxy.
 
+## MCP for AI clients
+
+With OIDC and a music library configured, connect a remote MCP client to
+`https://music.example.com/mcp` on the native listener. The service offers 21 tools:
+
+- Current user; browse/search/get tracks, artists, and albums; playback links.
+- List/get/create/update/delete playlists, with explicit public sharing.
+- Read/save your queue; list/save/delete bookmarks.
+- Read listening history, record plays, and read your own now-playing state.
+
+These tools call the same library and personal-state services as the native API.
+Playlists start private. Personal data uses the provider's stable issuer/subject
+identity, shared by browser, native, and MCP sessions. The shared Subsonic account
+does not impersonate those users. Public playlists are readable by other listeners;
+only their owner may edit them.
+
+Clients discover ordinary OAuth endpoints, register a client, use authorization
+code with S256 PKCE, and sign in through the **existing** OIDC application. Wavelength
+shows consent and issues its own scoped API credentials; clients never receive the
+provider's client secret. No second Authentik application or new environment variables
+are needed. The same credentials work for native RPCs. See [OAuth details](docs/oidc.md#delegated-oauth-for-mcp-and-native-clients).
+
+The official Go MCP SDK serves stateless Streamable HTTP with JSON responses,
+including legacy 2025 protocol versions. MCP returns authenticated playback links;
+audio bytes stay on HTTP/gRPC. External discovery, acquiring songs, download jobs,
+and audio-scraper migration are not implemented in either interface.
+
 ## Configuration
 
 Configuration is read from environment variables at startup.
@@ -121,7 +149,7 @@ Configuration is read from environment variables at startup.
 
 ## Build and develop
 
-Go 1.24+ is required. Original-file playback works without external media tools;
+Go 1.25+ is required by the MCP SDK. Original-file playback works without external media tools;
 install `ffmpeg` for transcoding and HLS.
 
 ```sh

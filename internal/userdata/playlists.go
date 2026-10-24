@@ -74,6 +74,9 @@ func (s *Service) CreatePlaylist(ctx context.Context, user, name string, ids []s
 }
 
 func (s *Service) UpdatePlaylist(ctx context.Context, user, id string, change PlaylistChanges) (Playlist, error) {
+	if change.Replace != nil && (len(change.Add) > 0 || len(change.Remove) > 0) {
+		return Playlist{}, ErrInvalid
+	}
 	ids := change.Add
 	if change.Replace != nil {
 		ids = *change.Replace

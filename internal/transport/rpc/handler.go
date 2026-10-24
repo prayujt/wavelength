@@ -10,6 +10,8 @@ import (
 	"github.com/prayujt/wavelength/gen/wavelength/v1/wavelengthv1connect"
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type service struct{ library *library.Library }
@@ -18,8 +20,11 @@ var _ wavelengthv1connect.LibraryServiceHandler = (*service)(nil)
 
 func Handler(lib *library.Library, manager *auth.Manager) (string, http.Handler) {
 	path, handler := wavelengthv1connect.NewLibraryServiceHandler(&service{library: lib})
+	return path, protect(handler, manager)
+}
+func protect(handler http.Handler, manager *auth.Manager) http.Handler {
 	writer := connect.NewErrorWriter()
-	return path, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		ctx, err := manager.Authorize(r)
 		if err != nil {
@@ -40,7 +45,21 @@ func Handler(lib *library.Library, manager *auth.Manager) (string, http.Handler)
 	})
 }
 func failure(err error) error {
-	if errors.Is(err, library.ErrNotFound) {
+	var authError *auth.RequestError
+	if errors.As(err, &authError) {
+		code := connect.CodePermissionDenied
+		if authError.StatusCode == 401 {
+			code = connect.CodeUnauthenticated
+		}
+		return connect.NewError(code, err)
+	}
+	if errors.Is(err, userdata.ErrInvalid) {
+		return invalid("invalid collection or listening input")
+	}
+	if errors.Is(err, userdata.ErrForbidden) {
+		return connect.NewError(connect.CodePermissionDenied, errors.New("operation is not permitted"))
+	}
+	if errors.Is(err, library.ErrNotFound) || errors.Is(err, state.ErrNotFound) {
 		return connect.NewError(connect.CodeNotFound, errors.New("media not found"))
 	}
 	if errors.Is(err, context.Canceled) {

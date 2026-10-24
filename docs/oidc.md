@@ -17,10 +17,12 @@ Create an OIDC application/client at your provider:
 - Use the provider's **issuer URL**, not its login page or authorization endpoint.
   Wavelength discovers authorization, token and JWKS endpoints automatically.
 
-All users whom the provider allows to sign into this application currently receive
-the same native library access. Restrict application access at
-the provider if needed. Local roles, group mappings and per-user library permissions
-are not implemented yet. Email/name claims are display metadata, not authorization.
+All users whom the provider allows to sign into this application receive access to
+the shared library and their own personal collections. Restrict application access
+at the provider (for example with an Authentik music-users group binding). Roles,
+group mappings and per-user catalog permissions are not implemented. Email/name
+claims are display metadata, not authorization. Private playlists, queues, bookmarks
+and history are keyed by the verified issuer/subject identity.
 
 ## Server configuration
 
@@ -40,8 +42,12 @@ client secret out of Git. These are environment variables; Wavelength does not l
 `.env` files automatically.
 
 The public URL is the externally visible **origin**, with no path prefix, query or
-fragment. Place TLS at a reverse proxy and forward `/auth/`, `/wavelength.v1.LibraryService/` and `/media/` to the native
-listener. Neither forwarded identity headers nor an external auth proxy are required.
+fragment. Place TLS at a reverse proxy and forward `/auth/`, `/oauth/`,
+`/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`,
+`/.well-known/oauth-protected-resource/mcp`, `/mcp`, `/wavelength.v1.LibraryService/`,
+`/wavelength.v1.UserDataService/` and `/media/` to the native listener. Forwarding the
+whole hostname also works. Neither forwarded identity headers nor an external auth
+proxy are required.
 The configured public URL—not incoming Host/X-Forwarded headers—determines callback
 URLs, secure cookies and allowed browser mutation origins.
 
@@ -55,7 +61,7 @@ client secret is optional only for a provider-configured public client.
 
 `WAVELENGTH_TOKEN` is optional when OIDC is enabled. If set, it remains an independent
 static bearer credential for development/automation. It is **not** an OIDC access
-token. No token is needed for a signed-in browser. With neither OIDC nor a token,
+token and cannot access personal-state RPCs or MCP. No token is needed for a signed-in browser. With neither OIDC nor a token,
 only loopback binding is allowed and the native API is locally anonymous.
 
 ## Browser endpoints
@@ -97,6 +103,79 @@ not automatically attached by a browser. An invalid explicit Authorization heade
 is rejected, rather than falling back to a cookie. `/auth/me` and `/auth/logout` are
 browser-session endpoints, not bearer-token management endpoints.
 
+## Delegated OAuth for MCP and native clients
+
+Wavelength provides a small OAuth authorization server in front of the same OIDC
+login. The native API and MCP are one application/resource with the same stable user
+identity and permissions. A new AI client registers **at Wavelength**, not at
+Authentik. Upstream registration and the exact `/auth/callback` URI stay unchanged;
+the AI client's callback is validated locally. Existing Authentik application/group
+bindings apply to MCP sign-ins too. No provider tokens are passed to AI clients.
+
+Connect the client to `https://music.example.com/mcp`. An unauthenticated request
+returns 401 with a `WWW-Authenticate` resource-metadata link. Discovery follows
+[MCP authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization):
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /.well-known/oauth-protected-resource/mcp` | Resource URL, authorization server, scopes; root metadata alias is also available. |
+| `GET /.well-known/oauth-authorization-server` | OAuth endpoint and capability discovery. |
+| `POST /oauth/register` | Dynamic registration with exact HTTP loopback or HTTPS redirect URIs. |
+| `GET /oauth/authorize` | Authorization code, S256 PKCE, state and resource binding; redirects to the existing OIDC login and then local consent. |
+| `POST /oauth/authorize` | Browser-bound, same-origin, CSRF-protected allow/deny decision. |
+| `POST /oauth/token` | Exchange a one-use code or rotate a refresh token. |
+| `POST /oauth/revoke` | Revoke a client's token family immediately. |
+
+Public clients use `token_endpoint_auth_method: none`; confidential clients can use
+`client_secret_basic` or `client_secret_post`. PKCE is required for all clients.
+Client registration defaults to `client_secret_basic` when the method is omitted.
+Client ID metadata documents, device grants, and upstream access-token passthrough
+are not supported. Registered clients expire after one year. Anonymous registration
+does not grant library access: each connection requires an allowed OIDC user and
+explicit consent displaying the unverified client name, callback, and permissions.
+
+The protected resource identifier is the exact public `/mcp` URL. Request it using
+the OAuth `resource` parameter, including when using the resulting credential for
+native RPCs. A missing resource defaults to this one resource for older clients;
+another resource is rejected. No credential from another issuer/resource or an
+upstream ID/access token is accepted. Identity-provider policies are revisited for
+each new grant; starting a flow with an old browser session cannot skip that check.
+
+| Scope | Permission |
+| --- | --- |
+| `wavelength:read` | Required: shared catalog and your own collections/activity. |
+| `wavelength:write` | Create/change your collections and listening activity. |
+| `wavelength:stream` | HTTP audio bytes and native `StreamAudio`. |
+
+Default consent and the MCP authentication challenge request read/write. Streaming
+must be requested separately. MCP offers playback URLs and never embeds a token in
+them: a signed-in browser can open them, or a native client supplies a stream-scoped
+bearer token. MCP has no audio-byte tool. Cookie/development credentials cannot
+authenticate MCP. Requests carrying a browser Origin must match the public origin.
+
+Access tokens last up to one hour. Refresh token families expire 30 days after
+authorization and rotate on each refresh; rotation also invalidates the previous
+access token. Reuse of a known rotated refresh token revokes the whole family.
+Refresh cannot increase scopes. Tokens, client secrets and codes are stored only as
+SHA-256 hashes in SQLite; downstream tokens never contain provider credentials.
+Native/browser personal scopes use `oidc:<identity-id>` and preserve the existing
+legacy scopes. Code consumption and refresh rotation are transactional.
+
+Signed-in browsers can list their grants with `GET /auth/connections` and revoke one
+using `POST /auth/connections/{id}/revoke` with Origin and X-CSRF-Token. The listing
+contains client names/scopes/expiry and no credential hashes. Other users cannot
+list or revoke your grants. Browser logout ends that browser session; it does not
+disconnect separately authorized AI clients. Provider-side account/group changes do
+not revoke existing local grants automatically; revoke the connection to end it
+immediately, otherwise the fixed grant expiry requires a fresh provider login.
+
+OAuth request bodies are limited to 64 KiB; MCP/native collection messages to 1 MiB.
+OAuth public endpoints have a process-wide rate budget of 5 requests/second, burst
+20, without trusting forwarded client-IP headers. OAuth client/request/code/grant
+stores prune expired records and reject creation at 4,096 live records per scope. This
+deployment uses one SQLite-backed process; the protocol handler itself keeps no MCP
+session affinity or per-user servers.
+
 ## Persistence and boundaries
 
 SQLite stores issuer/subject identities, pending ten-minute login transactions and
@@ -118,8 +197,8 @@ are not cached. No browser tokens need to be placed in localStorage or stream UR
 Legacy Subsonic on port 8081 still authenticates exclusively through its own configured
 username/password or salted protocol token. It does not accept OIDC sessions or the
 native bearer token. It accepts only the configured legacy username and password;
-legacy account-management calls cannot change those credentials. Scoped/revocable
-native API tokens remain future work.
+legacy account-management calls cannot change those credentials. Native users'
+delegated OAuth credentials remain separate.
 
 ## Verification
 
@@ -128,4 +207,12 @@ authorization, token and JWKS endpoints with RSA-signed ID tokens. It checks S25
 PKCE, state/nonce, issuer/audience/expiry/signature rejection, cookie-authenticated
 streaming, CSRF, logout/replay, SQLite session persistence, HTTPS cookie attributes,
 and isolation after changing issuers. No external identity-provider credentials are
-needed for the tests.
+needed for the tests. Delegated OAuth tests additionally cover discovery, dynamic
+registration, all three client-auth methods, real upstream login and consent,
+resource/redirect/client/PKCE binding, expiry, concurrent code redemption, refresh
+rotation/replay, revocation, database reopen, and issuer/resource isolation. The
+official MCP Go client exercises every tool and shared data across Connect,
+Connect JSON, gRPC-Web and gRPC, with cross-user and read-only mutation denials.
+Raw HTTP checks also cover the three 2025 MCP protocol versions. Tests use only
+temporary local credentials and databases; third-party AI client certification is
+not implied.

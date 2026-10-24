@@ -23,6 +23,8 @@ const _ = connect.IsAtLeastVersion1_13_0
 const (
 	// LibraryServiceName is the fully-qualified name of the LibraryService service.
 	LibraryServiceName = "wavelength.v1.LibraryService"
+	// UserDataServiceName is the fully-qualified name of the UserDataService service.
+	UserDataServiceName = "wavelength.v1.UserDataService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -55,6 +57,48 @@ const (
 	// LibraryServiceStreamAudioProcedure is the fully-qualified name of the LibraryService's
 	// StreamAudio RPC.
 	LibraryServiceStreamAudioProcedure = "/wavelength.v1.LibraryService/StreamAudio"
+	// UserDataServiceGetCurrentUserProcedure is the fully-qualified name of the UserDataService's
+	// GetCurrentUser RPC.
+	UserDataServiceGetCurrentUserProcedure = "/wavelength.v1.UserDataService/GetCurrentUser"
+	// UserDataServiceListPlaylistsProcedure is the fully-qualified name of the UserDataService's
+	// ListPlaylists RPC.
+	UserDataServiceListPlaylistsProcedure = "/wavelength.v1.UserDataService/ListPlaylists"
+	// UserDataServiceGetPlaylistProcedure is the fully-qualified name of the UserDataService's
+	// GetPlaylist RPC.
+	UserDataServiceGetPlaylistProcedure = "/wavelength.v1.UserDataService/GetPlaylist"
+	// UserDataServiceCreatePlaylistProcedure is the fully-qualified name of the UserDataService's
+	// CreatePlaylist RPC.
+	UserDataServiceCreatePlaylistProcedure = "/wavelength.v1.UserDataService/CreatePlaylist"
+	// UserDataServiceUpdatePlaylistProcedure is the fully-qualified name of the UserDataService's
+	// UpdatePlaylist RPC.
+	UserDataServiceUpdatePlaylistProcedure = "/wavelength.v1.UserDataService/UpdatePlaylist"
+	// UserDataServiceDeletePlaylistProcedure is the fully-qualified name of the UserDataService's
+	// DeletePlaylist RPC.
+	UserDataServiceDeletePlaylistProcedure = "/wavelength.v1.UserDataService/DeletePlaylist"
+	// UserDataServiceGetQueueProcedure is the fully-qualified name of the UserDataService's GetQueue
+	// RPC.
+	UserDataServiceGetQueueProcedure = "/wavelength.v1.UserDataService/GetQueue"
+	// UserDataServiceSaveQueueProcedure is the fully-qualified name of the UserDataService's SaveQueue
+	// RPC.
+	UserDataServiceSaveQueueProcedure = "/wavelength.v1.UserDataService/SaveQueue"
+	// UserDataServiceListBookmarksProcedure is the fully-qualified name of the UserDataService's
+	// ListBookmarks RPC.
+	UserDataServiceListBookmarksProcedure = "/wavelength.v1.UserDataService/ListBookmarks"
+	// UserDataServiceSaveBookmarkProcedure is the fully-qualified name of the UserDataService's
+	// SaveBookmark RPC.
+	UserDataServiceSaveBookmarkProcedure = "/wavelength.v1.UserDataService/SaveBookmark"
+	// UserDataServiceDeleteBookmarkProcedure is the fully-qualified name of the UserDataService's
+	// DeleteBookmark RPC.
+	UserDataServiceDeleteBookmarkProcedure = "/wavelength.v1.UserDataService/DeleteBookmark"
+	// UserDataServiceGetHistoryProcedure is the fully-qualified name of the UserDataService's
+	// GetHistory RPC.
+	UserDataServiceGetHistoryProcedure = "/wavelength.v1.UserDataService/GetHistory"
+	// UserDataServiceRecordPlayProcedure is the fully-qualified name of the UserDataService's
+	// RecordPlay RPC.
+	UserDataServiceRecordPlayProcedure = "/wavelength.v1.UserDataService/RecordPlay"
+	// UserDataServiceGetNowPlayingProcedure is the fully-qualified name of the UserDataService's
+	// GetNowPlaying RPC.
+	UserDataServiceGetNowPlayingProcedure = "/wavelength.v1.UserDataService/GetNowPlaying"
 )
 
 // LibraryServiceClient is a client for the wavelength.v1.LibraryService service.
@@ -311,4 +355,412 @@ func (UnimplementedLibraryServiceHandler) GetPlaybackInfo(context.Context, *conn
 
 func (UnimplementedLibraryServiceHandler) StreamAudio(context.Context, *connect.Request[v1.StreamAudioRequest], *connect.ServerStream[v1.StreamAudioResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.StreamAudio is not implemented"))
+}
+
+// UserDataServiceClient is a client for the wavelength.v1.UserDataService service.
+type UserDataServiceClient interface {
+	GetCurrentUser(context.Context, *connect.Request[v1.GetCurrentUserRequest]) (*connect.Response[v1.GetCurrentUserResponse], error)
+	ListPlaylists(context.Context, *connect.Request[v1.ListPlaylistsRequest]) (*connect.Response[v1.ListPlaylistsResponse], error)
+	GetPlaylist(context.Context, *connect.Request[v1.GetPlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	CreatePlaylist(context.Context, *connect.Request[v1.CreatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	UpdatePlaylist(context.Context, *connect.Request[v1.UpdatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	DeletePlaylist(context.Context, *connect.Request[v1.DeletePlaylistRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetQueue(context.Context, *connect.Request[v1.GetQueueRequest]) (*connect.Response[v1.GetQueueResponse], error)
+	SaveQueue(context.Context, *connect.Request[v1.SaveQueueRequest]) (*connect.Response[v1.GetQueueResponse], error)
+	ListBookmarks(context.Context, *connect.Request[v1.ListBookmarksRequest]) (*connect.Response[v1.ListBookmarksResponse], error)
+	SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error)
+	DeleteBookmark(context.Context, *connect.Request[v1.DeleteBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetHistory(context.Context, *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error)
+	RecordPlay(context.Context, *connect.Request[v1.RecordPlayRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetNowPlaying(context.Context, *connect.Request[v1.GetNowPlayingRequest]) (*connect.Response[v1.GetNowPlayingResponse], error)
+}
+
+// NewUserDataServiceClient constructs a client for the wavelength.v1.UserDataService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewUserDataServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) UserDataServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	userDataServiceMethods := v1.File_wavelength_v1_library_proto.Services().ByName("UserDataService").Methods()
+	return &userDataServiceClient{
+		getCurrentUser: connect.NewClient[v1.GetCurrentUserRequest, v1.GetCurrentUserResponse](
+			httpClient,
+			baseURL+UserDataServiceGetCurrentUserProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("GetCurrentUser")),
+			connect.WithClientOptions(opts...),
+		),
+		listPlaylists: connect.NewClient[v1.ListPlaylistsRequest, v1.ListPlaylistsResponse](
+			httpClient,
+			baseURL+UserDataServiceListPlaylistsProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("ListPlaylists")),
+			connect.WithClientOptions(opts...),
+		),
+		getPlaylist: connect.NewClient[v1.GetPlaylistRequest, v1.GetPlaylistResponse](
+			httpClient,
+			baseURL+UserDataServiceGetPlaylistProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("GetPlaylist")),
+			connect.WithClientOptions(opts...),
+		),
+		createPlaylist: connect.NewClient[v1.CreatePlaylistRequest, v1.GetPlaylistResponse](
+			httpClient,
+			baseURL+UserDataServiceCreatePlaylistProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("CreatePlaylist")),
+			connect.WithClientOptions(opts...),
+		),
+		updatePlaylist: connect.NewClient[v1.UpdatePlaylistRequest, v1.GetPlaylistResponse](
+			httpClient,
+			baseURL+UserDataServiceUpdatePlaylistProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("UpdatePlaylist")),
+			connect.WithClientOptions(opts...),
+		),
+		deletePlaylist: connect.NewClient[v1.DeletePlaylistRequest, v1.EmptyResponse](
+			httpClient,
+			baseURL+UserDataServiceDeletePlaylistProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("DeletePlaylist")),
+			connect.WithClientOptions(opts...),
+		),
+		getQueue: connect.NewClient[v1.GetQueueRequest, v1.GetQueueResponse](
+			httpClient,
+			baseURL+UserDataServiceGetQueueProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("GetQueue")),
+			connect.WithClientOptions(opts...),
+		),
+		saveQueue: connect.NewClient[v1.SaveQueueRequest, v1.GetQueueResponse](
+			httpClient,
+			baseURL+UserDataServiceSaveQueueProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("SaveQueue")),
+			connect.WithClientOptions(opts...),
+		),
+		listBookmarks: connect.NewClient[v1.ListBookmarksRequest, v1.ListBookmarksResponse](
+			httpClient,
+			baseURL+UserDataServiceListBookmarksProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("ListBookmarks")),
+			connect.WithClientOptions(opts...),
+		),
+		saveBookmark: connect.NewClient[v1.SaveBookmarkRequest, v1.EmptyResponse](
+			httpClient,
+			baseURL+UserDataServiceSaveBookmarkProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("SaveBookmark")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteBookmark: connect.NewClient[v1.DeleteBookmarkRequest, v1.EmptyResponse](
+			httpClient,
+			baseURL+UserDataServiceDeleteBookmarkProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("DeleteBookmark")),
+			connect.WithClientOptions(opts...),
+		),
+		getHistory: connect.NewClient[v1.GetHistoryRequest, v1.GetHistoryResponse](
+			httpClient,
+			baseURL+UserDataServiceGetHistoryProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("GetHistory")),
+			connect.WithClientOptions(opts...),
+		),
+		recordPlay: connect.NewClient[v1.RecordPlayRequest, v1.EmptyResponse](
+			httpClient,
+			baseURL+UserDataServiceRecordPlayProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("RecordPlay")),
+			connect.WithClientOptions(opts...),
+		),
+		getNowPlaying: connect.NewClient[v1.GetNowPlayingRequest, v1.GetNowPlayingResponse](
+			httpClient,
+			baseURL+UserDataServiceGetNowPlayingProcedure,
+			connect.WithSchema(userDataServiceMethods.ByName("GetNowPlaying")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// userDataServiceClient implements UserDataServiceClient.
+type userDataServiceClient struct {
+	getCurrentUser *connect.Client[v1.GetCurrentUserRequest, v1.GetCurrentUserResponse]
+	listPlaylists  *connect.Client[v1.ListPlaylistsRequest, v1.ListPlaylistsResponse]
+	getPlaylist    *connect.Client[v1.GetPlaylistRequest, v1.GetPlaylistResponse]
+	createPlaylist *connect.Client[v1.CreatePlaylistRequest, v1.GetPlaylistResponse]
+	updatePlaylist *connect.Client[v1.UpdatePlaylistRequest, v1.GetPlaylistResponse]
+	deletePlaylist *connect.Client[v1.DeletePlaylistRequest, v1.EmptyResponse]
+	getQueue       *connect.Client[v1.GetQueueRequest, v1.GetQueueResponse]
+	saveQueue      *connect.Client[v1.SaveQueueRequest, v1.GetQueueResponse]
+	listBookmarks  *connect.Client[v1.ListBookmarksRequest, v1.ListBookmarksResponse]
+	saveBookmark   *connect.Client[v1.SaveBookmarkRequest, v1.EmptyResponse]
+	deleteBookmark *connect.Client[v1.DeleteBookmarkRequest, v1.EmptyResponse]
+	getHistory     *connect.Client[v1.GetHistoryRequest, v1.GetHistoryResponse]
+	recordPlay     *connect.Client[v1.RecordPlayRequest, v1.EmptyResponse]
+	getNowPlaying  *connect.Client[v1.GetNowPlayingRequest, v1.GetNowPlayingResponse]
+}
+
+// GetCurrentUser calls wavelength.v1.UserDataService.GetCurrentUser.
+func (c *userDataServiceClient) GetCurrentUser(ctx context.Context, req *connect.Request[v1.GetCurrentUserRequest]) (*connect.Response[v1.GetCurrentUserResponse], error) {
+	return c.getCurrentUser.CallUnary(ctx, req)
+}
+
+// ListPlaylists calls wavelength.v1.UserDataService.ListPlaylists.
+func (c *userDataServiceClient) ListPlaylists(ctx context.Context, req *connect.Request[v1.ListPlaylistsRequest]) (*connect.Response[v1.ListPlaylistsResponse], error) {
+	return c.listPlaylists.CallUnary(ctx, req)
+}
+
+// GetPlaylist calls wavelength.v1.UserDataService.GetPlaylist.
+func (c *userDataServiceClient) GetPlaylist(ctx context.Context, req *connect.Request[v1.GetPlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return c.getPlaylist.CallUnary(ctx, req)
+}
+
+// CreatePlaylist calls wavelength.v1.UserDataService.CreatePlaylist.
+func (c *userDataServiceClient) CreatePlaylist(ctx context.Context, req *connect.Request[v1.CreatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return c.createPlaylist.CallUnary(ctx, req)
+}
+
+// UpdatePlaylist calls wavelength.v1.UserDataService.UpdatePlaylist.
+func (c *userDataServiceClient) UpdatePlaylist(ctx context.Context, req *connect.Request[v1.UpdatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return c.updatePlaylist.CallUnary(ctx, req)
+}
+
+// DeletePlaylist calls wavelength.v1.UserDataService.DeletePlaylist.
+func (c *userDataServiceClient) DeletePlaylist(ctx context.Context, req *connect.Request[v1.DeletePlaylistRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return c.deletePlaylist.CallUnary(ctx, req)
+}
+
+// GetQueue calls wavelength.v1.UserDataService.GetQueue.
+func (c *userDataServiceClient) GetQueue(ctx context.Context, req *connect.Request[v1.GetQueueRequest]) (*connect.Response[v1.GetQueueResponse], error) {
+	return c.getQueue.CallUnary(ctx, req)
+}
+
+// SaveQueue calls wavelength.v1.UserDataService.SaveQueue.
+func (c *userDataServiceClient) SaveQueue(ctx context.Context, req *connect.Request[v1.SaveQueueRequest]) (*connect.Response[v1.GetQueueResponse], error) {
+	return c.saveQueue.CallUnary(ctx, req)
+}
+
+// ListBookmarks calls wavelength.v1.UserDataService.ListBookmarks.
+func (c *userDataServiceClient) ListBookmarks(ctx context.Context, req *connect.Request[v1.ListBookmarksRequest]) (*connect.Response[v1.ListBookmarksResponse], error) {
+	return c.listBookmarks.CallUnary(ctx, req)
+}
+
+// SaveBookmark calls wavelength.v1.UserDataService.SaveBookmark.
+func (c *userDataServiceClient) SaveBookmark(ctx context.Context, req *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return c.saveBookmark.CallUnary(ctx, req)
+}
+
+// DeleteBookmark calls wavelength.v1.UserDataService.DeleteBookmark.
+func (c *userDataServiceClient) DeleteBookmark(ctx context.Context, req *connect.Request[v1.DeleteBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return c.deleteBookmark.CallUnary(ctx, req)
+}
+
+// GetHistory calls wavelength.v1.UserDataService.GetHistory.
+func (c *userDataServiceClient) GetHistory(ctx context.Context, req *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error) {
+	return c.getHistory.CallUnary(ctx, req)
+}
+
+// RecordPlay calls wavelength.v1.UserDataService.RecordPlay.
+func (c *userDataServiceClient) RecordPlay(ctx context.Context, req *connect.Request[v1.RecordPlayRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return c.recordPlay.CallUnary(ctx, req)
+}
+
+// GetNowPlaying calls wavelength.v1.UserDataService.GetNowPlaying.
+func (c *userDataServiceClient) GetNowPlaying(ctx context.Context, req *connect.Request[v1.GetNowPlayingRequest]) (*connect.Response[v1.GetNowPlayingResponse], error) {
+	return c.getNowPlaying.CallUnary(ctx, req)
+}
+
+// UserDataServiceHandler is an implementation of the wavelength.v1.UserDataService service.
+type UserDataServiceHandler interface {
+	GetCurrentUser(context.Context, *connect.Request[v1.GetCurrentUserRequest]) (*connect.Response[v1.GetCurrentUserResponse], error)
+	ListPlaylists(context.Context, *connect.Request[v1.ListPlaylistsRequest]) (*connect.Response[v1.ListPlaylistsResponse], error)
+	GetPlaylist(context.Context, *connect.Request[v1.GetPlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	CreatePlaylist(context.Context, *connect.Request[v1.CreatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	UpdatePlaylist(context.Context, *connect.Request[v1.UpdatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error)
+	DeletePlaylist(context.Context, *connect.Request[v1.DeletePlaylistRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetQueue(context.Context, *connect.Request[v1.GetQueueRequest]) (*connect.Response[v1.GetQueueResponse], error)
+	SaveQueue(context.Context, *connect.Request[v1.SaveQueueRequest]) (*connect.Response[v1.GetQueueResponse], error)
+	ListBookmarks(context.Context, *connect.Request[v1.ListBookmarksRequest]) (*connect.Response[v1.ListBookmarksResponse], error)
+	SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error)
+	DeleteBookmark(context.Context, *connect.Request[v1.DeleteBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetHistory(context.Context, *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error)
+	RecordPlay(context.Context, *connect.Request[v1.RecordPlayRequest]) (*connect.Response[v1.EmptyResponse], error)
+	GetNowPlaying(context.Context, *connect.Request[v1.GetNowPlayingRequest]) (*connect.Response[v1.GetNowPlayingResponse], error)
+}
+
+// NewUserDataServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewUserDataServiceHandler(svc UserDataServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	userDataServiceMethods := v1.File_wavelength_v1_library_proto.Services().ByName("UserDataService").Methods()
+	userDataServiceGetCurrentUserHandler := connect.NewUnaryHandler(
+		UserDataServiceGetCurrentUserProcedure,
+		svc.GetCurrentUser,
+		connect.WithSchema(userDataServiceMethods.ByName("GetCurrentUser")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceListPlaylistsHandler := connect.NewUnaryHandler(
+		UserDataServiceListPlaylistsProcedure,
+		svc.ListPlaylists,
+		connect.WithSchema(userDataServiceMethods.ByName("ListPlaylists")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceGetPlaylistHandler := connect.NewUnaryHandler(
+		UserDataServiceGetPlaylistProcedure,
+		svc.GetPlaylist,
+		connect.WithSchema(userDataServiceMethods.ByName("GetPlaylist")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceCreatePlaylistHandler := connect.NewUnaryHandler(
+		UserDataServiceCreatePlaylistProcedure,
+		svc.CreatePlaylist,
+		connect.WithSchema(userDataServiceMethods.ByName("CreatePlaylist")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceUpdatePlaylistHandler := connect.NewUnaryHandler(
+		UserDataServiceUpdatePlaylistProcedure,
+		svc.UpdatePlaylist,
+		connect.WithSchema(userDataServiceMethods.ByName("UpdatePlaylist")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceDeletePlaylistHandler := connect.NewUnaryHandler(
+		UserDataServiceDeletePlaylistProcedure,
+		svc.DeletePlaylist,
+		connect.WithSchema(userDataServiceMethods.ByName("DeletePlaylist")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceGetQueueHandler := connect.NewUnaryHandler(
+		UserDataServiceGetQueueProcedure,
+		svc.GetQueue,
+		connect.WithSchema(userDataServiceMethods.ByName("GetQueue")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceSaveQueueHandler := connect.NewUnaryHandler(
+		UserDataServiceSaveQueueProcedure,
+		svc.SaveQueue,
+		connect.WithSchema(userDataServiceMethods.ByName("SaveQueue")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceListBookmarksHandler := connect.NewUnaryHandler(
+		UserDataServiceListBookmarksProcedure,
+		svc.ListBookmarks,
+		connect.WithSchema(userDataServiceMethods.ByName("ListBookmarks")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceSaveBookmarkHandler := connect.NewUnaryHandler(
+		UserDataServiceSaveBookmarkProcedure,
+		svc.SaveBookmark,
+		connect.WithSchema(userDataServiceMethods.ByName("SaveBookmark")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceDeleteBookmarkHandler := connect.NewUnaryHandler(
+		UserDataServiceDeleteBookmarkProcedure,
+		svc.DeleteBookmark,
+		connect.WithSchema(userDataServiceMethods.ByName("DeleteBookmark")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceGetHistoryHandler := connect.NewUnaryHandler(
+		UserDataServiceGetHistoryProcedure,
+		svc.GetHistory,
+		connect.WithSchema(userDataServiceMethods.ByName("GetHistory")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceRecordPlayHandler := connect.NewUnaryHandler(
+		UserDataServiceRecordPlayProcedure,
+		svc.RecordPlay,
+		connect.WithSchema(userDataServiceMethods.ByName("RecordPlay")),
+		connect.WithHandlerOptions(opts...),
+	)
+	userDataServiceGetNowPlayingHandler := connect.NewUnaryHandler(
+		UserDataServiceGetNowPlayingProcedure,
+		svc.GetNowPlaying,
+		connect.WithSchema(userDataServiceMethods.ByName("GetNowPlaying")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/wavelength.v1.UserDataService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case UserDataServiceGetCurrentUserProcedure:
+			userDataServiceGetCurrentUserHandler.ServeHTTP(w, r)
+		case UserDataServiceListPlaylistsProcedure:
+			userDataServiceListPlaylistsHandler.ServeHTTP(w, r)
+		case UserDataServiceGetPlaylistProcedure:
+			userDataServiceGetPlaylistHandler.ServeHTTP(w, r)
+		case UserDataServiceCreatePlaylistProcedure:
+			userDataServiceCreatePlaylistHandler.ServeHTTP(w, r)
+		case UserDataServiceUpdatePlaylistProcedure:
+			userDataServiceUpdatePlaylistHandler.ServeHTTP(w, r)
+		case UserDataServiceDeletePlaylistProcedure:
+			userDataServiceDeletePlaylistHandler.ServeHTTP(w, r)
+		case UserDataServiceGetQueueProcedure:
+			userDataServiceGetQueueHandler.ServeHTTP(w, r)
+		case UserDataServiceSaveQueueProcedure:
+			userDataServiceSaveQueueHandler.ServeHTTP(w, r)
+		case UserDataServiceListBookmarksProcedure:
+			userDataServiceListBookmarksHandler.ServeHTTP(w, r)
+		case UserDataServiceSaveBookmarkProcedure:
+			userDataServiceSaveBookmarkHandler.ServeHTTP(w, r)
+		case UserDataServiceDeleteBookmarkProcedure:
+			userDataServiceDeleteBookmarkHandler.ServeHTTP(w, r)
+		case UserDataServiceGetHistoryProcedure:
+			userDataServiceGetHistoryHandler.ServeHTTP(w, r)
+		case UserDataServiceRecordPlayProcedure:
+			userDataServiceRecordPlayHandler.ServeHTTP(w, r)
+		case UserDataServiceGetNowPlayingProcedure:
+			userDataServiceGetNowPlayingHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedUserDataServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedUserDataServiceHandler struct{}
+
+func (UnimplementedUserDataServiceHandler) GetCurrentUser(context.Context, *connect.Request[v1.GetCurrentUserRequest]) (*connect.Response[v1.GetCurrentUserResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.GetCurrentUser is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) ListPlaylists(context.Context, *connect.Request[v1.ListPlaylistsRequest]) (*connect.Response[v1.ListPlaylistsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.ListPlaylists is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) GetPlaylist(context.Context, *connect.Request[v1.GetPlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.GetPlaylist is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) CreatePlaylist(context.Context, *connect.Request[v1.CreatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.CreatePlaylist is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) UpdatePlaylist(context.Context, *connect.Request[v1.UpdatePlaylistRequest]) (*connect.Response[v1.GetPlaylistResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.UpdatePlaylist is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) DeletePlaylist(context.Context, *connect.Request[v1.DeletePlaylistRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.DeletePlaylist is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) GetQueue(context.Context, *connect.Request[v1.GetQueueRequest]) (*connect.Response[v1.GetQueueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.GetQueue is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) SaveQueue(context.Context, *connect.Request[v1.SaveQueueRequest]) (*connect.Response[v1.GetQueueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.SaveQueue is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) ListBookmarks(context.Context, *connect.Request[v1.ListBookmarksRequest]) (*connect.Response[v1.ListBookmarksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.ListBookmarks is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) SaveBookmark(context.Context, *connect.Request[v1.SaveBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.SaveBookmark is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) DeleteBookmark(context.Context, *connect.Request[v1.DeleteBookmarkRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.DeleteBookmark is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) GetHistory(context.Context, *connect.Request[v1.GetHistoryRequest]) (*connect.Response[v1.GetHistoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.GetHistory is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) RecordPlay(context.Context, *connect.Request[v1.RecordPlayRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.RecordPlay is not implemented"))
+}
+
+func (UnimplementedUserDataServiceHandler) GetNowPlaying(context.Context, *connect.Request[v1.GetNowPlayingRequest]) (*connect.Response[v1.GetNowPlayingResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.UserDataService.GetNowPlaying is not implemented"))
 }

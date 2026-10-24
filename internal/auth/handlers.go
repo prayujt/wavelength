@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -19,6 +20,8 @@ func (m *Manager) Handler() http.Handler {
 	mux.HandleFunc("GET /auth/callback", m.callback)
 	mux.HandleFunc("GET /auth/me", m.me)
 	mux.HandleFunc("POST /auth/logout", m.logout)
+	mux.HandleFunc("GET /auth/connections", m.connections)
+	mux.HandleFunc("POST /auth/connections/{id}/revoke", m.revokeConnection)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("Referrer-Policy", "no-referrer")
@@ -30,8 +33,12 @@ func (m *Manager) Handler() http.Handler {
 	})
 }
 func (m *Manager) login(w http.ResponseWriter, r *http.Request) {
+	m.startLogin(w, r, "")
+}
+func (m *Manager) startLogin(w http.ResponseWriter, r *http.Request, returnTo string) {
 	token, state, nonce, verifier := secret(), secret(), secret(), oauth2.GenerateVerifier()
 	flow := Flow{TokenHash: digest(token), StateHash: digest(state), Nonce: nonce, Verifier: verifier, ExpiresAt: time.Now().Add(10 * time.Minute)}
+	flow.ReturnTo = returnTo
 	if err := m.store.SaveFlow(r.Context(), flow); err != nil {
 		internalError(w, err)
 		return
@@ -104,12 +111,22 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionToken := secret()
 	session := Session{TokenHash: digest(sessionToken), CSRF: secret(), User: user, ExpiresAt: time.Now().Add(12 * time.Hour)}
+	if flow.ReturnTo != "" {
+		if err = m.resumeOAuth(r, flow.ReturnTo, session); err != nil {
+			jsonError(w, 400, "invalid authorization request")
+			return
+		}
+	}
 	if err = m.store.CreateSession(r.Context(), session); err != nil {
 		internalError(w, err)
 		return
 	}
 	m.setCookie(w, m.sessionCookie, sessionToken, session.ExpiresAt, 12*60*60)
-	http.Redirect(w, r, "/auth/me", http.StatusSeeOther)
+	if strings.HasPrefix(flow.ReturnTo, "/oauth/authorize?request=") {
+		http.Redirect(w, r, flow.ReturnTo, http.StatusSeeOther)
+	} else {
+		http.Redirect(w, r, "/auth/me", http.StatusSeeOther)
+	}
 }
 func (m *Manager) me(w http.ResponseWriter, r *http.Request) {
 	session, err := m.browserSession(r)

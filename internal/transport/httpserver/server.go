@@ -9,8 +9,10 @@ import (
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/library"
+	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/transport/media"
 	"github.com/prayujt/wavelength/internal/transport/rpc"
+	"github.com/prayujt/wavelength/internal/userdata"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -42,9 +44,16 @@ func respond(w http.ResponseWriter, status int, value string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"status": value})
 }
 
-// WithAuth registers provider-neutral browser login routes only on the native server.
+// WithAuth registers OIDC login and shared OAuth routes only on the native server.
 func WithAuth(manager *auth.Manager) Option {
-	return func(mux *http.ServeMux) { mux.Handle("/auth/", manager.Handler()) }
+	return func(mux *http.ServeMux) {
+		mux.Handle("/auth/", manager.Handler())
+		oauth := manager.OAuthHandler()
+		mux.Handle("/oauth/", oauth)
+		mux.Handle("/.well-known/oauth-authorization-server", oauth)
+		mux.Handle("/.well-known/oauth-protected-resource", oauth)
+		mux.Handle("/.well-known/oauth-protected-resource/mcp", oauth)
+	}
 }
 
 // WithNative registers protobuf RPCs and the byte-range media endpoint, not legacy REST controls.
@@ -53,9 +62,24 @@ func WithNative(lib *library.Library, manager *auth.Manager) Option {
 		path, handler := rpc.Handler(lib, manager)
 		mux.Handle(path, handler)
 		mux.Handle("GET /media/tracks/{id}", manager.Protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := auth.RequireScope(r.Context(), auth.ScopeStream); err != nil {
+				http.Error(w, "insufficient scope", http.StatusForbidden)
+				return
+			}
 			if err := media.Stream(w, r, lib, r.PathValue("id")); err != nil {
 				apiError(w, r, err)
 			}
 		})))
+	}
+}
+
+// WithPersonal shares feature services and OIDC identities across native RPC and MCP.
+func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Manager) Option {
+	return func(mux *http.ServeMux) {
+		path, handler := rpc.UserDataHandler(data, manager)
+		mux.Handle(path, handler)
+		if manager.OAuthEnabled() {
+			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager))
+		}
 	}
 }
