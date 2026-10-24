@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/prayujt/wavelength/internal/accounts"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -20,24 +21,24 @@ import (
 
 type Option func(*api) error
 type api struct {
-	data           *userdata.Service
-	avatarDir      string
-	videoDir       string
-	podcastDir     string
-	hlsState       hlsState
-	publicURL      string
-	key            []byte
-	scanQueued     atomic.Bool
-	lib            *library.Library
-	store          state.Store
-	user, password string
-	ctx            context.Context
+	accounts   *accounts.Service
+	data       *userdata.Service
+	avatarDir  string
+	videoDir   string
+	podcastDir string
+	hlsState   hlsState
+	publicURL  string
+	key        []byte
+	scanQueued atomic.Bool
+	lib        *library.Library
+	store      state.Store
+	ctx        context.Context
 }
 
-func newAPI(lib *library.Library, user, password string) *api {
+func newAPI(lib *library.Library) *api {
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
-	return &api{key: key, lib: lib, store: &state.Memory{}, user: user, password: password, ctx: context.Background()}
+	return &api{key: key, lib: lib, store: &state.Memory{}, ctx: context.Background()}
 }
 func WithState(store state.Store) Option     { return func(a *api) error { a.store = store; return nil } }
 func WithContext(ctx context.Context) Option { return func(a *api) error { a.ctx = ctx; return nil } }

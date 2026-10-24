@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prayujt/wavelength/internal/accounts"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -25,12 +26,17 @@ func New(addr string, lib *library.Library, user, password string, options ...Op
 	if user == "" || password == "" {
 		return nil, errors.New("legacy Subsonic requires a username and password")
 	}
-	api := newAPI(lib, user, password)
+	api := newAPI(lib)
 	for _, option := range options {
 		if err := option(api); err != nil {
 			return nil, err
 		}
 	}
+	accountService, err := accounts.New(api.store, api.key, user, password)
+	if err != nil {
+		return nil, err
+	}
+	api.accounts = accountService
 	api.data = userdata.New(api.store, lib)
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if api.publicShare(w, r) {
@@ -206,12 +212,16 @@ func number(r *http.Request, key string, fallback, max int) (int, error) {
 func legacyError(result *response, err error) {
 	result.Status = "failed"
 	result.Error = &apiError{Code: 0, Message: "Library operation failed"}
-	if errors.Is(err, userdata.ErrInvalid) {
+	if errors.Is(err, userdata.ErrInvalid) || errors.Is(err, accounts.ErrInvalid) {
 		failure(result, 10, err.Error())
 		return
 	}
-	if errors.Is(err, userdata.ErrForbidden) {
+	if errors.Is(err, userdata.ErrForbidden) || errors.Is(err, accounts.ErrForbidden) {
 		failure(result, 50, err.Error())
+		return
+	}
+	if errors.Is(err, accounts.ErrExists) {
+		failure(result, 0, err.Error())
 		return
 	}
 	if errors.Is(err, state.ErrNotFound) {
