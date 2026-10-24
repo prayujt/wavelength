@@ -15,24 +15,28 @@ import (
 
 	"github.com/prayujt/wavelength/internal/accounts"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/podcasts"
+	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type Option func(*api) error
 type api struct {
-	accounts   *accounts.Service
-	data       *userdata.Service
-	avatarDir  string
-	videoDir   string
-	podcastDir string
-	hlsState   hlsState
-	publicURL  string
-	key        []byte
-	scanQueued atomic.Bool
-	lib        *library.Library
-	store      state.Store
-	ctx        context.Context
+	sharesService   *sharing.Service
+	podcastsService *podcasts.Service
+	accounts        *accounts.Service
+	data            *userdata.Service
+	avatarDir       string
+	videoDir        string
+	podcastDir      string
+	hlsState        hlsState
+	publicURL       string
+	key             []byte
+	scanQueued      atomic.Bool
+	lib             *library.Library
+	store           state.Store
+	ctx             context.Context
 }
 
 func newAPI(lib *library.Library) *api {

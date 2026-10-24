@@ -14,13 +14,6 @@ import (
 
 type annotation = userdata.Annotation
 
-func (a *api) save(ctx context.Context, scope, key string, value any) error {
-	return state.Write(ctx, a.store, scope, key, value)
-}
-func (a *api) remove(ctx context.Context, scope, key string) error {
-	return state.Delete(ctx, a.store, scope, key)
-}
-
 func (a *api) userData(r *http.Request, endpoint string, result *response) bool {
 	switch endpoint {
 	case "star", "unstar", "setRating":
