@@ -1,53 +1,17 @@
 package library
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
+	"sort"
 	"strings"
-	"time"
 
 	"github.com/dhowden/tag"
 )
-
-// probe enriches metadata when ffprobe is available; it never opens a raw request path.
-func probe(ctx context.Context, file *os.File, track *Track) {
-	if _, err := exec.LookPath("ffprobe"); err != nil {
-		return
-	}
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "ffprobe", "-v", "error", "-show_entries", "format=duration,bit_rate:format_tags=genre,title,artist,album,album_artist,date,track,disc", "-of", "json", "/dev/fd/3")
-	cmd.ExtraFiles = []*os.File{file}
-	var output bytes.Buffer
-	cmd.Stdout = &output
-	if err := cmd.Run(); err != nil {
-		return
-	}
-	var data struct {
-		Format struct {
-			Duration string            `json:"duration"`
-			BitRate  string            `json:"bit_rate"`
-			Tags     map[string]string `json:"tags"`
-		} `json:"format"`
-	}
-	if json.Unmarshal(output.Bytes(), &data) != nil {
-		return
-	}
-	track.Duration, _ = strconv.ParseFloat(data.Format.Duration, 64)
-	rate, _ := strconv.Atoi(data.Format.BitRate)
-	track.BitRate = rate / 1000
-	tags := data.Format.Tags
-	if track.Genre == "" {
-		track.Genre = tags["genre"]
-	}
-}
 
 // Artwork returns embedded art or a conventional adjacent image through the confined root.
 func (l *Library) Artwork(ctx context.Context, id string) ([]byte, string, error) {
@@ -62,35 +26,53 @@ func (l *Library) Artwork(ctx context.Context, id string) ([]byte, string, error
 			return picture.Data, picture.MIMEType, nil
 		}
 	}
-	for _, name := range []string{"cover.jpg", "cover.png", "folder.jpg", "folder.png", "front.jpg", "front.png"} {
-		image, err := l.root.Open(filepath.Join(filepath.Dir(track.Path), name))
+	entries, err := l.root.Open(filepath.Dir(track.Path))
+	if err != nil {
+		return nil, "", err
+	}
+	defer entries.Close()
+	names, err := entries.ReadDir(-1)
+	if err != nil {
+		return nil, "", err
+	}
+	sort.Slice(names, func(i, j int) bool { return artworkRank(names[i].Name()) < artworkRank(names[j].Name()) })
+	for _, entry := range names {
+		ext := strings.ToLower(filepath.Ext(entry.Name()))
+		if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".gif" {
+			continue
+		}
+		image, err := l.root.Open(filepath.Join(filepath.Dir(track.Path), entry.Name()))
 		if err != nil {
 			continue
 		}
 		info, err := image.Stat()
-		if err != nil || !info.Mode().IsRegular() {
+		if err != nil || !info.Mode().IsRegular() || info.Size() > 20<<20 {
 			image.Close()
 			continue
 		}
-		data, err := io.ReadAll(io.LimitReader(image, 20<<20))
+		data, err := io.ReadAll(image)
 		image.Close()
 		if err != nil {
 			return nil, "", err
 		}
-		mime := "image/jpeg"
-		if strings.HasSuffix(name, ".png") {
-			mime = "image/png"
+		kind := http.DetectContentType(data)
+		if strings.HasPrefix(kind, "image/") {
+			return data, kind, nil
 		}
-		return data, mime, nil
 	}
 	return nil, "", ErrNotFound
 }
 
 // Lyrics reads an adjacent UTF-8 lyrics file without permitting traversal outside the library.
 func (l *Library) Lyrics(ctx context.Context, id string) (string, error) {
-	track, err := l.Get(ctx, id)
+	file, track, err := l.OpenTrack(ctx, id)
 	if err != nil {
 		return "", err
+	}
+	metadata, tagErr := tag.ReadFrom(file)
+	file.Close()
+	if tagErr == nil && metadata.Lyrics() != "" {
+		return metadata.Lyrics(), nil
 	}
 	for _, ext := range []string{".lrc", ".txt"} {
 		file, err := l.root.Open(strings.TrimSuffix(track.Path, filepath.Ext(track.Path)) + ext)
@@ -110,4 +92,14 @@ func (l *Library) Lyrics(ctx context.Context, id string) (string, error) {
 		return string(body), err
 	}
 	return "", ErrNotFound
+}
+
+func artworkRank(name string) string {
+	lower := strings.ToLower(name)
+	for i, preferred := range []string{"cover.jpg", "cover.png", "cover.gif", "folder.jpg", "folder.png", "front.jpg", "front.png"} {
+		if lower == preferred {
+			return string(rune('0'+i)) + lower
+		}
+	}
+	return "z" + lower
 }

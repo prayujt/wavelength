@@ -15,7 +15,7 @@ operation error. Endpoint coverage alone does not establish full compatibility.
 - Accounts: users, role updates, password changes and deletion; persisted app accounts
   are separate from OIDC. Bootstrap credentials remain configured by environment.
 - Media: original/download byte ranges, FFmpeg audio/video conversion, artwork,
-  sidecar lyrics, avatars, HLS segments and sidecar/embedded captions.
+  embedded/sidecar lyrics, avatars, HLS segments and sidecar/embedded captions.
 - Sharing: durable expiring/revocable public links scoped to selected media.
 - Podcasts: RSS subscription/refresh, episode download, playback and deletion.
 
@@ -81,3 +81,15 @@ Additional media tests verify encoded GET/HEAD Content-Length, per-account bitra
 limits, adaptive HLS bitrate@dimensions, caption conversion and preconverted MP4s.
 Legacy filesystem IDs are distinct from ID3 identities and round-trip through search,
 stars, lists, artwork, metadata and public sharing.
+
+## Library regression coverage
+
+Mixed-container fixtures cover WAV/AIFF fallback metadata, WMA discovery, fractional
+Vorbis track/disc tags, timestamp-formatted years and audio-only MP4 classification.
+Native search normalizes Unicode case at ingestion. Embedded lyrics and case-insensitive
+adjacent artwork are read from the source library. Successful rescans advance index
+cache timestamps even when added files preserve old modification times. Native and
+legacy album views use the same track ordering.
+
+FFprobe remains optional for original playback and required for complete duration,
+bitrate and container fallback metadata. Path-based track identity is unchanged.
