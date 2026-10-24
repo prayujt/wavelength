@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"html/template"
 	"io"
 	"net/http"
 	"net/url"
@@ -178,7 +177,7 @@ func (m *Manager) oauthClient(ctx context.Context, id string) (oauthClient, erro
 }
 func validRedirect(value string) bool {
 	u, err := url.Parse(value)
-	if err != nil || u.Fragment != "" || u.RawFragment != "" {
+	if err != nil || u.Fragment != "" || u.RawFragment != "" || strings.ContainsAny(u.Host, "\t\r\n ;'\"\\") {
 		return false
 	}
 	// validatedURL also forbids credentials, opaque URIs and non-loopback HTTP.
@@ -355,43 +354,6 @@ func (m *Manager) resumeOAuth(r *http.Request, returnTo string, session Session)
 	})
 }
 
-func scopeLabel(scope string) string {
-	switch scope {
-	case ScopeRead:
-		return "Browse the music library and read your playlists and listening activity."
-	case ScopeWrite:
-		return "Create and change your playlists, playback queue, bookmarks and listening history."
-	case ScopeStream:
-		return "Stream audio files from the music library."
-	default:
-		return scope
-	}
-}
-
-var consentPage = template.Must(template.New("consent").Funcs(template.FuncMap{"scopeLabel": scopeLabel}).Parse(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Authorize Wavelength</title><body><h1>Connect to Wavelength</h1><p>Signed in as {{.User.Name}} ({{.User.Email}}).</p><p>Application: <strong>{{.Client.Name}}</strong>. This client name is supplied by the application and is not verified.</p><p>Return address: <code>{{.Redirect}}</code></p><p>Requested permissions:</p><ul>{{range .Scopes}}<li>{{scopeLabel .}}</li>{{end}}</ul><p>Only approve a connection you started. This grants access to the shared library and your own collections. Audio streaming requires its separate permission.</p><form method="post" action="/oauth/authorize"><input type="hidden" name="request" value="{{.ID}}"><input type="hidden" name="csrf" value="{{.CSRF}}"><button name="decision" value="allow">Allow</button> <button name="decision" value="deny">Deny</button></form></body></html>`))
-
-func (m *Manager) showConsent(w http.ResponseWriter, r *http.Request, id string) {
-	a, session, err := m.pending(r, id)
-	if err != nil {
-		oauthError(w, 400, "invalid_request")
-		return
-	}
-	c, err := m.oauthClient(r.Context(), a.ClientID)
-	if err != nil {
-		oauthError(w, 400, "invalid_client")
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Header().Set("Content-Security-Policy", "default-src 'none'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'")
-	w.Header().Set("X-Frame-Options", "DENY")
-	_ = consentPage.Execute(w, struct {
-		User     User
-		Client   oauthClient
-		Redirect string
-		Scopes   []string
-		ID, CSRF string
-	}{session.User, c, a.Redirect, a.Scopes, id, session.CSRF})
-}
 func (m *Manager) oauthConsent(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil || !single(r.PostForm) {
 		oauthError(w, 400, "invalid_request")
@@ -404,7 +366,7 @@ func (m *Manager) oauthConsent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get("Origin") != m.origin || !equal(r.PostForm.Get("csrf"), session.CSRF) {
-		oauthError(w, 403, "access_denied")
+		consentFailure(w, 403, "We couldn’t confirm this connection", "Return to your app and start a new connection. Your account has not been connected.")
 		return
 	}
 	decision := r.PostForm.Get("decision")

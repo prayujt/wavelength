@@ -134,6 +134,20 @@ are not supported. Registered clients expire after one year. Anonymous registrat
 does not grant library access: each connection requires an allowed OIDC user and
 explicit consent displaying the unverified client name, callback, and permissions.
 
+Use an implicit/trusted-app authorization flow for Wavelength's fixed upstream
+OIDC registration if your provider would otherwise show a second app-consent
+prompt. Keep application/group access policies enabled. Wavelength still asks
+once for each connecting AI client, showing the account, permissions and return
+address on its own approval screen.
+
+The approval document uses `same-origin` referrer policy, including a matching HTML
+meta policy when a proxy overrides response headers. A plain form POST under
+`no-referrer` sends `Origin: null` in browsers, which correctly fails the strict
+CSRF check. CSP permits the registered callback origin as well as Wavelength,
+because browsers also apply `form-action` to the final OAuth redirect. Inline
+styles require a per-response nonce; scripts, framing and external assets remain
+disabled. Missing, null or foreign origins and invalid CSRF tokens are rejected.
+
 The protected resource identifier is the exact public `/mcp` URL. Request it using
 the OAuth `resource` parameter, including when using the resulting credential for
 native RPCs. A missing resource defaults to this one resource for older clients;
@@ -218,3 +232,11 @@ Connect JSON, gRPC-Web and gRPC, with cross-user and read-only mutation denials.
 Raw HTTP checks also cover the three 2025 MCP protocol versions. Tests use only
 temporary local credentials and databases; third-party AI client certification is
 not implied.
+
+CI also runs Chromium through the actual OIDC redirects, rendered approval form,
+browser-generated Origin header, callback and token exchange. It covers normal
+approval, a proxy forcing `no-referrer`, cancellation, and a negative control
+reproducing the original Origin-null denial. To run it locally, install Playwright
+and Chromium, then set `WAVELENGTH_BROWSER_PYTHON` to that Python executable and run
+`go test ./internal/auth -run TestOAuthBrowserConsent`. An optional
+`WAVELENGTH_BROWSER_BIN` selects an existing Chromium executable.
