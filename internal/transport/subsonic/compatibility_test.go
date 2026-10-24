@@ -16,11 +16,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transcode"
 	"github.com/prayujt/wavelength/internal/transport/subsonic"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -52,12 +52,10 @@ func newFixture(t *testing.T, data, music string) *fixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = lib.Scan(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, music)
 	ctx, cancel := context.WithCancel(context.Background())
 	dependencies, close := testDependencies(ctx, lib, database.StateStore{DB: db})
-	server, err := subsonic.New(ctx, subsonic.Config{Username: "admin", Password: "secret"}, dependencies)
+	server, err := subsonic.New(subsonic.Config{Username: "admin", Password: "secret"}, dependencies)
 	if err != nil {
 		close()
 		cancel()
@@ -222,7 +220,7 @@ func TestPersistentPlaylistsHistoryAndQueue(t *testing.T) {
 	f.ok(t, "deletePlaylist", url.Values{"id": {id}})
 	expectCode(t, f.call(t, "getPlaylist", url.Values{"id": {id}}), 70)
 }
-func TestArtworkLyricsDownloadAndScanning(t *testing.T) {
+func TestArtworkLyricsDownloadAndIdleScanCompatibility(t *testing.T) {
 	f := newFixture(t, "", "")
 	track, _, _ := f.ids(t)
 	file, err := os.Create(filepath.Join(f.music, "A/First/cover.png"))
@@ -251,21 +249,12 @@ func TestArtworkLyricsDownloadAndScanning(t *testing.T) {
 	if download.Header().Get("Content-Disposition") == "" || download.Body.Len() != 256 {
 		t.Fatal("download failed")
 	}
-	f.ok(t, "startScan", nil)
-	deadline := time.Now().Add(5 * time.Second)
-	for {
-		status := f.ok(t, "getScanStatus", nil)["scanStatus"].(map[string]any)
-		if !status["scanning"].(bool) {
-			break
+	writeSong(t, f.music, "new.mp3", "Not imported", "Artist", "Album", 1)
+	for _, endpoint := range []string{"startScan", "getScanStatus"} {
+		status := f.ok(t, endpoint, nil)["scanStatus"].(map[string]any)
+		if status["scanning"] != false || status["count"] != float64(3) {
+			t.Fatal(status)
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("scan did not finish")
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-	status := f.ok(t, "getScanStatus", nil)["scanStatus"].(map[string]any)
-	if status["count"] != float64(3) {
-		t.Fatal(status)
 	}
 	if _, err = io.Copy(io.Discard, strings.NewReader("")); err != nil {
 		t.Fatal(err)

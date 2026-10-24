@@ -1,13 +1,13 @@
 # Wavelength
 
 A self-hosted music server written in Go, with an embedded SQLite catalog,
-Subsonic client compatibility, and a small native protobuf API. Point it at your
-music collection to index metadata, browse your library, and stream audio. It runs
+Subsonic client compatibility, and a small native protobuf API. It serves an existing
+music catalog and streams its source files. It runs
 as one binary and does not need an external database. A web UI is not included.
 
 ## Run with Docker
 
-The image includes FFmpeg and ffprobe and supports Linux on amd64 and arm64.
+The image includes FFmpeg and supports Linux on amd64 and arm64.
 
 ```sh
 export WAVELENGTH_TOKEN='choose-a-long-random-token'
@@ -53,20 +53,20 @@ and verification coverage.
 
 ## Library and storage
 
-Wavelength recursively scans one music directory, reads embedded tags, and stores
-the resulting catalog in `wavelength.db` inside the data directory. FFprobe adds
-duration, bitrate, and metadata where available. Common formats include MP3, FLAC,
-M4A, Ogg, Opus, WAV, and AIFF; audio-only MP4 files are classified with ffprobe.
+Wavelength treats the existing SQLite catalog as authoritative. Startup opens the
+database and begins serving without walking the music directory, reading tags, or
+probing media. Files are opened on demand for playback, artwork, and lyrics.
 
-Artist and album grouping comes from metadata, so an artist/album folder layout is
-not required. Missing titles fall back to filenames. Symlinks, non-regular files,
-and files classified as video are skipped.
+The catalog lives in `wavelength.db` inside the data directory. Keep the existing
+data volume and container-visible music root (for example `/music`) stable. Existing
+track IDs and personal state are preserved. External file additions, moves, edits,
+and deletions do not rewrite catalog records. A missing source fails playback
+without deleting its metadata.
 
-Startup completes a full scan before serving. Later scans can be requested through
-the APIs; there is no filesystem watcher. A successful scan atomically updates the
-catalog and removes entries for missing files. A failed scan keeps the previous
-catalog. Track IDs depend on the library root and relative file path, so moving or
-renaming a file changes its identity on the next scan.
+Automatic scans, native scan RPCs, and the `--scan-only` command have been removed.
+The Subsonic scan endpoints report an idle state and the stored track count;
+`startScan` performs no filesystem work. Ingestion is intentionally absent for now:
+a fresh database starts with an empty catalog even if the music directory has files.
 
 SQLite also holds playlists, bookmarks, playback queues, and listening history.
 Back up the data directory as well as your music collection.
@@ -74,7 +74,7 @@ Back up the data directory as well as your music collection.
 ## Native API
 
 The native API is intentionally small: browse and search tracks, artists, and
-albums; start a scan and inspect its status; discover playback URLs; and stream
+albums; discover playback URLs; and stream
 audio. The contract is [library.proto](proto/wavelength/v1/library.proto), with
 generated Go messages and Connect clients under `gen/`. The Connect handler serves
 Connect, gRPC, and gRPC-Web clients.
@@ -122,14 +122,12 @@ Configuration is read from environment variables at startup.
 ## Build and develop
 
 Go 1.24+ is required. Original-file playback works without external media tools;
-install `ffmpeg` and `ffprobe` for transcoding, HLS, and richer metadata.
+install `ffmpeg` for transcoding and HLS.
 
 ```sh
 export WAVELENGTH_MUSIC_DIR=/absolute/path/to/music
 go run ./cmd/wavelength
 
-# Scan the library and exit without starting listeners.
-go run ./cmd/wavelength --scan-only
 ```
 
 Source builds bind the native API to loopback by default. To enable Subsonic, set
@@ -144,7 +142,7 @@ make compatibility  # independent Subsonic client and XML schema checks; uv requ
 make generate       # regenerate protobuf code; protoc required
 ```
 
-Media integration tests skip without FFmpeg/ffprobe unless
+Media integration tests skip without FFmpeg unless
 `WAVELENGTH_REQUIRE_MEDIA_TOOLS=1` is set. Tests use isolated fixtures, not a live
 library. See [architecture](docs/architecture.md) for package ownership and adding
 services or transports.

@@ -19,6 +19,7 @@ import json
 from urllib.parse import urlsplit, urlencode
 from urllib.request import urlopen
 import libsonic
+from catalog_fixture import seed_catalog
 
 
 def run():
@@ -63,6 +64,7 @@ def run():
                     port = urlsplit('http://' + line.split('address=')[1].strip().strip('"')).port
                     break
             assert port, 'Legacy listener did not start'
+            seed_catalog(root / 'data', root / 'music', [{'path': source.relative_to(root / 'music').as_posix(), 'title': 'Client Tone', 'artist': 'Tag Artist', 'album': 'Tag Album', 'genre': 'Rock', 'duration': 1, 'content_type': 'audio/flac'}])
             calls = 0
             covered = set()
             def check(method, *args, **kwargs):
@@ -164,8 +166,9 @@ def run():
                         assert body == b'WEBVTT\n\n'
                     covered.add(endpoint)
                     calls += 1
-                check('getScanStatus')
-                check('startScan')
+                for endpoint in ('getScanStatus', 'startScan'):
+                    status = check(endpoint)['scanStatus']
+                    assert status == {'scanning': False, 'count': 1}
                 for method, args in [('download', (track,)), ('stream', (track,)), ('getCoverArt', (folder_album,)), ('getAvatar', ('client',))]:
                     with closing(getattr(client, method)(*args)) as response:
                         body = response.read()

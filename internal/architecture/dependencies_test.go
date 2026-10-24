@@ -47,6 +47,9 @@ func TestDependencyBoundaries(t *testing.T) {
 			if !application && !database && dependency == module+"internal/database" {
 				t.Errorf("%s imports the database implementation", relative)
 			}
+			if dependency == module+"internal/testutil" {
+				t.Errorf("%s imports test fixture code into the application", relative)
+			}
 			if transport && dependency == module+"internal/config" {
 				t.Errorf("%s bypasses application wiring: %s", relative, dependency)
 			}

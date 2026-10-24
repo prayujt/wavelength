@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
 	"errors"
 	"strings"
@@ -14,34 +13,13 @@ import (
 // Catalog implements library.Store using the application SQLite database.
 type Catalog struct{ DB *sql.DB }
 
-func (c Catalog) Replace(ctx context.Context, rootID, path string, tracks []library.Track) error {
-	tx, err := c.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return err
+func (c Catalog) Revision(ctx context.Context, rootID string) (int64, error) {
+	var revision int64
+	err := c.DB.QueryRowContext(ctx, "SELECT revision FROM library_roots WHERE id=?", rootID).Scan(&revision)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, nil
 	}
-	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, "INSERT INTO library_roots (id,path) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET path=excluded.path", rootID, path); err != nil {
-		return err
-	}
-	scanID := rand.Text()
-	stmt, err := tx.PrepareContext(ctx, `INSERT INTO tracks (id,root_id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,scan_id,genre,duration,bit_rate,created_at,search_text)
- VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(root_id,path) DO UPDATE SET
- title=excluded.title,artist=excluded.artist,album=excluded.album,album_artist=excluded.album_artist,
- track_number=excluded.track_number,disc_number=excluded.disc_number,year=excluded.year,
- content_type=excluded.content_type,size=excluded.size,modified_at=excluded.modified_at,scan_id=excluded.scan_id,genre=excluded.genre,duration=excluded.duration,bit_rate=excluded.bit_rate,search_text=excluded.search_text`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-	for _, t := range tracks {
-		if _, err = stmt.ExecContext(ctx, t.ID, rootID, t.Path, t.Title, t.Artist, t.Album, t.AlbumArtist, t.TrackNumber, t.DiscNumber, t.Year, t.ContentType, t.Size, t.ModifiedAt.Format(time.RFC3339Nano), scanID, t.Genre, t.Duration, t.BitRate, time.Now().UTC().Format(time.RFC3339Nano), strings.ToLower(t.Title+" "+t.Artist+" "+t.Album)); err != nil {
-			return err
-		}
-	}
-	if _, err = tx.ExecContext(ctx, "DELETE FROM tracks WHERE root_id=? AND scan_id<>?", rootID, scanID); err != nil {
-		return err
-	}
-	return tx.Commit()
+	return revision, err
 }
 
 const trackColumns = "id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,genre,duration,bit_rate,created_at"

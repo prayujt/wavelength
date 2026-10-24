@@ -43,9 +43,6 @@ func failure(err error) error {
 	if errors.Is(err, library.ErrNotFound) {
 		return connect.NewError(connect.CodeNotFound, errors.New("media not found"))
 	}
-	if errors.Is(err, library.ErrScanRunning) {
-		return connect.NewError(connect.CodeAlreadyExists, err)
-	}
 	if errors.Is(err, context.Canceled) {
 		return connect.NewError(connect.CodeCanceled, err)
 	}

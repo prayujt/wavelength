@@ -3,9 +3,7 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log/slog"
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/config"
@@ -14,8 +12,8 @@ import (
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 )
 
-// Run keeps resources alive until shutdown; scanOnly exits after catalog reconciliation.
-func Run(ctx context.Context, c config.Config, scanOnly bool) error {
+// Run serves the persisted catalog without inspecting or indexing source files.
+func Run(ctx context.Context, c config.Config) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	db, err := database.Open(ctx, c.DataDir)
@@ -33,17 +31,6 @@ func Run(ctx context.Context, c config.Config, scanOnly bool) error {
 			cancel()
 			lib.Close()
 		}()
-		result, err := lib.Scan(ctx)
-		if err != nil {
-			return fmt.Errorf("scan library: %w", err)
-		}
-		slog.Info("library indexed", "tracks", result.Indexed, "metadata_warnings", result.MetadataWarnings)
-	}
-	if scanOnly {
-		if lib == nil {
-			return errors.New("WAVELENGTH_MUSIC_DIR is required for --scan-only")
-		}
-		return nil
 	}
 	manager, err := auth.New(ctx, auth.Config{
 		Issuer: c.OIDC.Issuer, ClientID: c.OIDC.ClientID, ClientSecret: c.OIDC.ClientSecret,

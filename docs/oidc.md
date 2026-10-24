@@ -18,7 +18,7 @@ Create an OIDC application/client at your provider:
   Wavelength discovers authorization, token and JWKS endpoints automatically.
 
 All users whom the provider allows to sign into this application currently receive
-the same native library access, including rescanning. Restrict application access at
+the same native library access. Restrict application access at
 the provider if needed. Local roles, group mappings and per-user library permissions
 are not implemented yet. Email/name claims are display metadata, not authorization.
 
@@ -78,7 +78,7 @@ const response = await fetch('/auth/me');
 if (response.status === 401) location.assign('/auth/login');
 const { csrf_token } = await response.json();
 
-await fetch('/wavelength.v1.LibraryService/StartScan', {
+await fetch('/wavelength.v1.LibraryService/ListTracks', {
   method: 'POST',
   headers: { 'X-CSRF-Token': csrf_token, 'Content-Type': 'application/json' },
   body: '{}',

@@ -15,7 +15,7 @@ import (
 
 func mediaTools(t *testing.T) {
 	t.Helper()
-	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+	for _, tool := range []string{"ffmpeg"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			if os.Getenv("WAVELENGTH_REQUIRE_MEDIA_TOOLS") == "1" {
 				t.Fatal(err)
@@ -46,6 +46,9 @@ func TestRealAudioTranscodingAndHLS(t *testing.T) {
 	music := t.TempDir()
 	encode(t, "-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", "-metadata", "title=Tone", "-metadata", "artist=Fixture", "-metadata", "album=Fixtures", filepath.Join(music, "tone.flac"))
 	f := newFixture(t, "", music)
+	if _, err := f.db.Exec("UPDATE tracks SET duration=1.2 WHERE path=?", "tone.flac"); err != nil {
+		t.Fatal(err)
+	}
 	song := list(f.ok(t, "search3", url.Values{"query": {"Tone"}}), "searchResult3", "song")[0].(map[string]any)
 	track := song["id"].(string)
 	if song["duration"].(float64) < 1 {

@@ -2,7 +2,6 @@ package subsonic
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
@@ -10,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/transcode"
@@ -22,8 +20,6 @@ type api struct {
 	data               *userdata.Service
 	transcoder         *transcode.Service
 	username, password string
-	scanQueued         atomic.Bool
-	ctx                context.Context
 }
 
 var callbackPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$`)

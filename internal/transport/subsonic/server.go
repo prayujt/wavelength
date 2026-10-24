@@ -1,7 +1,6 @@
 package subsonic
 
 import (
-	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -9,7 +8,7 @@ import (
 )
 
 // New builds only the protocol boundary; callers retain ownership of its services.
-func New(ctx context.Context, c Config, services Dependencies) (*http.Server, error) {
+func New(c Config, services Dependencies) (*http.Server, error) {
 	if services.Library == nil || services.UserData == nil || services.Transcoder == nil {
 		return nil, errors.New("Subsonic requires application services")
 	}
@@ -18,7 +17,7 @@ func New(ctx context.Context, c Config, services Dependencies) (*http.Server, er
 	}
 	api := &api{
 		lib: services.Library, data: services.UserData, transcoder: services.Transcoder,
-		username: c.Username, password: c.Password, ctx: ctx,
+		username: c.Username, password: c.Password,
 	}
 	return &http.Server{Addr: c.Addr, Handler: api, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}, nil
 }

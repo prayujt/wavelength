@@ -213,18 +213,6 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		}
 		payload(result, "lyrics", map[string]any{"artist": r.Form.Get("artist"), "title": r.Form.Get("title"), "value": lyrics})
 		return true
-	case "getScanStatus", "startScan":
-		if endpoint == "startScan" && a.scanQueued.CompareAndSwap(false, true) {
-			go func() {
-				defer a.scanQueued.Store(false)
-				if _, err := a.lib.Scan(a.ctx); err != nil && !errors.Is(err, library.ErrScanRunning) {
-					slog.Error("legacy scan failed", "error", err)
-				}
-			}()
-		}
-		scanning, count := a.lib.ScanStatus()
-		payload(result, "scanStatus", map[string]any{"scanning": scanning || a.scanQueued.Load(), "count": count})
-		return true
 	case "getVideos":
 		payload(result, "videos", map[string]any{"video": []any{}})
 		return true
