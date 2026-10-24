@@ -4,6 +4,7 @@ go 1.24.0
 
 require (
 	connectrpc.com/connect v1.18.1
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/coreos/go-oidc/v3 v3.17.0
 	github.com/dhowden/tag v0.0.0-20240417053706-3d75831295e8
 	github.com/go-jose/go-jose/v4 v4.1.3

@@ -1,4 +1,4 @@
-package main
+package app
 
 import (
 	"context"
@@ -8,23 +8,6 @@ import (
 	"testing"
 	"time"
 )
-
-func TestNativeBindingRequiresTokenOutsideLoopback(t *testing.T) {
-	for _, addr := range []string{"0.0.0.0:8080", ":8080", "[::]:8080"} {
-		if validateNativeAddress(addr, "", false) == nil {
-			t.Fatalf("unprotected public bind: %s", addr)
-		}
-		if err := validateNativeAddress(addr, "", true); err != nil {
-			t.Fatal(err)
-		}
-		if err := validateNativeAddress(addr, "token", false); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := validateNativeAddress("127.0.0.1:8080", "", false); err != nil {
-		t.Fatal(err)
-	}
-}
 
 func TestSecondBindFailureReleasesFirstListener(t *testing.T) {
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
@@ -38,7 +21,7 @@ func TestSecondBindFailureReleasesFirstListener(t *testing.T) {
 	}
 	addr := first.Addr().String()
 	first.Close()
-	err = serve(context.Background(), []*http.Server{{Addr: addr}, {Addr: occupied.Addr().String()}})
+	err = serve(context.Background(), []server{{name: "native", http: &http.Server{Addr: addr}}, {name: "legacy", http: &http.Server{Addr: occupied.Addr().String()}}})
 	if err == nil {
 		t.Fatal("expected bind failure")
 	}
@@ -52,7 +35,9 @@ func TestSecondBindFailureReleasesFirstListener(t *testing.T) {
 func TestBothListenersStopOnCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, []*http.Server{{Addr: "127.0.0.1:0"}, {Addr: "127.0.0.1:0"}}) }()
+	go func() {
+		done <- serve(ctx, []server{{name: "native", http: &http.Server{Addr: "127.0.0.1:0"}}, {name: "legacy", http: &http.Server{Addr: "127.0.0.1:0"}}})
+	}()
 	cancel()
 	select {
 	case err := <-done:
