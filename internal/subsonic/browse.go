@@ -51,16 +51,6 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 					c.lastPlayed[alb.ID] = ann.LastPlayed
 				}
 			}
-			sort.SliceStable(alb.Songs, func(i, j int) bool {
-				x, y := alb.Songs[i], alb.Songs[j]
-				if x.DiscNumber != y.DiscNumber {
-					return x.DiscNumber < y.DiscNumber
-				}
-				if x.Track != y.Track {
-					return x.Track < y.Track
-				}
-				return strings.ToLower(x.Title) < strings.ToLower(y.Title)
-			})
 			if len(alb.Songs) > 0 {
 				art.CoverArt = alb.Songs[0].ID
 			}
@@ -573,12 +563,7 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 		for _, key := range keys {
 			index = append(index, map[string]any{"name": key, "artist": indices[key]})
 		}
-		var modified int64
-		for _, t := range c.tracks {
-			if t.ModifiedAt.UnixMilli() > modified {
-				modified = t.ModifiedAt.UnixMilli()
-			}
-		}
+		modified := a.lib.LastScan()
 		since, err := int64Parameter(r, "ifModifiedSince", 0)
 		if err != nil {
 			failure(result, 10, err.Error())

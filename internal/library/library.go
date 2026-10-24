@@ -72,6 +72,7 @@ type Library struct {
 	scan     sync.Mutex
 	scanning atomic.Bool
 	scanned  atomic.Int64
+	lastScan atomic.Int64
 }
 
 func Open(path string, store Store) (*Library, error) {
@@ -138,13 +139,8 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 			file.Close()
 			return fmt.Errorf("non-regular audio file: %s", path)
 		}
-		track := Track{ID: identifier(l.rootID + "\x00" + path), Path: path, Title: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), ContentType: mime, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}
+		track := Track{ID: identifier(l.rootID + "\x00" + path), Path: path, ContentType: mime, Size: info.Size(), ModifiedAt: info.ModTime().UTC()}
 		metadata, tagErr := tag.ReadFrom(file)
-		probe(ctx, file, &track)
-		closeErr := file.Close()
-		if closeErr != nil {
-			return closeErr
-		}
 		if tagErr == nil {
 			if title := strings.TrimSpace(metadata.Title()); title != "" {
 				track.Title = title
@@ -158,9 +154,23 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 			track.TrackNumber, _ = metadata.Track()
 			track.DiscNumber, _ = metadata.Disc()
 			track.Year = metadata.Year()
+			raw := make(map[string]string)
+			for key, value := range metadata.Raw() {
+				if text, ok := value.(string); ok {
+					raw[strings.ReplaceAll(strings.ToLower(key), "_", "")] = text
+				}
+			}
+			fillTags(&track, raw)
 		} else {
 			result.MetadataWarnings++
 			slog.Debug("metadata unavailable; using filename", "path", path, "error", tagErr)
+		}
+		probe(ctx, file, &track)
+		if err := file.Close(); err != nil {
+			return err
+		}
+		if track.Title == "" {
+			track.Title = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		}
 		tracks = append(tracks, track)
 		return nil
@@ -173,6 +183,8 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 	}
 	result.Indexed = len(tracks)
 	l.scanned.Store(int64(len(tracks)))
+	// A scan can add old files or remove the newest one; mtimes are not a catalog revision.
+	l.lastScan.Store(max(time.Now().UnixMilli(), l.lastScan.Load()+1))
 	return result, nil
 }
 
@@ -220,8 +232,12 @@ func identifier(value string) string { return fmt.Sprintf("%x", sha256.Sum256([]
 
 var contentTypes = map[string]string{
 	".mp3": "audio/mpeg", ".flac": "audio/flac", ".m4a": "audio/mp4", ".mp4": "video/mp4",
+	".wma": "audio/x-ms-wma", ".ape": "audio/x-ape", ".oga": "audio/ogg", ".m4b": "audio/mp4", ".mpc": "audio/x-musepack", ".shn": "audio/x-shorten", ".wv": "audio/wavpack", ".dsf": "audio/dsf",
 	".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav", ".aac": "audio/aac", ".aiff": "audio/aiff", ".aif": "audio/aiff",
 	".mkv": "video/x-matroska", ".webm": "video/webm", ".m4v": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".flv": "video/x-flv", ".mpeg": "video/mpeg", ".mpg": "video/mpeg",
 }
 
 func (l *Library) ScanStatus() (bool, int64) { return l.scanning.Load(), l.scanned.Load() }
+
+// LastScan is a monotonic timestamp for cache invalidation after a successful scan.
+func (l *Library) LastScan() int64 { return l.lastScan.Load() }
