@@ -18,11 +18,13 @@ import (
 	"github.com/prayujt/wavelength/internal/podcasts"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
+	"github.com/prayujt/wavelength/internal/transcode"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type Option func(*api) error
 type api struct {
+	transcoder      *transcode.Service
 	sharesService   *sharing.Service
 	podcastsService *podcasts.Service
 	accounts        *accounts.Service
@@ -30,7 +32,6 @@ type api struct {
 	avatarDir       string
 	videoDir        string
 	podcastDir      string
-	hlsState        hlsState
 	publicURL       string
 	key             []byte
 	scanQueued      atomic.Bool

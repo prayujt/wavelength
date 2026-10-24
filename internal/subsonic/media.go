@@ -2,7 +2,6 @@ package subsonic
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"image"
 	_ "image/gif"
@@ -11,14 +10,13 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/playback"
+	"github.com/prayujt/wavelength/internal/transcode"
 )
 
 func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
@@ -255,44 +253,9 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 	return false
 }
 func (a *api) transcode(w http.ResponseWriter, r *http.Request, id, format string, bitrate int) (bool, error) {
-	codec, container, mimeType := "", "", ""
-	switch format {
-	case "mp3":
-		codec, container, mimeType = "libmp3lame", "mp3", "audio/mpeg"
-	case "ogg":
-		codec, container, mimeType = "libvorbis", "ogg", "audio/ogg"
-	case "opus":
-		codec, container, mimeType = "libopus", "opus", "audio/ogg"
-	case "aac":
-		codec, container, mimeType = "aac", "adts", "audio/aac"
-	case "m4a":
-		codec, container, mimeType = "aac", "mp4", "audio/mp4"
-	case "flac":
-		codec, container, mimeType = "flac", "flac", "audio/flac"
-	case "wav":
-		codec, container, mimeType = "pcm_s16le", "wav", "audio/wav"
-	default:
-		return false, errors.New("Requested transcoding format is not supported")
-	}
-	if _, err := exec.LookPath("ffmpeg"); err != nil {
-		return false, errors.New("Transcoding requires ffmpeg")
-	}
-	file, _, err := a.lib.OpenTrack(r.Context(), id)
+	stream, err := a.transcoder.Audio(r.Context(), id, transcode.AudioOptions{Format: format, BitRate: bitrate})
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
-	args := []string{"-v", "error", "-nostdin", "-i", "/dev/fd/3", "-map", "0:a:0", "-vn", "-c:a", codec}
-	if format != "wav" && format != "flac" {
-		args = append(args, "-b:a", strconv.Itoa(bitrate)+"k")
-	}
-	if format == "m4a" {
-		args = append(args, "-movflags", "frag_keyframe+empty_moov")
-	}
-	args = append(args, "-f", container, "pipe:1")
-	ctx, cancel := context.WithCancel(r.Context())
-	defer cancel()
-	command := exec.CommandContext(ctx, "ffmpeg", args...)
-	command.ExtraFiles = []*os.File{file}
-	return serveEncoded(w, r, command, cancel, mimeType)
+	return serveEncoded(w, r, stream)
 }
