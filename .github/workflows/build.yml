@@ -1,0 +1,72 @@
+name: Build Docker Image
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      KO_DOCKER_REPO: docker.prayujt.com/wavelength
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        id: go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: false
+
+      - name: Cache Go modules and build outputs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-${{ runner.arch }}-ko-${{ github.workflow }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-ko-${{ github.workflow }}-${{ steps.go.outputs.go-version }}-${{ hashFiles('go.sum') }}-
+            ${{ runner.os }}-${{ runner.arch }}-ko-${{ github.workflow }}-${{ steps.go.outputs.go-version }}-
+
+      - name: Set up ko
+        uses: ko-build/setup-ko@v0.9
+        with:
+          version: v0.19.1
+
+      - name: Set up QEMU for runtime packages
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to container registry
+        uses: docker/login-action@v3
+        with:
+          registry: docker.prayujt.com
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push runtime base
+        id: runtime
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.runtime
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: docker.prayujt.com/wavelength:runtime-${{ github.sha }}
+          cache-from: type=registry,ref=docker.prayujt.com/wavelength:runtime-cache
+          cache-to: type=registry,ref=docker.prayujt.com/wavelength:runtime-cache,mode=max
+
+      - name: Build and push image with ko
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+          KO_DEFAULTBASEIMAGE: docker.prayujt.com/wavelength@${{ steps.runtime.outputs.digest }}
+        run: ko build ./cmd/wavelength --bare --platform=linux/amd64,linux/arm64 --tags="$IMAGE_TAG,latest"

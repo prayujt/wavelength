@@ -1,0 +1,11 @@
+FROM alpine:3.20
+
+WORKDIR /app
+
+# Audio conversion and container metadata need both ffmpeg and ffprobe at runtime.
+RUN apk add --no-cache ca-certificates ffmpeg
+
+ENV WAVELENGTH_ADDR=0.0.0.0:8080 \
+    WAVELENGTH_DATA_DIR=/data
+
+EXPOSE 8080 8081

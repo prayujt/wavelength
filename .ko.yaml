@@ -1,0 +1,3 @@
+defaultBaseImage: ko.local/wavelength-runtime
+defaultEnv:
+  - CGO_ENABLED=0

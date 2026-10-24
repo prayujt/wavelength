@@ -1,0 +1,3 @@
+# The runtime base installs packages and copies no repository files.
+*
+!Dockerfile.runtime
