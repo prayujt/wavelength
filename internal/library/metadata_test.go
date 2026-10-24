@@ -42,6 +42,13 @@ func TestMetadataAcrossContainers(t *testing.T) {
 			t.Fatalf("%s: %v\n%s", fixture.name, err, output)
 		}
 	}
+	// Containers with a real video stream stay outside the music catalog.
+	if output, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "color=s=16x16:d=0.1", "-c:v", "mpeg4", filepath.Join(root, "video.mp4")).CombinedOutput(); err != nil {
+		t.Fatalf("video fixture: %v %s", err, output)
+	}
+	if err := os.WriteFile(filepath.Join(root, "video.mkv"), []byte("not an audio extension"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	db, err := database.Open(ctx, t.TempDir())
 	if err != nil {
 		t.Fatal(err)

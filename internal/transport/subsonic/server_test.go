@@ -42,9 +42,9 @@ func TestLegacyAuthenticationBrowseAndStreaming(t *testing.T) {
 	if _, err = lib.Scan(context.Background()); err != nil {
 		t.Fatal(err)
 	}
-	dependencies, close := testDependencies(t, context.Background(), lib, database.StateStore{DB: db}, t.TempDir(), "listener", "secret")
+	dependencies, close := testDependencies(context.Background(), lib, database.StateStore{DB: db})
 	defer close()
-	server, err := subsonic.New(context.Background(), subsonic.Config{}, dependencies)
+	server, err := subsonic.New(context.Background(), subsonic.Config{Username: "listener", Password: "secret"}, dependencies)
 	if err != nil {
 		t.Fatal(err)
 	}

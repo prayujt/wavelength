@@ -37,7 +37,6 @@ type Track struct {
 }
 
 type Query struct {
-	IncludeVideo  bool
 	Search        string
 	Limit, Offset int
 }

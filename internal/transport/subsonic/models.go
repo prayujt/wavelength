@@ -47,24 +47,21 @@ type artist struct {
 	Name       string  `xml:"name,attr" json:"name"`
 	AlbumCount int     `xml:"albumCount,attr" json:"albumCount"`
 	CoverArt   string  `xml:"coverArt,attr,omitempty" json:"coverArt,omitempty"`
-	Starred    string  `xml:"starred,attr,omitempty" json:"starred,omitempty"`
 	Albums     []album `xml:"album,omitempty" json:"album,omitempty"`
 }
 type album struct {
-	ID         string `xml:"id,attr" json:"id"`
-	Name       string `xml:"name,attr" json:"name"`
-	Artist     string `xml:"artist,attr" json:"artist"`
-	ArtistID   string `xml:"artistId,attr" json:"artistId"`
-	SongCount  int    `xml:"songCount,attr" json:"songCount"`
-	Duration   int    `xml:"duration,attr" json:"duration"`
-	Year       int    `xml:"year,attr,omitempty" json:"year,omitempty"`
-	Genre      string `xml:"genre,attr,omitempty" json:"genre,omitempty"`
-	Created    string `xml:"created,attr" json:"created"`
-	CoverArt   string `xml:"coverArt,attr,omitempty" json:"coverArt,omitempty"`
-	Starred    string `xml:"starred,attr,omitempty" json:"starred,omitempty"`
-	PlayCount  int    `xml:"playCount,attr" json:"playCount"`
-	UserRating int    `xml:"userRating,attr,omitempty" json:"userRating,omitempty"`
-	Songs      []song `xml:"song,omitempty" json:"song,omitempty"`
+	ID        string `xml:"id,attr" json:"id"`
+	Name      string `xml:"name,attr" json:"name"`
+	Artist    string `xml:"artist,attr" json:"artist"`
+	ArtistID  string `xml:"artistId,attr" json:"artistId"`
+	SongCount int    `xml:"songCount,attr" json:"songCount"`
+	Duration  int    `xml:"duration,attr" json:"duration"`
+	Year      int    `xml:"year,attr,omitempty" json:"year,omitempty"`
+	Genre     string `xml:"genre,attr,omitempty" json:"genre,omitempty"`
+	Created   string `xml:"created,attr" json:"created"`
+	CoverArt  string `xml:"coverArt,attr,omitempty" json:"coverArt,omitempty"`
+	PlayCount int    `xml:"playCount,attr" json:"playCount"`
+	Songs     []song `xml:"song,omitempty" json:"song,omitempty"`
 }
 type song struct {
 	IsVideo     bool   `json:"isVideo"`
@@ -89,8 +86,6 @@ type song struct {
 	DiscNumber  int    `xml:"discNumber,attr,omitempty" json:"discNumber,omitempty"`
 	Created     string `xml:"created,attr" json:"created"`
 	CoverArt    string `xml:"coverArt,attr,omitempty" json:"coverArt,omitempty"`
-	Starred     string `xml:"starred,attr,omitempty" json:"starred,omitempty"`
-	UserRating  int    `xml:"userRating,attr,omitempty" json:"userRating,omitempty"`
 	PlayCount   int    `xml:"playCount,attr" json:"playCount"`
 }
 type searchResult struct {

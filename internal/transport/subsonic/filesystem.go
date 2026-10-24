@@ -9,9 +9,9 @@ import (
 )
 
 // filesystem projects directory identities independently of ID3 album identities.
-// Legacy directory IDs must round-trip through search, lists, stars and sharing.
+// Legacy directory IDs must round-trip through search and album lists.
 func (c collection) filesystem() collection {
-	out := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: c.tracks, lastPlayed: map[string]string{}, annotations: c.annotations}
+	out := collection{artists: []artist{}, albums: []album{}, songs: []song{}, tracks: c.tracks, lastPlayed: map[string]string{}, history: c.history}
 	albums := map[string]*album{}
 	artists := map[string]*artist{}
 	for _, source := range c.songs {
@@ -30,7 +30,7 @@ func (c collection) filesystem() collection {
 			if root == "." {
 				name = "Music"
 			}
-			art = &artist{ID: artistID, Name: name, Starred: c.annotations[artistID].Starred, Albums: []album{}}
+			art = &artist{ID: artistID, Name: name, Albums: []album{}}
 			artists[artistID] = art
 		}
 		alb := albums[albumID]
@@ -39,19 +39,16 @@ func (c collection) filesystem() collection {
 			if directory == "." {
 				name = "Music"
 			}
-			ann := c.annotations[albumID]
 			alb = &album{
-				ID:         albumID,
-				Name:       name,
-				Artist:     art.Name,
-				ArtistID:   artistID,
-				Created:    source.Created,
-				Genre:      source.Genre,
-				Year:       source.Year,
-				CoverArt:   source.ID,
-				Starred:    ann.Starred,
-				UserRating: ann.Rating,
-				Songs:      []song{},
+				ID:       albumID,
+				Name:     name,
+				Artist:   art.Name,
+				ArtistID: artistID,
+				Created:  source.Created,
+				Genre:    source.Genre,
+				Year:     source.Year,
+				CoverArt: source.ID,
+				Songs:    []song{},
 			}
 			albums[albumID] = alb
 		}
@@ -64,7 +61,7 @@ func (c collection) filesystem() collection {
 		if s.Created < alb.Created {
 			alb.Created = s.Created
 		}
-		if stamp := c.annotations[s.ID].LastPlayed; stamp > out.lastPlayed[albumID] {
+		if stamp := c.history[s.ID].LastPlayed; stamp > out.lastPlayed[albumID] {
 			out.lastPlayed[albumID] = stamp
 		}
 		art.CoverArt = alb.CoverArt
@@ -103,21 +100,6 @@ func (c collection) directoryTracks(key string) []song {
 	}
 	return songs
 }
-func (c collection) directoryIDs() map[string]bool {
-	ids := map[string]bool{}
-	for _, s := range c.songs {
-		p := path.Dir(c.tracks[s.ID].Path)
-		for {
-			ids[directoryID(p)] = true
-			if p == "." {
-				break
-			}
-			p = path.Dir(p)
-		}
-	}
-	return ids
-}
-
 func directoryID(path string) string {
 	if path == "." || path == "" {
 		return "1"

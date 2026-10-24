@@ -12,12 +12,8 @@ import (
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
-type annotation = userdata.Annotation
-
 func (a *api) userData(r *http.Request, endpoint string, result *response) bool {
 	switch endpoint {
-	case "star", "unstar", "setRating":
-		return a.annotate(r, result, endpoint)
 	case "getPlaylists", "getPlaylist", "createPlaylist", "updatePlaylist", "deletePlaylist":
 		return a.playlists(r, result, endpoint)
 	case "scrobble", "getNowPlaying":
@@ -26,98 +22,9 @@ func (a *api) userData(r *http.Request, endpoint string, result *response) bool 
 		return a.bookmarks(r, result, endpoint)
 	case "getPlayQueue", "savePlayQueue":
 		return a.queue(r, result, endpoint)
-	case "getInternetRadioStations", "createInternetRadioStation", "updateInternetRadioStation", "deleteInternetRadioStation":
-		ctx := r.Context()
-		var err error
-		switch endpoint {
-		case "getInternetRadioStations":
-			items, e := a.data.Stations(ctx)
-			err = e
-			payload(result, "internetRadioStations", map[string]any{"internetRadioStation": items})
-		case "deleteInternetRadioStation":
-			err = a.data.DeleteStation(ctx, r.Form.Get("id"))
-		default:
-			id := r.Form.Get("id")
-			if endpoint == "createInternetRadioStation" {
-				id = ""
-			}
-			err = a.data.SaveStation(ctx, userdata.Station{ID: id, Name: r.Form.Get("name"), StreamURL: r.Form.Get("streamUrl"), HomepageURL: r.Form.Get("homepageUrl")})
-		}
-		if err != nil {
-			legacyError(result, err)
-		}
-		return true
-	case "getChatMessages", "addChatMessage":
-		if endpoint == "addChatMessage" {
-			if err := a.data.AddMessage(r.Context(), r.Form.Get("u"), r.Form.Get("message")); err != nil {
-				legacyError(result, err)
-			}
-			return true
-		}
-		since, err := int64Parameter(r, "since", 0)
-		if err != nil {
-			failure(result, 10, err.Error())
-			return true
-		}
-		items, err := a.data.Messages(r.Context(), since)
-		if err != nil {
-			legacyError(result, err)
-		} else {
-			payload(result, "chatMessages", map[string]any{"chatMessage": items})
-		}
-		return true
+
 	}
 	return false
-}
-
-func (a *api) annotate(r *http.Request, result *response, endpoint string) bool {
-	ctx, user := r.Context(), r.Form.Get("u")
-	c, err := a.collection(ctx, user)
-	if err != nil {
-		legacyError(result, err)
-		return true
-	}
-	valid := c.directoryIDs()
-	for _, s := range c.songs {
-		valid[s.ID] = true
-	}
-	for _, album := range c.albums {
-		valid[album.ID] = true
-	}
-	for _, artist := range c.artists {
-		valid[artist.ID] = true
-	}
-	ids := append(append(append([]string{}, r.Form["id"]...), r.Form["albumId"]...), r.Form["artistId"]...)
-	if len(ids) == 0 {
-		failure(result, 10, "At least one media ID is required")
-		return true
-	}
-	for _, id := range ids {
-		if !valid[id] {
-			failure(result, 70, "Media not found")
-			return true
-		}
-	}
-	rating := 0
-	if endpoint == "setRating" {
-		rating, err = number(r, "rating", 0, 5)
-		if err != nil || len(r.Form["id"]) != 1 {
-			failure(result, 10, "Invalid rating parameters")
-			return true
-		}
-	}
-	for _, id := range ids {
-		if endpoint == "setRating" {
-			err = a.data.SetRating(ctx, user, id, rating)
-		} else {
-			err = a.data.SetStarred(ctx, user, id, endpoint == "star")
-		}
-		if err != nil {
-			legacyError(result, err)
-			return true
-		}
-	}
-	return true
 }
 
 func (a *api) listening(r *http.Request, result *response, endpoint string) bool {

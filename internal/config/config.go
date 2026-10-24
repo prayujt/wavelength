@@ -26,10 +26,9 @@ type OIDC struct {
 }
 
 type Subsonic struct {
-	Addr      string `env:"ADDR"`
-	User      string `env:"USER"`
-	Password  string `env:"PASSWORD"`
-	PublicURL string `env:"PUBLIC_URL"`
+	Addr     string `env:"ADDR"`
+	User     string `env:"USER"`
+	Password string `env:"PASSWORD"`
 }
 
 func (c Subsonic) Enabled() bool { return c.Password != "" }

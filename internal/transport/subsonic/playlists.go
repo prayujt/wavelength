@@ -39,12 +39,7 @@ func (a *api) playlistNode(r *http.Request, p userdata.Playlist, entries bool) (
 func (a *api) playlists(r *http.Request, result *response, endpoint string) bool {
 	ctx, user := r.Context(), r.Form.Get("u")
 	if endpoint == "getPlaylists" {
-		account, err := a.account(ctx, user)
-		if err != nil {
-			legacyError(result, err)
-			return true
-		}
-		items, err := a.data.Playlists(ctx, user, r.Form.Get("username"), account.Roles["adminRole"])
+		items, err := a.data.Playlists(ctx, user, r.Form.Get("username"), true)
 		if err != nil {
 			legacyError(result, err)
 			return true

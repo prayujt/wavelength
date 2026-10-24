@@ -12,15 +12,16 @@ import (
 	"unicode"
 
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type collection struct {
-	artists     []artist
-	albums      []album
-	songs       []song
-	tracks      map[string]library.Track
-	lastPlayed  map[string]string
-	annotations map[string]annotation
+	artists    []artist
+	albums     []album
+	songs      []song
+	tracks     map[string]library.Track
+	lastPlayed map[string]string
+	history    map[string]userdata.History
 }
 
 func (a *api) collection(ctx context.Context, user string) (collection, error) {
@@ -29,22 +30,17 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 	if err != nil {
 		return c, err
 	}
-	annotations, err := a.data.Annotations(ctx, user)
+	history, err := a.data.History(ctx, user)
 	if err != nil {
 		return c, err
 	}
-	c.annotations = annotations
+	c.history = history
 	for _, art := range all {
-		art.Starred = annotations[art.ID].Starred
 		for i := range art.Albums {
 			alb := &art.Albums[i]
-			alb.Starred = annotations[alb.ID].Starred
-			alb.UserRating = annotations[alb.ID].Rating
 			for j := range alb.Songs {
 				s := &alb.Songs[j]
-				ann := annotations[s.ID]
-				s.Starred = ann.Starred
-				s.UserRating = ann.Rating
+				ann := history[s.ID]
 				s.PlayCount = ann.Plays
 				alb.PlayCount += ann.Plays
 				if ann.LastPlayed > c.lastPlayed[alb.ID] {
@@ -60,16 +56,12 @@ func (a *api) collection(ctx context.Context, user string) (collection, error) {
 		c.artists = append(c.artists, art)
 	}
 	for offset := 0; ; offset += 500 {
-		page, err := a.lib.List(ctx, library.Query{IncludeVideo: true, Limit: 500, Offset: offset})
+		page, err := a.lib.List(ctx, library.Query{Limit: 500, Offset: offset})
 		if err != nil {
 			return c, err
 		}
 		for _, t := range page.Tracks {
 			c.tracks[t.ID] = t
-			if strings.HasPrefix(t.ContentType, "video/") {
-				s := asSong(t)
-				c.songs = append(c.songs, s)
-			}
 		}
 		if len(page.Tracks) < 500 {
 			break
@@ -125,7 +117,7 @@ func groupArtists(artists []artist) []artistIndex {
 }
 func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, result *response) bool {
 	switch endpoint {
-	case "getArtists", "getArtist", "getAlbum", "getSong", "getIndexes", "getMusicDirectory", "getGenres", "getAlbumList", "getAlbumList2", "getRandomSongs", "getSongsByGenre", "search", "search2", "search3", "getStarred", "getStarred2", "getArtistInfo", "getArtistInfo2", "getAlbumInfo", "getAlbumInfo2", "getSimilarSongs", "getSimilarSongs2", "getTopSongs":
+	case "getArtists", "getArtist", "getAlbum", "getSong", "getIndexes", "getMusicDirectory", "getGenres", "getAlbumList", "getAlbumList2", "getRandomSongs", "getSongsByGenre", "search", "search2", "search3", "getArtistInfo", "getArtistInfo2", "getAlbumInfo", "getAlbumInfo2", "getSimilarSongs", "getSimilarSongs2", "getTopSongs":
 	default:
 		return false
 	}
@@ -139,7 +131,7 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 		failure(result, 70, "Music folder not found")
 		return true
 	}
-	if endpoint == "search2" || endpoint == "getAlbumList" || endpoint == "getStarred" {
+	if endpoint == "search2" || endpoint == "getAlbumList" {
 		c = c.filesystem()
 	}
 	switch endpoint {
@@ -318,38 +310,6 @@ func (a *api) browse(w http.ResponseWriter, r *http.Request, endpoint string, re
 			offset = 0
 		}
 		payload(result, name, map[string]any{"song": pageSlice(songs, offset, count)})
-	case "getStarred", "getStarred2":
-		arts := []artist{}
-		albs := []album{}
-		songs := []song{}
-		for _, v := range withoutAlbums(c.artists) {
-			if v.Starred != "" {
-				arts = append(arts, v)
-			}
-		}
-		for _, v := range withoutSongs(c.albums) {
-			if v.Starred != "" {
-				albs = append(albs, v)
-			}
-		}
-		for _, v := range c.songs {
-			if v.Starred != "" {
-				songs = append(songs, v)
-			}
-		}
-		name := "starred2"
-		if endpoint == "getStarred" {
-			name = "starred"
-		}
-		if endpoint == "getStarred" {
-			dirs := []map[string]any{}
-			for _, alb := range albs {
-				dirs = append(dirs, albumDirectory(alb))
-			}
-			payload(result, name, map[string]any{"artist": arts, "album": dirs, "song": songs})
-		} else {
-			payload(result, name, map[string]any{"artist": arts, "album": albs, "song": songs})
-		}
 	case "getArtistInfo", "getArtistInfo2", "getAlbumInfo", "getAlbumInfo2", "getSimilarSongs", "getSimilarSongs2", "getTopSongs":
 		a.enrichment(r, result, c, endpoint)
 
@@ -424,8 +384,8 @@ func (a *api) albumList(r *http.Request, result *response, c collection, endpoin
 		})
 	case "newest":
 		sort.SliceStable(albums, func(i, j int) bool { return albums[i].Created > albums[j].Created })
-	case "highest":
-		sort.SliceStable(albums, func(i, j int) bool { return albums[i].UserRating > albums[j].UserRating })
+	case "highest", "starred":
+		albums = []album{}
 	case "frequent":
 		sort.SliceStable(albums, func(i, j int) bool { return albums[i].PlayCount > albums[j].PlayCount })
 	case "recent":
@@ -437,15 +397,6 @@ func (a *api) albumList(r *http.Request, result *response, c collection, endpoin
 		}
 		albums = filtered
 		sort.SliceStable(albums, func(i, j int) bool { return c.lastPlayed[albums[i].ID] > c.lastPlayed[albums[j].ID] })
-	case "starred":
-		filtered := []album{}
-		for _, v := range albums {
-			if v.Starred != "" {
-				filtered = append(filtered, v)
-			}
-		}
-		albums = filtered
-		sort.SliceStable(albums, func(i, j int) bool { return albums[i].Starred > albums[j].Starred })
 	case "byGenre":
 		genre := required(r, result, "genre")
 		if result.Error != nil {
@@ -523,7 +474,7 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 				nextID := directoryID(next)
 				if _, ok := dirs[nextID]; !ok {
 					dirs[nextID] = next
-					children[directoryID(current)] = append(children[directoryID(current)], annotatedNode(map[string]any{"id": nextID, "parent": directoryID(current), "title": part, "isDir": true, "coverArt": s.ID}, c.annotations[nextID]))
+					children[directoryID(current)] = append(children[directoryID(current)], map[string]any{"id": nextID, "parent": directoryID(current), "title": part, "isDir": true, "coverArt": s.ID})
 				}
 				current = next
 			}
@@ -543,7 +494,7 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 					group = string(unicode.ToUpper(r))
 					break
 				}
-				indices[group] = append(indices[group], annotatedNode(map[string]any{"id": node["id"], "name": name}, c.annotations[node["id"].(string)]))
+				indices[group] = append(indices[group], map[string]any{"id": node["id"], "name": name})
 			} else {
 				rootSongs = append(rootSongs, node)
 			}
@@ -585,9 +536,6 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 			return strings.ToLower(nodes[i]["title"].(string)) < strings.ToLower(nodes[j]["title"].(string))
 		})
 		node := map[string]any{"id": key, "name": path.Base(p), "child": nodes}
-		if ann := c.annotations[key]; ann.Starred != "" {
-			node["starred"] = ann.Starred
-		}
 		if key == "1" {
 			node["name"] = "Music"
 		} else {
@@ -617,14 +565,4 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 		}
 	}
 	failure(result, 70, "Directory not found")
-}
-
-func annotatedNode(node map[string]any, ann annotation) map[string]any {
-	if ann.Starred != "" {
-		node["starred"] = ann.Starred
-	}
-	if ann.Rating > 0 {
-		node["userRating"] = ann.Rating
-	}
-	return node
 }

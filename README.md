@@ -6,7 +6,7 @@ RPC API and a separate legacy Subsonic listener. No external database server.
 ## Run
 
 Go 1.24+ is required to build. Original-file playback works without FFmpeg; install
-`ffmpeg` and `ffprobe` for transcoding, HLS and richer audio/video metadata.
+`ffmpeg` and `ffprobe` for transcoding, HLS and richer audio metadata.
 
 ```sh
 export WAVELENGTH_MUSIC_DIR=/absolute/path/to/music
@@ -15,8 +15,7 @@ go run ./cmd/wavelength
 ```
 
 The source library is read-only. Startup scans finish before serving; without a music
-root the server exposes health only. SQLite, sessions, app data and downloaded
-podcasts live in the data directory. Back up that directory, including `subsonic.key`.
+root the server exposes health only. SQLite, sessions and app data live in the data directory. Back up that directory.
 
 ## Native API: Connect RPC, port 8080
 
@@ -59,25 +58,21 @@ The same binary runs both listeners. Legacy credentials are independent of nativ
 bearer tokens and OIDC sessions. Both listeners share indexing/storage and shut down
 together; neither serves if either configured port cannot bind.
 
-Legacy features include browsing/search, playlists, stars/ratings, bookmarks/queues,
-scrobbling/history, cover art/lyrics, account roles, radio/chat, scanning, downloads,
-transcoding, HLS, video/captions, public shares, podcasts.
-XML, JSON and JSONP are supported with `.view` aliases and salted-token/password auth.
-**Broad endpoint coverage is not a claim of complete client/behavioral parity.**
-See [compatibility and verification](docs/subsonic-compatibility.md) for conditions and gaps.
+Legacy music features include browsing/search, playlists, bookmarks/queues, local
+listening history, cover art/lyrics, scanning, downloads, audio transcoding and audio
+HLS. XML, JSON and JSONP are supported with `.view` aliases and salted-token/password
+authentication. Only the configured username/password can authenticate; account
+management commands are no-ops and cannot change those credentials.
 
-Optional settings:
-
-- `WAVELENGTH_SUBSONIC_PUBLIC_URL`: public legacy origin, required to create shares.
-- Avatar images: `data/avatars/<username>.png`, `.jpg`, `.jpeg` or `.gif` (URL-escape
-  usernames containing special path characters).
-
-Account roles gate privileged features; share/podcast permissions must be granted
-with `updateUser` before use. Podcast downloads go to app data, not the source library.
+Podcasts, video/captions, radio, chat, avatars, sharing, favorites and ratings retain
+empty compatibility responses in the legacy handler. They have no backing services.
+The old public sharing routes are unavailable. See [compatibility and
+verification](docs/subsonic-compatibility.md) for the exact response behavior.
 
 ## Indexing
 
-Recursive audio/video indexing extracts available tags and optional ffprobe metadata.
+Recursive audio indexing extracts available tags and optional ffprobe metadata.
+Audio-only MP4 files require ffprobe classification; files containing video are skipped.
 Missing/bad tags fall back to filenames. Symlinks and non-regular files are skipped.
 IDs are stable for root+relative path; moving/renaming changes identity. Successful
 full rescans atomically update/prune the catalog; failed scans preserve the old snapshot.

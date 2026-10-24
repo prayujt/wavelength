@@ -47,10 +47,7 @@ func TestStreamsAndHLSSessionsWithoutHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	id := page.Tracks[0].ID
-	service, err := transcode.New(ctx, lib, t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	service := transcode.New(ctx, lib)
 	defer service.Close()
 	stream, err := service.Audio(ctx, id, transcode.AudioOptions{Format: "mp3", BitRate: 64})
 	if err != nil {
