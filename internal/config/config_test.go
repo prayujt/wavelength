@@ -29,12 +29,11 @@ func TestLoad(t *testing.T) {
 	}
 	t.Setenv("WAVELENGTH_MUSIC_DIR", "/music")
 	t.Setenv("WAVELENGTH_SUBSONIC_PASSWORD", "secret")
-	t.Setenv("WAVELENGTH_LASTFM_SESSIONS", `{"listener":"session"}`)
 	c, err = Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Subsonic.User != "admin" || c.Subsonic.Addr != "127.0.0.1:8081" || c.LastFM.Sessions["listener"] != "session" {
+	if c.Subsonic.User != "admin" || c.Subsonic.Addr != "127.0.0.1:8081" {
 		t.Fatal("nested configuration was not decoded")
 	}
 }
@@ -45,7 +44,6 @@ func TestInvalidConfiguration(t *testing.T) {
 		{"WAVELENGTH_SUBSONIC_USER": "admin"},
 		{"WAVELENGTH_SUBSONIC_PASSWORD": "secret"},
 		{"WAVELENGTH_OIDC_ISSUER": "https://issuer.example"},
-		{"WAVELENGTH_LASTFM_SESSIONS": "invalid"},
 	} {
 		t.Run("invalid", func(t *testing.T) {
 			cleanEnvironment(t)

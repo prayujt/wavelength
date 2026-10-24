@@ -101,7 +101,7 @@ def run():
                     # py-sonic's repeated-parameter GET helpers still reference urllib2.
                     # Use its unmodified POST helpers for those operations.
                     client.setGET(False)
-                check('updateUser', 'client', adminRole=True, downloadRole=True, commentRole=True, shareRole=True, podcastRole=True, jukeboxRole=True)
+                check('updateUser', 'client', adminRole=True, downloadRole=True, commentRole=True, shareRole=True, podcastRole=True)
                 check('getLicense')
                 check('getMusicFolders')
                 indexes = check('getIndexes')['indexes']['index']
@@ -189,9 +189,6 @@ def run():
                         assert b'Client caption' in body
                     covered.add(endpoint)
                     calls += 1
-                check('jukeboxControl', 'set', sids=[track])
-                check('jukeboxControl', 'get')
-                check('jukeboxControl', 'clear')
                 check('getScanStatus')
                 check('startScan')
                 for method, args in [('download', (track,)), ('stream', (track,)), ('getCoverArt', (folder_album,)), ('getAvatar', ('client',))]:
@@ -213,8 +210,9 @@ def run():
                 calls += 2
                 check('unstar', sids=[folder_artist, folder_album, track], albumIds=[tag_album], artistIds=[artist])
             contract = json.loads((binary.parent.parent / 'internal/subsonic/testdata/contract.json').read_text())['endpoints']
-            assert covered == set(contract), f'Endpoint coverage mismatch: missing={set(contract) - covered}, extra={covered - set(contract)}'
-            print(f'PASS: all {len(covered)} documented endpoints; {calls} operations (74 endpoints via py-sonic, 2 video endpoints via direct HTTP) against real binary; token/password POST and GET connectivity; filesystem and ID3 browsing, state, accounts, encoded playback, HLS and assets')
+            supported = set(contract) - {'jukeboxControl'}
+            assert covered == supported, f'Endpoint coverage mismatch: missing={supported - covered}, extra={covered - supported}'
+            print(f'PASS: all {len(covered)} supported legacy endpoints; {calls} operations (73 endpoints via py-sonic, 2 video endpoints via direct HTTP) against real binary; token/password POST and GET connectivity; filesystem and ID3 browsing, state, accounts, encoded playback, HLS and assets')
         finally:
             process.send_signal(signal.SIGTERM)
             try:

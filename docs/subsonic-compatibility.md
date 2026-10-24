@@ -1,8 +1,8 @@
 # Legacy Subsonic compatibility
 
 Target: the documented Subsonic REST API 1.16.1, not all OpenSubsonic extensions or
-all behavior of the original Java server. All documented endpoint names have handler
-paths, but endpoint presence alone does not establish full compatibility.
+all behavior of the original Java server. 75 documented endpoints are supported. Jukebox requests return an unsupported
+operation error. Endpoint coverage alone does not establish full compatibility.
 
 ## Implemented groups
 
@@ -18,21 +18,19 @@ paths, but endpoint presence alone does not establish full compatibility.
   sidecar lyrics, avatars, HLS segments and sidecar/embedded captions.
 - Sharing: durable expiring/revocable public links scoped to selected media.
 - Podcasts: RSS subscription/refresh, episode download, playback and deletion.
-- Jukebox: queue/state/control and an opt-in ffplay output backend.
 
 ## Configuration-dependent behavior
 
 - FFmpeg/ffprobe are required for transcoding, HLS and video stream introspection.
 - Shares require a public legacy origin and the account's sharing role.
 - Podcasts require the podcast role; downloads use Wavelength app storage.
-- Jukebox requires an enabled backend, jukebox role and usable host audio output.
-- Enriched biography/album info and external scrobbling require Last.fm configuration.
-  Without it, related-item recommendations use local catalog/history, not Last.fm parity.
+- Related items and top songs use local catalog relationships and listening history.
+  Remote biographies, album notes and external scrobbling are not provided.
 - Avatars and lyrics require source assets. Missing resources return protocol errors.
 
 ## Remaining differences and unverified areas
 
-- Real-binary interoperability is verified with py-sonic 1.0.3 for 74 endpoints; its
+- Real-binary interoperability is verified with py-sonic 1.0.3 for 73 endpoints; its
   two video methods have upstream integer-ID/JSON-caption assumptions and are checked
   directly over HTTP instead. This is not certification of every mobile/desktop app
   or a live Navidrome migration.
@@ -44,8 +42,7 @@ paths, but endpoint presence alone does not establish full compatibility.
   streams them with range support. Codec availability depends on the FFmpeg build.
 - Podcast subscriptions support RSS and Atom enclosures. Downloads are claimed
   atomically and channel/episode deletion cannot resurrect in-flight downloads.
-- Real hardware jukebox playback and live Last.fm/OIDC deployments are not verified;
-  their integrations use controlled test providers/backends.
+- Live OIDC deployments are not verified; authentication tests use controlled issuers.
 - OpenSubsonic extension parity is outside this legacy target.
 
 Therefore this release is **not certified full parity**. The remaining compatibility
@@ -56,7 +53,7 @@ work needs explicit parameter/behavior checks and representative real-client tes
 `go test -race ./...` exercises browsing, authentication, persisted user state,
 permissions, protocol errors and native Connect. With FFmpeg/ffprobe, media tests encode
 real audio/video and decode returned transcoding/HLS bytes. Shares, RSS downloads,
-caption retrieval and jukebox controls have fixture integration tests.
+caption retrieval have fixture integration tests.
 
 `scripts/smoke.py` runs the actual binary with tagged audio, both ports, auth, range/HEAD
 playback, pruning, restart persistence, source immutability and graceful shutdown.
@@ -74,10 +71,9 @@ missing required inputs across that inventory; filesystem-ID and account-limit
 regressions cover cross-endpoint behavior rather than dispatch presence alone.
 
 `uv run scripts/client-compatibility.py` starts the real binary with isolated media
-and SQLite, then checks all 76 documented endpoints through 172 operations in its
-current fixture run. It includes actual podcast downloads, video/captions, sharing,
+and SQLite, then checks all 75 supported endpoints through real-client operations. It includes actual podcast downloads, video/captions, sharing,
 account administration, playlists, original and transcoded playback and HLS.
-The unmodified py-sonic client handles 74 endpoints; direct HTTP covers the two video
+The unmodified py-sonic client handles 73 endpoints; direct HTTP covers the two video
 methods described above. Its repeated-parameter GET helpers reference Python 2's
 urllib2, so those client calls use POST; GET connectivity is checked separately.
 

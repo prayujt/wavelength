@@ -2,7 +2,6 @@
 package config
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,15 +10,13 @@ import (
 )
 
 type Config struct {
-	MusicDir      string   `env:"WAVELENGTH_MUSIC_DIR"`
-	DataDir       string   `env:"WAVELENGTH_DATA_DIR" envDefault:"./data"`
-	Addr          string   `env:"WAVELENGTH_ADDR" envDefault:"127.0.0.1:8080"`
-	Token         string   `env:"WAVELENGTH_TOKEN"`
-	PublicURL     string   `env:"WAVELENGTH_PUBLIC_URL"`
-	OIDC          OIDC     `envPrefix:"WAVELENGTH_OIDC_"`
-	Subsonic      Subsonic `envPrefix:"WAVELENGTH_SUBSONIC_"`
-	LastFM        LastFM   `envPrefix:"WAVELENGTH_LASTFM_"`
-	JukeboxPlayer string   `env:"WAVELENGTH_JUKEBOX_PLAYER"`
+	MusicDir  string   `env:"WAVELENGTH_MUSIC_DIR"`
+	DataDir   string   `env:"WAVELENGTH_DATA_DIR" envDefault:"./data"`
+	Addr      string   `env:"WAVELENGTH_ADDR" envDefault:"127.0.0.1:8080"`
+	Token     string   `env:"WAVELENGTH_TOKEN"`
+	PublicURL string   `env:"WAVELENGTH_PUBLIC_URL"`
+	OIDC      OIDC     `envPrefix:"WAVELENGTH_OIDC_"`
+	Subsonic  Subsonic `envPrefix:"WAVELENGTH_SUBSONIC_"`
 }
 
 type OIDC struct {
@@ -36,24 +33,6 @@ type Subsonic struct {
 }
 
 func (c Subsonic) Enabled() bool { return c.Password != "" }
-
-type LastFM struct {
-	APIKey   string   `env:"API_KEY"`
-	Secret   string   `env:"SECRET"`
-	Sessions Sessions `env:"SESSIONS"`
-}
-
-// Sessions preserves the JSON format used by existing deployments.
-type Sessions map[string]string
-
-func (s *Sessions) UnmarshalText(text []byte) error {
-	var sessions map[string]string
-	if err := json.Unmarshal(text, &sessions); err != nil {
-		return errors.New("expected a JSON object mapping usernames to session keys")
-	}
-	*s = sessions
-	return nil
-}
 
 func Load() (Config, error) {
 	c, err := env.ParseAs[Config]()

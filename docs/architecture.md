@@ -14,8 +14,7 @@ listeners, one embedded SQLite database. Composition is in `cmd/wavelength`.
   binary audio server streaming. Generated messages/clients live under `gen/`.
 - `httpserver`: native Connect mounting, range-capable `/media/`, auth and health.
 - `subsonic`: isolated legacy projection, accounts/roles, user state, schema-shaped XML,
-  media conversion, shares, RSS podcasts and an optional jukebox backend.
-- `metadata`: optional external metadata/scrobbling interfaces and Last.fm adapter.
+  media conversion, shares and RSS podcasts.
 
 Native defaults to 8080; opt-in legacy defaults to 8081. Both bind before serving and
 stop together. Subsonic is a package, not a separate Git fork or divergent database.
@@ -27,9 +26,7 @@ stored separately in Wavelength app data. Back up SQLite and the legacy encrypti
 together. HLS uses temporary generated files with expiry and process cancellation.
 
 External programs are optional for original playback; FFmpeg/ffprobe power conversion,
-HLS and video probing. Jukebox output is injected and opt-in, so tests never play audio
-on the host. External metadata is injected too; no live Last.fm credentials are needed
-for deterministic tests.
+HLS and video probing. Discovery and listening history stay local.
 
 See [OIDC](oidc.md) and [legacy compatibility](subsonic-compatibility.md) for current
 boundaries. Future work includes actual-client certification, incremental indexing,
