@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the real binary with encoded audio. Requires Python 3 and FFmpeg."""
 import hashlib
+from catalog_fixture import seed_catalog
 import json
 import os
 from pathlib import Path
@@ -50,6 +51,12 @@ def main():
             'WAVELENGTH_SUBSONIC_ADDR': '127.0.0.1:0',
             'WAVELENGTH_SUBSONIC_USER': 'smoke', 'WAVELENGTH_SUBSONIC_PASSWORD': 'smoke-legacy',
         }
+        probe_bin = root / 'probe-bin'
+        probe_bin.mkdir()
+        probe = probe_bin / 'ffprobe'
+        probe.write_text('#!/bin/sh\necho called > "$PROBE_MARKER"\nexit 1\n')
+        probe.chmod(0o700)
+        env.update(PATH=str(probe_bin) + os.pathsep + env['PATH'], PROBE_MARKER=str(root / 'probe-called'))
         process = subprocess.Popen([str(BINARY)], env=env, stderr=subprocess.PIPE, text=True)
         logs = queue.Queue()
 
@@ -76,6 +83,9 @@ def main():
                 return request(native + '/wavelength.v1.LibraryService/' + method, method='POST', headers=rpc_headers, body=payload)
             def source_path(track):
                 return music / ('tone.flac' if track['contentType'] == 'audio/flac' else 'tone.mp3')
+            status, _, body = rpc('ListTracks', {})
+            assert status == 200 and json.loads(body).get('total', 0) == 0, 'Fresh databases must not import source files'
+            seed_catalog(root / 'data', music, [{'path': path.name, 'title': 'Smoke Tone', 'artist': 'Wavelength Test', 'album': 'Smoke Album', 'track': 1, 'duration': 0.25, 'content_type': 'audio/flac' if path.suffix == '.flac' else 'audio/mpeg'} for path in fixtures])
             status, _, body = rpc('ListTracks', {})
             page = json.loads(body)
             assert status == 200 and page['total'] == 2, page
@@ -116,10 +126,14 @@ def main():
             assert ET.fromstring(body).attrib['status'] == 'ok'
             assert before == {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in fixtures}
             fixtures[1].unlink()
-            status, _, body = rpc('StartScan', {})
-            assert status == 200 and json.loads(body)['indexed'] == 1
+            for method in ('StartScan', 'GetScanStatus'):
+                assert rpc(method, {})[0] == 404
+            _, _, body = request(legacy_url('startScan'))
+            assert json.loads(body)['subsonic-response']['scanStatus'] == {'scanning': False, 'count': 2}
             _, _, body = rpc('ListTracks', {})
-            surviving_id = json.loads(body)['tracks'][0]['id']
+            assert json.loads(body)['total'] == 2
+            cached_ids = {track['id'] for track in page['tracks']}
+            (music / 'new.mp3').write_bytes(b'not cataloged')
         finally:
             process.send_signal(signal.SIGTERM)
             try:
@@ -130,11 +144,34 @@ def main():
                 raise
             process.stderr.close()
         assert code == 0, code
-        subprocess.run([str(BINARY), '--scan-only'], env=env, check=True, capture_output=True)
+        # Restart with new/deleted source files: neither catalog rows nor IDs change.
+        process = subprocess.Popen([str(BINARY)], env=env, stderr=subprocess.PIPE, text=True)
+        try:
+            import time
+            started = time.monotonic()
+            addresses = {}
+            logs = queue.Queue()
+            reader = threading.Thread(target=read_logs, daemon=True)
+            reader.start()
+            for _ in range(10):
+                line = logs.get(timeout=5)
+                if 'wavelength listening' in line:
+                    addresses[line.split('protocol=')[1].split()[0]] = 'http://' + line.split('address=')[1].strip().strip('"')
+                if len(addresses) == 2:
+                    break
+            assert time.monotonic() - started < 5, 'Restart should not inspect source files'
+            status, _, body = request(addresses['native'] + '/wavelength.v1.LibraryService/ListTracks', method='POST', headers=rpc_headers, body={})
+            assert status == 200 and {track['id'] for track in json.loads(body)['tracks']} == cached_ids
+        finally:
+            process.send_signal(signal.SIGTERM)
+            assert process.wait(timeout=12) == 0
+            process.stderr.close()
         import sqlite3
         with sqlite3.connect(root / 'data/wavelength.db') as db:
-            assert db.execute('SELECT id FROM tracks').fetchall() == [(surviving_id,)]
-        print('PASS: tagged FLAC/MP3 indexing; native and legacy streaming; FFmpeg decode; ranges/HEAD; authentication; route isolation; rescan/prune; restart persistence; read-only source; graceful shutdown')
+            assert {row[0] for row in db.execute('SELECT id FROM tracks')} == cached_ids
+        assert not (root / 'probe-called').exists(), 'Server invoked ffprobe'
+        assert subprocess.run([str(BINARY), '--scan-only'], env=env, capture_output=True).returncode != 0
+        print('PASS: persisted catalog; native and legacy streaming; FFmpeg decode; ranges/HEAD; authentication; removed scan RPCs; idle legacy scan controls; fast restart ignoring source changes; graceful shutdown')
 
 
 if __name__ == '__main__':

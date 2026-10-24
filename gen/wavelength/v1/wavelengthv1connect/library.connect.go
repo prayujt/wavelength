@@ -49,12 +49,6 @@ const (
 	LibraryServiceListAlbumsProcedure = "/wavelength.v1.LibraryService/ListAlbums"
 	// LibraryServiceGetAlbumProcedure is the fully-qualified name of the LibraryService's GetAlbum RPC.
 	LibraryServiceGetAlbumProcedure = "/wavelength.v1.LibraryService/GetAlbum"
-	// LibraryServiceStartScanProcedure is the fully-qualified name of the LibraryService's StartScan
-	// RPC.
-	LibraryServiceStartScanProcedure = "/wavelength.v1.LibraryService/StartScan"
-	// LibraryServiceGetScanStatusProcedure is the fully-qualified name of the LibraryService's
-	// GetScanStatus RPC.
-	LibraryServiceGetScanStatusProcedure = "/wavelength.v1.LibraryService/GetScanStatus"
 	// LibraryServiceGetPlaybackInfoProcedure is the fully-qualified name of the LibraryService's
 	// GetPlaybackInfo RPC.
 	LibraryServiceGetPlaybackInfoProcedure = "/wavelength.v1.LibraryService/GetPlaybackInfo"
@@ -71,8 +65,6 @@ type LibraryServiceClient interface {
 	GetArtist(context.Context, *connect.Request[v1.GetArtistRequest]) (*connect.Response[v1.GetArtistResponse], error)
 	ListAlbums(context.Context, *connect.Request[v1.ListAlbumsRequest]) (*connect.Response[v1.ListAlbumsResponse], error)
 	GetAlbum(context.Context, *connect.Request[v1.GetAlbumRequest]) (*connect.Response[v1.GetAlbumResponse], error)
-	StartScan(context.Context, *connect.Request[v1.StartScanRequest]) (*connect.Response[v1.StartScanResponse], error)
-	GetScanStatus(context.Context, *connect.Request[v1.GetScanStatusRequest]) (*connect.Response[v1.GetScanStatusResponse], error)
 	// Browsers should use this range-capable HTTP path with their existing session cookie.
 	GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error)
 	// Native clients may also consume audio directly over gRPC/Connect server streaming.
@@ -126,18 +118,6 @@ func NewLibraryServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(libraryServiceMethods.ByName("GetAlbum")),
 			connect.WithClientOptions(opts...),
 		),
-		startScan: connect.NewClient[v1.StartScanRequest, v1.StartScanResponse](
-			httpClient,
-			baseURL+LibraryServiceStartScanProcedure,
-			connect.WithSchema(libraryServiceMethods.ByName("StartScan")),
-			connect.WithClientOptions(opts...),
-		),
-		getScanStatus: connect.NewClient[v1.GetScanStatusRequest, v1.GetScanStatusResponse](
-			httpClient,
-			baseURL+LibraryServiceGetScanStatusProcedure,
-			connect.WithSchema(libraryServiceMethods.ByName("GetScanStatus")),
-			connect.WithClientOptions(opts...),
-		),
 		getPlaybackInfo: connect.NewClient[v1.GetPlaybackInfoRequest, v1.GetPlaybackInfoResponse](
 			httpClient,
 			baseURL+LibraryServiceGetPlaybackInfoProcedure,
@@ -161,8 +141,6 @@ type libraryServiceClient struct {
 	getArtist       *connect.Client[v1.GetArtistRequest, v1.GetArtistResponse]
 	listAlbums      *connect.Client[v1.ListAlbumsRequest, v1.ListAlbumsResponse]
 	getAlbum        *connect.Client[v1.GetAlbumRequest, v1.GetAlbumResponse]
-	startScan       *connect.Client[v1.StartScanRequest, v1.StartScanResponse]
-	getScanStatus   *connect.Client[v1.GetScanStatusRequest, v1.GetScanStatusResponse]
 	getPlaybackInfo *connect.Client[v1.GetPlaybackInfoRequest, v1.GetPlaybackInfoResponse]
 	streamAudio     *connect.Client[v1.StreamAudioRequest, v1.StreamAudioResponse]
 }
@@ -197,16 +175,6 @@ func (c *libraryServiceClient) GetAlbum(ctx context.Context, req *connect.Reques
 	return c.getAlbum.CallUnary(ctx, req)
 }
 
-// StartScan calls wavelength.v1.LibraryService.StartScan.
-func (c *libraryServiceClient) StartScan(ctx context.Context, req *connect.Request[v1.StartScanRequest]) (*connect.Response[v1.StartScanResponse], error) {
-	return c.startScan.CallUnary(ctx, req)
-}
-
-// GetScanStatus calls wavelength.v1.LibraryService.GetScanStatus.
-func (c *libraryServiceClient) GetScanStatus(ctx context.Context, req *connect.Request[v1.GetScanStatusRequest]) (*connect.Response[v1.GetScanStatusResponse], error) {
-	return c.getScanStatus.CallUnary(ctx, req)
-}
-
 // GetPlaybackInfo calls wavelength.v1.LibraryService.GetPlaybackInfo.
 func (c *libraryServiceClient) GetPlaybackInfo(ctx context.Context, req *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error) {
 	return c.getPlaybackInfo.CallUnary(ctx, req)
@@ -225,8 +193,6 @@ type LibraryServiceHandler interface {
 	GetArtist(context.Context, *connect.Request[v1.GetArtistRequest]) (*connect.Response[v1.GetArtistResponse], error)
 	ListAlbums(context.Context, *connect.Request[v1.ListAlbumsRequest]) (*connect.Response[v1.ListAlbumsResponse], error)
 	GetAlbum(context.Context, *connect.Request[v1.GetAlbumRequest]) (*connect.Response[v1.GetAlbumResponse], error)
-	StartScan(context.Context, *connect.Request[v1.StartScanRequest]) (*connect.Response[v1.StartScanResponse], error)
-	GetScanStatus(context.Context, *connect.Request[v1.GetScanStatusRequest]) (*connect.Response[v1.GetScanStatusResponse], error)
 	// Browsers should use this range-capable HTTP path with their existing session cookie.
 	GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error)
 	// Native clients may also consume audio directly over gRPC/Connect server streaming.
@@ -276,18 +242,6 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 		connect.WithSchema(libraryServiceMethods.ByName("GetAlbum")),
 		connect.WithHandlerOptions(opts...),
 	)
-	libraryServiceStartScanHandler := connect.NewUnaryHandler(
-		LibraryServiceStartScanProcedure,
-		svc.StartScan,
-		connect.WithSchema(libraryServiceMethods.ByName("StartScan")),
-		connect.WithHandlerOptions(opts...),
-	)
-	libraryServiceGetScanStatusHandler := connect.NewUnaryHandler(
-		LibraryServiceGetScanStatusProcedure,
-		svc.GetScanStatus,
-		connect.WithSchema(libraryServiceMethods.ByName("GetScanStatus")),
-		connect.WithHandlerOptions(opts...),
-	)
 	libraryServiceGetPlaybackInfoHandler := connect.NewUnaryHandler(
 		LibraryServiceGetPlaybackInfoProcedure,
 		svc.GetPlaybackInfo,
@@ -314,10 +268,6 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 			libraryServiceListAlbumsHandler.ServeHTTP(w, r)
 		case LibraryServiceGetAlbumProcedure:
 			libraryServiceGetAlbumHandler.ServeHTTP(w, r)
-		case LibraryServiceStartScanProcedure:
-			libraryServiceStartScanHandler.ServeHTTP(w, r)
-		case LibraryServiceGetScanStatusProcedure:
-			libraryServiceGetScanStatusHandler.ServeHTTP(w, r)
 		case LibraryServiceGetPlaybackInfoProcedure:
 			libraryServiceGetPlaybackInfoHandler.ServeHTTP(w, r)
 		case LibraryServiceStreamAudioProcedure:
@@ -353,14 +303,6 @@ func (UnimplementedLibraryServiceHandler) ListAlbums(context.Context, *connect.R
 
 func (UnimplementedLibraryServiceHandler) GetAlbum(context.Context, *connect.Request[v1.GetAlbumRequest]) (*connect.Response[v1.GetAlbumResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.GetAlbum is not implemented"))
-}
-
-func (UnimplementedLibraryServiceHandler) StartScan(context.Context, *connect.Request[v1.StartScanRequest]) (*connect.Response[v1.StartScanResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.StartScan is not implemented"))
-}
-
-func (UnimplementedLibraryServiceHandler) GetScanStatus(context.Context, *connect.Request[v1.GetScanStatusRequest]) (*connect.Response[v1.GetScanStatusResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.GetScanStatus is not implemented"))
 }
 
 func (UnimplementedLibraryServiceHandler) GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error) {

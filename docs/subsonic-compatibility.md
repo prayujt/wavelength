@@ -7,7 +7,7 @@ Subsonic or OpenSubsonic parity.
 
 ## Functional music features
 
-- System: ping, fixed license response, one configured music folder, scan status and scans.
+- System: ping, fixed license response, one configured music folder, and idle scan-status compatibility responses.
 - Browsing: filesystem indexes/directories, tag-based artists/albums/songs, genres,
   search variants, album lists, random songs and songs by genre.
 - Collections: persisted playlists, bookmarks and play queues.
@@ -16,8 +16,9 @@ Subsonic or OpenSubsonic parity.
   transcoding, audio HLS, embedded/adjacent artwork and embedded/sidecar lyrics.
 - Discovery: local genre relationships and listening counts; no external enrichment.
 
-FFmpeg/ffprobe are needed for conversion, audio HLS and complete technical/container
-metadata. Audio-only MP4 files require ffprobe classification; video files are skipped.
+FFmpeg is needed for conversion and audio HLS. Metadata comes from the persisted
+catalog; no files are discovered or classified automatically. `startScan` and
+`getScanStatus` return `scanning: false` and the persisted track count.
 Missing lyrics return an empty result. Missing artwork returns a protocol error.
 
 ## Empty compatibility surface
@@ -62,7 +63,8 @@ counts are preserved. The obsolete `WAVELENGTH_SUBSONIC_PUBLIC_URL` setting is i
   errors and stateless stubs. Tests seed old records, verify they stay invisible,
   ensure commands leave storage unchanged and check that no feed requests occur.
 - Media tests encode real audio, decode transcoding/HLS results and check stream ownership,
-  traversal protection and temporary-file cleanup. Video fixtures verify scan exclusion.
+  traversal protection and temporary-file cleanup. Tests seed isolated catalog records
+  directly; they do not depend on filesystem ingestion.
 - `scripts/smoke.py` exercises the real binary, both listeners, ranges/HEAD, pruning,
   restart persistence, source immutability and graceful shutdown.
 - `scripts/client-compatibility.py` checks all 75 responding endpoints using py-sonic

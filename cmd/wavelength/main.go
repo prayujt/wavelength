@@ -20,7 +20,6 @@ func main() {
 }
 
 func run() error {
-	scanOnly := flag.Bool("scan-only", false, "scan the configured music directory and exit")
 	flag.Parse()
 	c, err := config.Load()
 	if err != nil {
@@ -28,5 +27,5 @@ func run() error {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	return app.Run(ctx, c, *scanOnly)
+	return app.Run(ctx, c)
 }

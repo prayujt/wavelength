@@ -16,6 +16,7 @@ import (
 
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/subsonic"
 )
 
@@ -39,12 +40,10 @@ func TestLegacyAuthenticationBrowseAndStreaming(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lib.Close()
-	if _, err = lib.Scan(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, root)
 	dependencies, close := testDependencies(context.Background(), lib, database.StateStore{DB: db})
 	defer close()
-	server, err := subsonic.New(context.Background(), subsonic.Config{Username: "listener", Password: "secret"}, dependencies)
+	server, err := subsonic.New(subsonic.Config{Username: "listener", Password: "secret"}, dependencies)
 	if err != nil {
 		t.Fatal(err)
 	}

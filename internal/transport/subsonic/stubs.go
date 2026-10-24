@@ -3,6 +3,8 @@ package subsonic
 import (
 	"net/http"
 	"strconv"
+
+	"github.com/prayujt/wavelength/internal/library"
 )
 
 // Removed features retain their wire shapes without reading or changing application state.
@@ -38,6 +40,14 @@ func (a *api) compatibility(w http.ResponseWriter, r *http.Request, endpoint str
 	case "setRating":
 		if _, err := number(r, "rating", 0, 5); err != nil {
 			failure(result, 10, "Invalid rating")
+		}
+	case "getScanStatus", "startScan":
+		// Legacy clients can query status, but cannot start filesystem work.
+		page, err := a.lib.List(r.Context(), library.Query{Limit: 1})
+		if err != nil {
+			legacyError(result, err)
+		} else {
+			payload(result, "scanStatus", map[string]any{"scanning": false, "count": page.Total})
 		}
 	case "getUsers":
 		payload(result, "users", map[string]any{"user": []any{a.compatibilityUser()}})

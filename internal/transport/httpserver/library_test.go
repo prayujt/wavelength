@@ -16,10 +16,11 @@ import (
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 )
 
-func TestCatalogStreamingAndRescan(t *testing.T) {
+func TestPersistedCatalogStreaming(t *testing.T) {
 	ctx := context.Background()
 	db, err := database.Open(ctx, t.TempDir())
 	if err != nil {
@@ -37,9 +38,7 @@ func TestCatalogStreamingAndRescan(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lib.Close()
-	if _, err = lib.Scan(ctx); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, root)
 	manager, err := auth.New(ctx, auth.Config{Token: "test-token"}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -146,12 +145,13 @@ func TestCatalogStreamingAndRescan(t *testing.T) {
 	if response.StatusCode < 400 || bytes.Contains(body, []byte("private outside root")) {
 		t.Fatal("symlink escape")
 	}
-	response = request("POST", "/wavelength.v1.LibraryService/StartScan", "test-token", "")
-	if response.StatusCode != 200 {
-		t.Fatalf("rescan: %d", response.StatusCode)
+	for _, method := range []string{"StartScan", "GetScanStatus"} {
+		if r := request("POST", "/wavelength.v1.LibraryService/"+method, "test-token", ""); r.StatusCode != 404 {
+			t.Fatalf("removed RPC %s returned %d", method, r.StatusCode)
+		}
 	}
-	if r := request("GET", stream, "test-token", ""); r.StatusCode != 404 {
-		t.Fatal("rescan did not remove symlinked file")
+	if page, err := lib.List(ctx, library.Query{}); err != nil || page.Total != 1 {
+		t.Fatal("source changes modified the persisted catalog", page, err)
 	}
 }
 

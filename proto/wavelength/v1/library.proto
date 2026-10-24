@@ -12,8 +12,6 @@ service LibraryService {
   rpc GetArtist(GetArtistRequest) returns (GetArtistResponse);
   rpc ListAlbums(ListAlbumsRequest) returns (ListAlbumsResponse);
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumResponse);
-  rpc StartScan(StartScanRequest) returns (StartScanResponse);
-  rpc GetScanStatus(GetScanStatusRequest) returns (GetScanStatusResponse);
   // Browsers should use this range-capable HTTP path with their existing session cookie.
   rpc GetPlaybackInfo(GetPlaybackInfoRequest) returns (GetPlaybackInfoResponse);
   // Native clients may also consume audio directly over gRPC/Connect server streaming.
@@ -54,10 +52,6 @@ message ListAlbumsRequest { string query = 1; string artist_id = 2; int32 limit 
 message ListAlbumsResponse { repeated Album albums = 1; int32 total = 2; }
 message GetAlbumRequest { string id = 1; }
 message GetAlbumResponse { Album album = 1; repeated Track tracks = 2; }
-message StartScanRequest {}
-message StartScanResponse { int32 indexed = 1; int32 metadata_warnings = 2; }
-message GetScanStatusRequest {}
-message GetScanStatusResponse { bool scanning = 1; int64 indexed = 2; }
 message GetPlaybackInfoRequest { string id = 1; }
 message GetPlaybackInfoResponse { Track track = 1; string http_path = 2; bool supports_ranges = 3; }
 message StreamAudioRequest { string id = 1; int64 offset_bytes = 2; int64 length_bytes = 3; }

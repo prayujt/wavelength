@@ -1,4 +1,4 @@
-// Package library owns the protocol-independent catalog and read-only file scanner.
+// Package library reads the persisted catalog and confines access to source files.
 package library
 
 import (
@@ -8,13 +8,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
 var ErrNotFound = errors.New("track not found")
-var ErrScanRunning = errors.New("scan already running")
 
 // Track describes a file in the configured library; paths are relative to its root.
 type Track struct {
@@ -46,27 +43,18 @@ type Page struct {
 	Limit  int     `json:"limit"`
 	Offset int     `json:"offset"`
 }
-type ScanResult struct {
-	Indexed          int `json:"indexed"`
-	MetadataWarnings int `json:"metadata_warnings"`
-}
 
-// Store keeps catalog persistence separate from scanning and transport concerns.
+// Store provides the authoritative catalog independently of source files.
 type Store interface {
-	Replace(context.Context, string, string, []Track) error
+	Revision(context.Context, string) (int64, error)
 	List(context.Context, string, Query) (Page, error)
 	Get(context.Context, string, string) (Track, error)
 }
 
 type Library struct {
-	store    Store
-	root     *os.Root
-	rootID   string
-	path     string
-	scan     sync.Mutex
-	scanning atomic.Bool
-	scanned  atomic.Int64
-	lastScan atomic.Int64
+	store  Store
+	root   *os.Root
+	rootID string
 }
 
 func Open(path string, store Store) (*Library, error) {
@@ -82,12 +70,10 @@ func Open(path string, store Store) (*Library, error) {
 	if err != nil {
 		return nil, fmt.Errorf("open music root: %w", err)
 	}
-	return &Library{store: store, root: root, path: absolute, rootID: identifier(absolute)}, nil
+	return &Library{store: store, root: root, rootID: identifier(absolute)}, nil
 }
 
 func (l *Library) Close() error {
-	l.scan.Lock()
-	defer l.scan.Unlock()
 	return l.root.Close()
 }
 
@@ -133,7 +119,7 @@ func (l *Library) OpenTrack(ctx context.Context, id string) (*os.File, Track, er
 
 func identifier(value string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(value))) }
 
-func (l *Library) ScanStatus() (bool, int64) { return l.scanning.Load(), l.scanned.Load() }
-
-// LastScan is a monotonic timestamp for cache invalidation after a successful scan.
-func (l *Library) LastScan() int64 { return l.lastScan.Load() }
+// Revision changes only when persisted catalog records change.
+func (l *Library) Revision(ctx context.Context) (int64, error) {
+	return l.store.Revision(ctx, l.rootID)
+}

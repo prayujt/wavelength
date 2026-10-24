@@ -17,6 +17,7 @@ import (
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 )
 
@@ -38,9 +39,7 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lib.Close()
-	if _, err = lib.Scan(ctx); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, music)
 	manager, err := auth.New(ctx, auth.Config{Token: "native-secret"}, nil)
 	if err != nil {
 		t.Fatal(err)

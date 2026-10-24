@@ -510,7 +510,11 @@ func (a *api) folders(r *http.Request, result *response, c collection, endpoint 
 		for _, key := range keys {
 			index = append(index, map[string]any{"name": key, "artist": indices[key]})
 		}
-		modified := a.lib.LastScan()
+		modified, err := a.lib.Revision(r.Context())
+		if err != nil {
+			legacyError(result, err)
+			return
+		}
 		since, err := int64Parameter(r, "ifModifiedSince", 0)
 		if err != nil {
 			failure(result, 10, err.Error())

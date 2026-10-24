@@ -12,11 +12,12 @@ import (
 
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transcode"
 )
 
 func TestStreamsAndHLSSessionsWithoutHTTP(t *testing.T) {
-	for _, tool := range []string{"ffmpeg", "ffprobe"} {
+	for _, tool := range []string{"ffmpeg"} {
 		if _, err := exec.LookPath(tool); err != nil {
 			if os.Getenv("WAVELENGTH_REQUIRE_MEDIA_TOOLS") == "1" {
 				t.Fatal(err)
@@ -39,9 +40,7 @@ func TestStreamsAndHLSSessionsWithoutHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer lib.Close()
-	if _, err := lib.Scan(ctx); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, root)
 	page, err := lib.List(ctx, library.Query{})
 	if err != nil {
 		t.Fatal(err)

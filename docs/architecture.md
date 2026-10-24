@@ -9,7 +9,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 
 | Package | Responsibility |
 | --- | --- |
-| `library` | Read-only scanning, metadata, path IDs, catalog grouping and source access |
+| `library` | Persisted catalog grouping, path IDs and confined source access |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
@@ -32,7 +32,8 @@ legacy contract. Core track metadata and tag-based album grouping are shared.
 
 ## Startup and shutdown
 
-The application opens SQLite and scans the configured root before serving. Native
+The application opens SQLite and the configured source root without enumerating
+files or probing metadata. It serves the persisted catalog immediately. Native
 defaults to 8080; opt-in legacy defaults to 8081. Every listener binds before any start
 serving, and a listener failure stops the application. Shutdown drains HTTP, cancels
 workers and waits for them before closing the library and database. HLS sessions own
@@ -45,11 +46,17 @@ per-user role model is implied by sharing storage.
 
 ## Catalog and storage
 
-Each scan rereads the supported files into memory. One SQLite transaction upserts the
-result and removes rows absent from that scan. A failed scan preserves the previous
-catalog. WAL, foreign keys and a busy timeout are enabled; the application uses one
-database connection. Search text is normalized during ingestion for Unicode case
-matching. Albums and artists are derived from track rows when requested.
+SQLite is authoritative. Startup never imports or reconciles source files, and a
+fresh database remains empty until a future ingestion capability supplies records.
+The scanner, metadata probing, native scan RPCs and scan-only CLI flag are removed.
+Legacy scan controls report the stored count with `scanning: false` and perform no
+work. Catalog revisions are persisted and updated by track-table triggers for
+legacy cache invalidation, including removals; restarts leave the revision intact.
+
+The schema upgrade preserves existing track IDs and metadata, removes obsolete
+scan bookkeeping, and keeps user state. WAL, foreign keys and a busy timeout remain
+enabled. Search uses the stored normalized text. Albums and artists are derived
+from track rows when requested.
 
 Playlists, bookmarks, queues and listening history retain their record scopes and
 JSON layouts. Listening counts use the historical `annotations/<user>` scope, but
@@ -63,8 +70,8 @@ separately in Wavelength app data. The legacy password encryption key is no long
 used or created. HLS uses temporary
 generated files with expiry and process cancellation.
 
-External programs are optional for original playback; FFmpeg/ffprobe power conversion,
-audio HLS and richer audio metadata. Video files are excluded from the catalog.
+External programs are optional for original playback; FFmpeg powers conversion
+and audio HLS. Metadata ingestion and video indexing are absent.
 Discovery and listening history stay local.
 
 ## Adding a capability or transport
@@ -72,14 +79,14 @@ Discovery and listening history stay local.
 Put a new capability in a focused feature package with the methods its callers need.
 Define small dependency interfaces where that package consumes storage, tracks or an
 external system, then assemble implementations in `app`. A downloader can own its
-download policy and request a library scan after writing files. An MCP transport can
+download policy and publish explicit catalog records after storing files. An MCP transport can
 call the same feature services with its own authentication and response mapping.
 
 Keep protocol DTOs, parameter parsing and status codes in the relevant transport.
-The native v1 contract currently covers library browsing, scans and playback; adding
+The native v1 contract currently covers library browsing and playback; adding
 services does not automatically expand it. There is no plugin registry or parallel
 implementation of feature behavior inside the legacy adapter.
 
 See [OIDC](oidc.md) and [legacy compatibility](subsonic-compatibility.md) for current
-boundaries. Actual-client certification, incremental indexing, a browser UI and finer
+boundaries. Actual-client certification, managed ingestion, a browser UI and finer
 native authorization remain future work.

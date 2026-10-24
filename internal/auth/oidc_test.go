@@ -25,6 +25,7 @@ import (
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 )
 
@@ -162,9 +163,7 @@ func app(t *testing.T, issuer, dataDir, music string) (*httptest.Server, *sql.DB
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = lib.Scan(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	testutil.SeedCatalog(t, db, music)
 	server := httptest.NewUnstartedServer(nil)
 	publicURL := "http://" + server.Listener.Addr().String()
 	manager, err := auth.New(context.Background(), auth.Config{Issuer: issuer, ClientID: "wavelength", ClientSecret: "test-secret", PublicURL: publicURL, Token: "test-native"}, database.AuthStore{DB: db})
@@ -301,16 +300,16 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	if response.StatusCode != 206 || string(body) != "RIFF" {
 		t.Fatalf("cookie stream: %d %s", response.StatusCode, body)
 	}
-	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", nil); r.StatusCode != 403 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", nil); r.StatusCode != 403 {
 		t.Fatal("missing CSRF accepted")
 	}
-	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Origin": "https://evil.test", "X-CSRF-Token": current.CSRF}); r.StatusCode != 403 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Origin": "https://evil.test", "X-CSRF-Token": current.CSRF}); r.StatusCode != 403 {
 		t.Fatal("wrong origin accepted")
 	}
-	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Origin": server.URL, "X-CSRF-Token": current.CSRF}); r.StatusCode != 200 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Origin": server.URL, "X-CSRF-Token": current.CSRF}); r.StatusCode != 200 {
 		t.Fatalf("valid CSRF rejected: %d", r.StatusCode)
 	}
-	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Authorization": "Bearer test-native"}); r.StatusCode != 200 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Authorization": "Bearer test-native"}); r.StatusCode != 200 {
 		t.Fatal("independent bearer rejected")
 	}
 	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Authorization": "Bearer wrong"}); r.StatusCode != 401 {

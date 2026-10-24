@@ -18,5 +18,6 @@ GOBIN="$PWD/.tools/bin" "$GO" install connectrpc.com/connect/cmd/protoc-gen-conn
   --plugin=protoc-gen-go=.tools/bin/protoc-gen-go \
   --plugin=protoc-gen-connect-go=.tools/bin/protoc-gen-connect-go \
   --go_out=gen --go_opt=paths=source_relative \
+  --go_opt=Mgoogle/protobuf/timestamp.proto=google.golang.org/protobuf/types/known/timestamppb \
   --connect-go_out=gen --connect-go_opt=paths=source_relative \
   proto/wavelength/v1/library.proto
