@@ -1,15 +1,16 @@
 # Legacy Subsonic compatibility
 
 Target: the documented Subsonic REST API 1.16.1, not all OpenSubsonic extensions or
-all behavior of the original Java server. 75 documented endpoints are supported. Jukebox requests return an unsupported
-operation error. Endpoint coverage alone does not establish full compatibility.
+all behavior of the original Java server. 75 documented endpoints are supported.
+Jukebox requests return an unsupported operation error. Endpoint coverage alone does
+not establish full compatibility.
 
 ## Implemented groups
 
 - System: ping, license, music folders, scan status and scanning.
 - Browsing: indexes/directories, artists/albums/songs, genres, video and video details.
 - Discovery: search/search2/search3, album lists, random/genre songs, stars, related
-  artists/songs and artist/album info. Local fallback when no external provider exists.
+  artists/songs and artist/album info, using the local catalog and listening history.
 - User state: stars/ratings, scrobble/now-playing, playlists and access control,
   bookmarks, play queues, internet radio and chat.
 - Accounts: users, role updates, password changes and deletion; persisted app accounts
@@ -26,7 +27,8 @@ operation error. Endpoint coverage alone does not establish full compatibility.
 - Podcasts require the podcast role; downloads use Wavelength app storage.
 - Related items and top songs use local catalog relationships and listening history.
   Remote biographies, album notes and external scrobbling are not provided.
-- Avatars and lyrics require source assets. Missing resources return protocol errors.
+- Artwork and avatars require source assets; missing resources return protocol errors.
+  Lyrics require embedded tags or sidecar files; missing lyrics return an empty result.
 
 ## Remaining differences and unverified areas
 
@@ -52,7 +54,7 @@ work needs explicit parameter/behavior checks and representative real-client tes
 
 `go test -race ./...` exercises browsing, authentication, persisted user state,
 permissions, protocol errors and native Connect. With FFmpeg/ffprobe, media tests encode
-real audio/video and decode returned transcoding/HLS bytes. Shares, RSS downloads,
+real audio/video and decode returned transcoding/HLS bytes. Shares, RSS downloads and
 caption retrieval have fixture integration tests.
 
 `scripts/smoke.py` runs the actual binary with tagged audio, both ports, auth, range/HEAD
@@ -66,13 +68,14 @@ coverage, not exhaustive validation of every optional resource and request param
 ## Executable endpoint contract
 
 The official endpoint/parameter inventory is recorded in
-`internal/subsonic/testdata/contract.json`. `TestDocumentedRequiredParameters` checks
+`internal/transport/subsonic/testdata/contract.json`. `TestDocumentedRequiredParameters` checks
 missing required inputs across that inventory; filesystem-ID and account-limit
 regressions cover cross-endpoint behavior rather than dispatch presence alone.
 
 `uv run scripts/client-compatibility.py` starts the real binary with isolated media
-and SQLite, then checks all 75 supported endpoints through real-client operations. It includes actual podcast downloads, video/captions, sharing,
-account administration, playlists, original and transcoded playback and HLS.
+and SQLite, then checks all 75 supported endpoints through real-client operations. It
+includes actual podcast downloads, video/captions, sharing, account administration,
+playlists, original and transcoded playback and HLS.
 The unmodified py-sonic client handles 73 endpoints; direct HTTP covers the two video
 methods described above. Its repeated-parameter GET helpers reference Python 2's
 urllib2, so those client calls use POST; GET connectivity is checked separately.

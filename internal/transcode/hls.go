@@ -145,8 +145,19 @@ func (s *Service) startHLS(request context.Context, key jobKey, kind, size, audi
 		_ = os.RemoveAll(directory)
 		return nil, err
 	}
-	job := &hlsJob{id: rand.Text(), owner: key.owner, key: key, dir: directory, expires: time.Now().Add(hlsLifetime), cancel: cancel, done: make(chan struct{})}
-	go func() { job.err = command.Wait(); close(job.done) }()
+	job := &hlsJob{
+		id:      rand.Text(),
+		owner:   key.owner,
+		key:     key,
+		dir:     directory,
+		expires: time.Now().Add(hlsLifetime),
+		cancel:  cancel,
+		done:    make(chan struct{}),
+	}
+	go func() {
+		job.err = command.Wait()
+		close(job.done)
+	}()
 	return job, nil
 }
 

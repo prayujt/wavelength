@@ -19,3 +19,9 @@ jobs:
           WAVELENGTH_REQUIRE_MEDIA_TOOLS: "1"
       - run: CGO_ENABLED=0 go build -o bin/wavelength ./cmd/wavelength
       - run: python3 scripts/smoke.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install py-sonic==1.0.3 lxml==5.4.0
+      - run: python scripts/client-compatibility.py
+      - run: python scripts/validate-subsonic.py

@@ -15,7 +15,7 @@ type server struct {
 	http *http.Server
 }
 
-// Bind all listeners before serving any, and stop both if either listener fails.
+// Bind every listener before serving; a failure stops the whole application.
 func serve(ctx context.Context, servers []server) error {
 	listeners := make([]net.Listener, 0, len(servers))
 	defer func() {
@@ -41,15 +41,15 @@ func serve(ctx context.Context, servers []server) error {
 	case serveErr = <-done:
 	case <-ctx.Done():
 	}
+	if errors.Is(serveErr, http.ErrServerClosed) {
+		serveErr = nil
+	}
 	shutdown, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	for _, server := range servers {
 		if err := server.http.Shutdown(shutdown); err != nil {
 			serveErr = errors.Join(serveErr, err)
 		}
-	}
-	if errors.Is(serveErr, http.ErrServerClosed) {
-		return nil
 	}
 	return serveErr
 }

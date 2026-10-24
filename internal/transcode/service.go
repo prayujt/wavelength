@@ -41,7 +41,10 @@ func New(ctx context.Context, lib source, directory string) (*Service, error) {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	service := &Service{lib: lib, directory: directory, ctx: ctx, cancel: cancel, jobs: map[string]*hlsJob{}, done: make(chan struct{})}
-	go func() { <-ctx.Done(); service.Close() }()
+	go func() {
+		<-ctx.Done()
+		service.Close()
+	}()
 	return service, nil
 }
 
@@ -74,8 +77,15 @@ type Stream struct {
 	err         error
 }
 
-func (s *Stream) Wait() error  { s.once.Do(func() { s.err = s.command.Wait() }); return s.err }
-func (s *Stream) Close() error { s.cancel(); _ = s.ReadCloser.Close(); return s.Wait() }
+func (s *Stream) Wait() error {
+	s.once.Do(func() { s.err = s.command.Wait() })
+	return s.err
+}
+func (s *Stream) Close() error {
+	s.cancel()
+	_ = s.ReadCloser.Close()
+	return s.Wait()
+}
 
 func start(ctx context.Context, file *os.File, args []string, kind string) (*Stream, error) {
 	defer file.Close()

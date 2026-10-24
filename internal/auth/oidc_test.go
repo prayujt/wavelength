@@ -24,8 +24,8 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
-	"github.com/prayujt/wavelength/internal/httpserver"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/transport/httpserver"
 )
 
 // This fixture is an actual HTTP discovery/authorize/token/JWKS provider, not a
@@ -54,7 +54,16 @@ func provider(t *testing.T, mode string) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{"issuer": server.URL, "authorization_endpoint": server.URL + "/authorize", "token_endpoint": server.URL + "/token", "jwks_uri": server.URL + "/keys", "id_token_signing_alg_values_supported": []string{"RS256"}, "response_types_supported": []string{"code"}, "subject_types_supported": []string{"public"}, "code_challenge_methods_supported": []string{"S256"}})
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"issuer":                                server.URL,
+			"authorization_endpoint":                server.URL + "/authorize",
+			"token_endpoint":                        server.URL + "/token",
+			"jwks_uri":                              server.URL + "/keys",
+			"id_token_signing_alg_values_supported": []string{"RS256"},
+			"response_types_supported":              []string{"code"},
+			"subject_types_supported":               []string{"public"},
+			"code_challenge_methods_supported":      []string{"S256"},
+		})
 	})
 	mux.HandleFunc("GET /keys", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -100,7 +109,16 @@ func provider(t *testing.T, mode string) *httptest.Server {
 			http.Error(w, "grant", 400)
 			return
 		}
-		claims := map[string]any{"iss": server.URL, "aud": "wavelength", "sub": "subject-1", "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(), "nonce": grant.nonce, "name": "Test Listener", "email": "listener@example.test"}
+		claims := map[string]any{
+			"iss":   server.URL,
+			"aud":   "wavelength",
+			"sub":   "subject-1",
+			"exp":   time.Now().Add(time.Hour).Unix(),
+			"iat":   time.Now().Unix(),
+			"nonce": grant.nonce,
+			"name":  "Test Listener",
+			"email": "listener@example.test",
+		}
 		switch mode {
 		case "nonce":
 			claims["nonce"] = "wrong"
@@ -153,7 +171,7 @@ func app(t *testing.T, issuer, dataDir, music string) (*httptest.Server, *sql.DB
 	if err != nil {
 		t.Fatal(err)
 	}
-	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithLibrary(lib, manager.Protect)).Handler
+	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager)).Handler
 	server.Start()
 	t.Cleanup(func() { server.Close(); lib.Close(); db.Close() })
 	return server, db
@@ -168,9 +186,16 @@ func browser(t *testing.T) *http.Client {
 }
 func do(t *testing.T, c *http.Client, method, target string, headers map[string]string) *http.Response {
 	t.Helper()
-	req, err := http.NewRequest(method, target, nil)
+	var body io.Reader
+	if strings.Contains(target, "/wavelength.v1.LibraryService/") {
+		body = strings.NewReader("{}")
+	}
+	req, err := http.NewRequest(method, target, body)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
 	for key, value := range headers {
 		req.Header.Set(key, value)
@@ -232,7 +257,7 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	}
 	server, db := app(t, issuer.URL, data, music)
 	client := browser(t)
-	if r := do(t, client, "GET", server.URL+"/api/tracks", nil); r.StatusCode != 401 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", nil); r.StatusCode != 401 {
 		t.Fatal("anonymous native access")
 	}
 	callback, _ := beginLogin(t, client, server.URL)
@@ -260,7 +285,7 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	if stored == cookie.Value || stored != fmt.Sprintf("%x", sha256.Sum256([]byte(cookie.Value))) {
 		t.Fatal("raw session token persisted")
 	}
-	response = do(t, client, "GET", server.URL+"/api/tracks", nil)
+	response = do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Origin": server.URL, "X-CSRF-Token": current.CSRF})
 	var page library.Page
 	if err := json.NewDecoder(response.Body).Decode(&page); err != nil {
 		t.Fatal(err)
@@ -268,7 +293,7 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	if len(page.Tracks) != 1 {
 		t.Fatal(page)
 	}
-	response = do(t, client, "GET", server.URL+"/api/tracks/"+page.Tracks[0].ID+"/stream", map[string]string{"Range": "bytes=0-3"})
+	response = do(t, client, "GET", server.URL+"/media/tracks/"+page.Tracks[0].ID, map[string]string{"Range": "bytes=0-3"})
 	body, err := io.ReadAll(response.Body)
 	if err != nil {
 		t.Fatal(err)
@@ -276,19 +301,19 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	if response.StatusCode != 206 || string(body) != "RIFF" {
 		t.Fatalf("cookie stream: %d %s", response.StatusCode, body)
 	}
-	if r := do(t, client, "POST", server.URL+"/api/scan", nil); r.StatusCode != 403 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", nil); r.StatusCode != 403 {
 		t.Fatal("missing CSRF accepted")
 	}
-	if r := do(t, client, "POST", server.URL+"/api/scan", map[string]string{"Origin": "https://evil.test", "X-CSRF-Token": current.CSRF}); r.StatusCode != 403 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Origin": "https://evil.test", "X-CSRF-Token": current.CSRF}); r.StatusCode != 403 {
 		t.Fatal("wrong origin accepted")
 	}
-	if r := do(t, client, "POST", server.URL+"/api/scan", map[string]string{"Origin": server.URL, "X-CSRF-Token": current.CSRF}); r.StatusCode != 200 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Origin": server.URL, "X-CSRF-Token": current.CSRF}); r.StatusCode != 200 {
 		t.Fatalf("valid CSRF rejected: %d", r.StatusCode)
 	}
-	if r := do(t, client, "POST", server.URL+"/api/scan", map[string]string{"Authorization": "Bearer test-native"}); r.StatusCode != 200 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/StartScan", map[string]string{"Authorization": "Bearer test-native"}); r.StatusCode != 200 {
 		t.Fatal("independent bearer rejected")
 	}
-	if r := do(t, client, "GET", server.URL+"/api/tracks", map[string]string{"Authorization": "Bearer wrong"}); r.StatusCode != 401 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Authorization": "Bearer wrong"}); r.StatusCode != 401 {
 		t.Fatal("invalid bearer fell back to cookie")
 	}
 	// The same cookie must work after a new manager, new listener and database reopen.
@@ -308,7 +333,7 @@ func TestOIDCLoginCookieStreamingPersistenceCSRFAndLogout(t *testing.T) {
 	if response.StatusCode != 204 {
 		t.Fatalf("logout: %d", response.StatusCode)
 	}
-	if r := do(t, client, "GET", server.URL+"/api/tracks", map[string]string{"Cookie": cookie.Name + "=" + cookie.Value}); r.StatusCode != 401 {
+	if r := do(t, client, "POST", server.URL+"/wavelength.v1.LibraryService/ListTracks", map[string]string{"Cookie": cookie.Name + "=" + cookie.Value}); r.StatusCode != 401 {
 		t.Fatal("revoked session replay")
 	}
 	var count int

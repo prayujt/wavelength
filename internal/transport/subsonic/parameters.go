@@ -1,0 +1,71 @@
+package subsonic
+
+import (
+	"fmt"
+	"net/http"
+	"strconv"
+)
+
+// Required endpoint parameters from the published 1.16.1 contract. Validate before
+// resource lookup, so missing input is not reported as an absent resource.
+var requiredParameters = map[string][]string{
+	"addChatMessage":             {"message"},
+	"changePassword":             {"username", "password"},
+	"createBookmark":             {"id", "position"},
+	"createInternetRadioStation": {"streamUrl", "name"},
+	"createPodcastChannel":       {"url"},
+	"createShare":                {"id"},
+	"createUser":                 {"username", "password", "email"},
+	"deleteBookmark":             {"id"},
+	"deleteInternetRadioStation": {"id"},
+	"deletePlaylist":             {"id"},
+	"deletePodcastChannel":       {"id"},
+	"deletePodcastEpisode":       {"id"},
+	"deleteShare":                {"id"},
+	"deleteUser":                 {"username"},
+	"download":                   {"id"},
+	"downloadPodcastEpisode":     {"id"},
+	"getAlbum":                   {"id"},
+	"getAlbumInfo":               {"id"},
+	"getAlbumInfo2":              {"id"},
+	"getAlbumList":               {"type"},
+	"getAlbumList2":              {"type"},
+	"getArtist":                  {"id"},
+	"getArtistInfo":              {"id"},
+	"getArtistInfo2":             {"id"},
+	"getAvatar":                  {"username"},
+	"getCaptions":                {"id"},
+	"getCoverArt":                {"id"},
+	"getMusicDirectory":          {"id"},
+	"getPlaylist":                {"id"},
+	"getSimilarSongs":            {"id"},
+	"getSimilarSongs2":           {"id"},
+	"getSong":                    {"id"},
+	"getSongsByGenre":            {"genre"},
+	"getTopSongs":                {"artist"},
+	"getUser":                    {"username"},
+	"getVideoInfo":               {"id"},
+	"hls":                        {"id"},
+	"jukeboxControl":             {"action"},
+	"scrobble":                   {"id"},
+	"search2":                    {"query"},
+	"search3":                    {"query"},
+	"setRating":                  {"id", "rating"},
+	"stream":                     {"id"},
+	"updateInternetRadioStation": {"id", "streamUrl", "name"},
+	"updatePlaylist":             {"playlistId"},
+	"updateShare":                {"id"},
+	"updateUser":                 {"username"},
+}
+
+func number(r *http.Request, key string, fallback, max int) (int, error) {
+	value := r.Form.Get(key)
+	if value == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(value)
+	if err != nil || n < 0 || n > max {
+		return 0, fmt.Errorf("Invalid %s", key)
+	}
+	return n, nil
+}

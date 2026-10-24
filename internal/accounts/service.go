@@ -49,7 +49,11 @@ func New(store state.Store, key []byte, username, password string) (*Service, er
 }
 
 func (s *Service) bootstrap() Account {
-	return Account{Username: s.username, Roles: map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true}, Folders: []string{"1"}}
+	return Account{
+		Username: s.username,
+		Roles:    map[string]bool{"adminRole": true, "settingsRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "commentRole": true},
+		Folders:  []string{"1"},
+	}
 }
 
 func (s *Service) record(ctx context.Context, name string) (storedAccount, error) {

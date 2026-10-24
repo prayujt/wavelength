@@ -99,4 +99,6 @@ uv run scripts/validate-subsonic.py  # pinned official XSD and lxml
 
 Media integration tests skip without FFmpeg/ffprobe unless
 `WAVELENGTH_REQUIRE_MEDIA_TOOLS=1` is set. Tests use isolated fixtures, not a live library.
-See [architecture](docs/architecture.md).
+See [architecture](docs/architecture.md) for package ownership, service lifetimes and
+how to add another capability or transport. The native API stays limited to library
+browsing, scanning and playback; legacy feature handlers delegate to shared services.

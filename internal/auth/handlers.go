@@ -95,7 +95,13 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Issuer+subject is the identity. Email is display metadata, never an account-linking key.
-	user := User{ID: digest(idToken.Issuer + "\x00" + idToken.Subject), Issuer: idToken.Issuer, Subject: idToken.Subject, Name: claims.Name, Email: claims.Email}
+	user := User{
+		ID:      digest(idToken.Issuer + "\x00" + idToken.Subject),
+		Issuer:  idToken.Issuer,
+		Subject: idToken.Subject,
+		Name:    claims.Name,
+		Email:   claims.Email,
+	}
 	sessionToken := secret()
 	session := Session{TokenHash: digest(sessionToken), CSRF: secret(), User: user, ExpiresAt: time.Now().Add(12 * time.Hour)}
 	if err = m.store.CreateSession(r.Context(), session); err != nil {
