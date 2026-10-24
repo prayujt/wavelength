@@ -12,24 +12,18 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/prayujt/wavelength/internal/accounts"
 	"github.com/prayujt/wavelength/internal/library"
-	"github.com/prayujt/wavelength/internal/podcasts"
-	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/transcode"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type api struct {
-	lib                  *library.Library
-	accounts             *accounts.Service
-	data                 *userdata.Service
-	podcastsService      *podcasts.Service
-	sharesService        *sharing.Service
-	transcoder           *transcode.Service
-	avatarDir, publicURL string
-	scanQueued           atomic.Bool
-	ctx                  context.Context
+	lib                *library.Library
+	data               *userdata.Service
+	transcoder         *transcode.Service
+	username, password string
+	scanQueued         atomic.Bool
+	ctx                context.Context
 }
 
 var callbackPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$`)

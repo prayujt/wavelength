@@ -66,7 +66,7 @@ func TestListeningStateAndInvalidQueue(t *testing.T) {
 		}()
 	}
 	workers.Wait()
-	annotations, err := service.Annotations(ctx, "alice")
+	annotations, err := service.History(ctx, "alice")
 	if err != nil || annotations["track"].Plays != 20 {
 		t.Fatalf("lost plays: %+v, %v", annotations, err)
 	}

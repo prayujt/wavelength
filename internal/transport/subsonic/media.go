@@ -24,22 +24,10 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		failure(result, 0, "Jukebox playback is not supported")
 		return true
 	}
-	if a.video(w, r, endpoint, result) {
-		return true
-	}
-	if a.podcastMedia(w, r, endpoint, result) {
-		return true
-	}
-	if a.podcasts(r, endpoint, result) {
+	if a.compatibility(w, r, endpoint, result) {
 		return true
 	}
 	if a.hls(w, r, endpoint, result) {
-		return true
-	}
-	if a.shares(r, endpoint, result) {
-		return true
-	}
-	if a.users(r, endpoint, result) {
 		return true
 	}
 	if a.browse(w, r, endpoint, result) {
@@ -74,24 +62,10 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 			failure(result, 10, err.Error())
 			return true
 		}
-		current, err := a.account(r.Context(), r.Form.Get("u"))
-		if err != nil {
-			legacyError(result, err)
-			return true
-		}
-		if current.MaxBitRate > 0 && (bitrate == 0 || bitrate > current.MaxBitRate) {
-			bitrate = current.MaxBitRate
-		}
 		format := r.Form.Get("format")
 		track, err := a.lib.Get(r.Context(), id)
 		if err != nil {
 			legacyError(result, err)
-			return true
-		}
-		if strings.HasPrefix(track.ContentType, "video/") && a.converted(w, r, result, id) {
-			return true
-		}
-		if a.maybeVideoTranscode(w, r, result, track.ContentType, id, format, bitrate) {
 			return true
 		}
 		transcode := format != "raw" && ((format != "" && format != strings.TrimPrefix(filepath.Ext(track.Path), ".")) || (bitrate > 0 && (track.BitRate == 0 || track.BitRate > bitrate)))
@@ -230,9 +204,6 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 			}
 		}
 		payload(result, "lyrics", map[string]any{"artist": r.Form.Get("artist"), "title": r.Form.Get("title"), "value": lyrics})
-		return true
-	case "getAvatar":
-		a.avatar(w, r, result)
 		return true
 	case "getScanStatus", "startScan":
 		if endpoint == "startScan" && a.scanQueued.CompareAndSwap(false, true) {

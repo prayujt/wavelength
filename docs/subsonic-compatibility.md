@@ -1,98 +1,77 @@
 # Legacy Subsonic compatibility
 
-Target: the documented Subsonic REST API 1.16.1, not all OpenSubsonic extensions or
-all behavior of the original Java server. 75 documented endpoints are supported.
-Jukebox requests return an unsupported operation error. Endpoint coverage alone does
-not establish full compatibility.
+The target is the documented Subsonic REST API 1.16.1 envelope and core music
+workflow. Of its 76 documented endpoints, 75 respond, including 32 deliberately
+stubbed endpoints. Jukebox remains explicitly unsupported. This is not full original
+Subsonic or OpenSubsonic parity.
 
-## Implemented groups
+## Functional music features
 
-- System: ping, license, music folders, scan status and scanning.
-- Browsing: indexes/directories, artists/albums/songs, genres, video and video details.
-- Discovery: search/search2/search3, album lists, random/genre songs, stars, related
-  artists/songs and artist/album info, using the local catalog and listening history.
-- User state: stars/ratings, scrobble/now-playing, playlists and access control,
-  bookmarks, play queues, internet radio and chat.
-- Accounts: users, role updates, password changes and deletion; persisted app accounts
-  are separate from OIDC. Bootstrap credentials remain configured by environment.
-- Media: original/download byte ranges, FFmpeg audio/video conversion, artwork,
-  embedded/sidecar lyrics, avatars, HLS segments and sidecar/embedded captions.
-- Sharing: durable expiring/revocable public links scoped to selected media.
-- Podcasts: RSS subscription/refresh, episode download, playback and deletion.
+- System: ping, fixed license response, one configured music folder, scan status and scans.
+- Browsing: filesystem indexes/directories, tag-based artists/albums/songs, genres,
+  search variants, album lists, random songs and songs by genre.
+- Collections: persisted playlists, bookmarks and play queues.
+- Listening: local play counts, last-played timestamps and reported now-playing entries.
+- Media: original playback/downloads with byte ranges and HEAD, FFmpeg audio
+  transcoding, audio HLS, embedded/adjacent artwork and embedded/sidecar lyrics.
+- Discovery: local genre relationships and listening counts; no external enrichment.
 
-## Configuration-dependent behavior
+FFmpeg/ffprobe are needed for conversion, audio HLS and complete technical/container
+metadata. Audio-only MP4 files require ffprobe classification; video files are skipped.
+Missing lyrics return an empty result. Missing artwork returns a protocol error.
 
-- FFmpeg/ffprobe are required for transcoding, HLS and video stream introspection.
-- Shares require a public legacy origin and the account's sharing role.
-- Podcasts require the podcast role; downloads use Wavelength app storage.
-- Related items and top songs use local catalog relationships and listening history.
-  Remote biographies, album notes and external scrobbling are not provided.
-- Artwork and avatars require source assets; missing resources return protocol errors.
-  Lyrics require embedded tags or sidecar files; missing lyrics return an empty result.
+## Empty compatibility surface
 
-## Remaining differences and unverified areas
+These handlers require authentication and documented required parameters, but have
+no backing feature service, persistent mutations, downloads or outbound requests.
 
-- Real-binary interoperability is verified with py-sonic 1.0.3 for 73 endpoints; its
-  two video methods have upstream integer-ID/JSON-caption assumptions and are checked
-  directly over HTTP instead. This is not certification of every mobile/desktop app
-  or a live Navidrome migration.
-- One configured library root; no LDAP authentication integration or original Subsonic
-  administration/UI. Native per-user roles and a browser UI are not implemented.
-- Transcoded Content-Length requests are supported using disk-backed completion to
-  provide an exact length. Optional preconverted MP4 files live at
-  `data/converted/<videoID>.mp4`; getVideoInfo advertises them and converted=true
-  streams them with range support. Codec availability depends on the FFmpeg build.
-- Podcast subscriptions support RSS and Atom enclosures. Downloads are claimed
-  atomically and channel/episode deletion cannot resurrect in-flight downloads.
-- Live OIDC deployments are not verified; authentication tests use controlled issuers.
-- OpenSubsonic extension parity is outside this legacy target.
+| Feature | Read response | Command behavior |
+| --- | --- | --- |
+| Podcasts | Empty `podcasts.channel` and `newestPodcasts.episode` arrays | Subscribe, refresh, download and delete commands acknowledge without doing work |
+| Video | Empty `videos.video`; `videoInfo` echoes the requested ID with empty caption/audio/conversion arrays | No video indexing, encoding or preconverted assets |
+| Captions | Empty SRT body, or only the `WEBVTT` header for VTT | No subtitle reads or extraction |
+| Radio | Empty `internetRadioStations.internetRadioStation` array | Create/update/delete are no-ops |
+| Chat | Empty `chatMessages.chatMessage` array | Adding a message is a no-op |
+| Avatars | HTTP 200 with an empty image body | Existing avatar files are not read |
+| Sharing | Empty `shares.share` array, including `createShare` | Update/delete are no-ops; `/share/` routes return HTTP 404 |
+| Favorites | Empty `starred`/`starred2` artist, album and song arrays | Star/unstar are no-ops |
+| Ratings | Optional rating fields are absent; highest-rated and starred album lists are empty | `setRating` validates the numeric range and then does nothing |
 
-Therefore this release is **not certified full parity**. The remaining compatibility
-work needs explicit parameter/behavior checks and representative real-client testing.
+JSON collections are arrays, never null. XML uses the same schema-shaped containers.
+These are intentional compatibility stubs and must not be advertised as real features.
 
-## Verification
+## One configured legacy identity
 
-`go test -race ./...` exercises browsing, authentication, persisted user state,
-permissions, protocol errors and native Connect. With FFmpeg/ffprobe, media tests encode
-real audio/video and decode returned transcoding/HLS bytes. Shares, RSS downloads and
-caption retrieval have fixture integration tests.
+Only `WAVELENGTH_SUBSONIC_USER` (default `admin`) and
+`WAVELENGTH_SUBSONIC_PASSWORD` authenticate. Plain/hex passwords and salted-token
+legacy authentication remain supported. Native bearer/OIDC authentication stays separate.
 
-`scripts/smoke.py` runs the actual binary with tagged audio, both ports, auth, range/HEAD
-playback, pruning, restart persistence, source immutability and graceful shutdown.
+`getUsers` reports that one identity; `getUser` returns it or a missing-user error.
+Role fields are fixed compatibility metadata. Settings, ratings, podcast, sharing,
+video conversion, upload, jukebox and external scrobbling capabilities are disabled.
+User creation, updates, deletion and password changes acknowledge without persisting
+anything or changing credentials. There is no local-account database or password key.
 
-`scripts/validate-subsonic.py` validates 40 exported XML response fixtures against the
-pinned official 1.16.1 XSD. It documents one schema correction: PlayQueue.current is
-made a string to accommodate the API's string media IDs. This is fixture/schema
-coverage, not exhaustive validation of every optional resource and request parameter.
+Old account/share/podcast/radio/chat records and files are ignored. Old stars/ratings
+are not projected into responses. Existing playlists, bookmarks, queues and listening
+counts are preserved. The obsolete `WAVELENGTH_SUBSONIC_PUBLIC_URL` setting is ignored.
 
-## Executable endpoint contract
+## Verification and limits
 
-The official endpoint/parameter inventory is recorded in
-`internal/transport/subsonic/testdata/contract.json`. `TestDocumentedRequiredParameters` checks
-missing required inputs across that inventory; filesystem-ID and account-limit
-regressions cover cross-endpoint behavior rather than dispatch presence alone.
+- `go test -race ./...` covers authentication, core collections, browsing, protocol
+  errors and stateless stubs. Tests seed old records, verify they stay invisible,
+  ensure commands leave storage unchanged and check that no feed requests occur.
+- Media tests encode real audio, decode transcoding/HLS results and check stream ownership,
+  traversal protection and temporary-file cleanup. Video fixtures verify scan exclusion.
+- `scripts/smoke.py` exercises the real binary, both listeners, ranges/HEAD, pruning,
+  restart persistence, source immutability and graceful shutdown.
+- `scripts/client-compatibility.py` checks all 75 responding endpoints using py-sonic
+  and direct HTTP, distinguishing real music functionality from empty stubs.
+- `scripts/validate-subsonic.py` validates exported XML fixtures against the pinned
+  official 1.16.1 XSD, with the documented string-ID correction for `PlayQueue.current`.
 
-`uv run scripts/client-compatibility.py` starts the real binary with isolated media
-and SQLite, then checks all 75 supported endpoints through real-client operations. It
-includes actual podcast downloads, video/captions, sharing, account administration,
-playlists, original and transcoded playback and HLS.
-The unmodified py-sonic client handles 73 endpoints; direct HTTP covers the two video
-methods described above. Its repeated-parameter GET helpers reference Python 2's
-urllib2, so those client calls use POST; GET connectivity is checked separately.
-
-Additional media tests verify encoded GET/HEAD Content-Length, per-account bitrate
-limits, adaptive HLS bitrate@dimensions, caption conversion and preconverted MP4s.
-Legacy filesystem IDs are distinct from ID3 identities and round-trip through search,
-stars, lists, artwork, metadata and public sharing.
-
-## Library regression coverage
-
-Mixed-container fixtures cover WAV/AIFF fallback metadata, WMA discovery, fractional
-Vorbis track/disc tags, timestamp-formatted years and audio-only MP4 classification.
-Native search normalizes Unicode case at ingestion. Embedded lyrics and case-insensitive
-adjacent artwork are read from the source library. Successful rescans advance index
-cache timestamps even when added files preserve old modification times. Native and
-legacy album views use the same track ordering.
-
-FFprobe remains optional for original playback and required for complete duration,
-bitrate and container fallback metadata. Path-based track identity is unchanged.
+The endpoint inventory is in `internal/transport/subsonic/testdata/contract.json`.
+Required-input checks cover that inventory. Real-client coverage does not certify every
+parameter combination or every desktop/mobile app. One library root, path-based track
+IDs and the minimal native RPC API are unchanged. There is no LDAP integration,
+original administration UI or OpenSubsonic extension parity.

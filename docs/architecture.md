@@ -10,26 +10,23 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | Package | Responsibility |
 | --- | --- |
 | `library` | Read-only scanning, metadata, path IDs, catalog grouping and source access |
-| `accounts` | Local accounts, credential storage and account settings |
-| `userdata` | Playlists, bookmarks, queues, annotations, local history, stations and chat |
-| `podcasts` | RSS/Atom subscriptions, download claims, episode files and worker lifetime |
-| `sharing` | Public-link ownership, selected-track grants, expiry and revocation |
-| `transcode` | Encoded streams, captions, converted assets and managed HLS sessions |
+| `userdata` | Playlists, bookmarks, queues and local listening history |
+| `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
 | `database` | SQLite implementations of catalog, authentication and record storage |
 | `auth` | OIDC browser sessions, native bearer authentication and CSRF protection |
 | `transport/rpc` | The small protobuf/Connect/gRPC library contract |
 | `transport/httpserver` | Native routing, authentication mounting and health endpoints |
 | `transport/media` | HTTP range/HEAD playback and encoded response delivery |
-| `transport/subsonic` | Legacy parameters, permission mapping, IDs and XML/JSON projections |
+| `transport/subsonic` | Legacy credentials, parameters, IDs, XML/JSON projections and stateless stubs |
 
 Feature services accept contexts and typed inputs. Their persistence dependencies are
-interfaces; they do not import a transport or the SQLite implementation. The podcast
-package uses HTTP as an outbound feed/download client, not as its application API.
+interfaces; they do not import a transport or the SQLite implementation.
 The dependency test in `internal/architecture` protects these boundaries.
 
 Subsonic receives its services explicitly. It does not read environment variables,
-open SQLite, create account stores, download episodes or manage encoder processes.
+open SQLite or manage encoder processes. Removed legacy features are stateless
+compatibility handlers; no account, sharing or podcast services are constructed.
 Filesystem-derived IDs and response shapes remain there because they are part of the
 legacy contract. Core track metadata and tag-based album grouping are shared.
 
@@ -41,8 +38,10 @@ serving, and a listener failure stops the application. Shutdown drains HTTP, can
 workers and waits for them before closing the library and database. HLS sessions own
 their temporary files and remove them on expiry or shutdown.
 
-Native bearer/OIDC authentication and local Subsonic accounts remain separate. No
-identity mapping or native per-user role model is implied by sharing storage.
+Native bearer/OIDC authentication and the single environment-configured Subsonic
+identity remain separate. Stored legacy accounts are not consulted. User-management
+requests cannot change the configured credentials. No identity mapping or native
+per-user role model is implied by sharing storage.
 
 ## Catalog and storage
 
@@ -52,16 +51,21 @@ catalog. WAL, foreign keys and a busy timeout are enabled; the application uses 
 database connection. Search text is normalized during ingestion for Unicode case
 matching. Albums and artists are derived from track rows when requested.
 
-Personal collections, credentials, shares and subscriptions retain their existing
-record scopes and JSON layouts. The package extraction does not reset that state.
+Playlists, bookmarks, queues and listening history retain their record scopes and
+JSON layouts. Listening counts use the historical `annotations/<user>` scope, but
+stars and ratings are no longer read into the model or written by compatibility calls.
+Old account, share, podcast, radio and chat records are ignored; existing files are
+not deleted as a side effect of removing the services.
 
 Music source files and any existing Navidrome data are never modified. IDs use root
-and relative path, not content fingerprints. Podcast files and generated state are
-stored separately in Wavelength app data. Back up SQLite and the legacy encryption key
-together. HLS uses temporary generated files with expiry and process cancellation.
+and relative path, not content fingerprints. Generated application state is stored
+separately in Wavelength app data. The legacy password encryption key is no longer
+used or created. HLS uses temporary
+generated files with expiry and process cancellation.
 
 External programs are optional for original playback; FFmpeg/ffprobe power conversion,
-HLS and video probing. Discovery and listening history stay local.
+audio HLS and richer audio metadata. Video files are excluded from the catalog.
+Discovery and listening history stay local.
 
 ## Adding a capability or transport
 

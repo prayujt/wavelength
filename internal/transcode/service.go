@@ -17,13 +17,10 @@ var ErrInvalid = errors.New("invalid encoding options")
 type source interface {
 	Get(context.Context, string) (library.Track, error)
 	OpenTrack(context.Context, string) (*os.File, library.Track, error)
-	MediaStreams(context.Context, string) ([]library.MediaStream, error)
-	CaptionSidecar(context.Context, string) ([]byte, string, error)
 }
 
 type Service struct {
 	lib       source
-	directory string
 	ctx       context.Context
 	cancel    context.CancelFunc
 	mu        sync.Mutex
@@ -33,19 +30,14 @@ type Service struct {
 	done      chan struct{}
 }
 
-func New(ctx context.Context, lib source, directory string) (*Service, error) {
-	if directory != "" {
-		if err := os.MkdirAll(directory, 0700); err != nil {
-			return nil, err
-		}
-	}
+func New(ctx context.Context, lib source) *Service {
 	ctx, cancel := context.WithCancel(ctx)
-	service := &Service{lib: lib, directory: directory, ctx: ctx, cancel: cancel, jobs: map[string]*hlsJob{}, done: make(chan struct{})}
+	service := &Service{lib: lib, ctx: ctx, cancel: cancel, jobs: map[string]*hlsJob{}, done: make(chan struct{})}
 	go func() {
 		<-ctx.Done()
 		service.Close()
 	}()
-	return service, nil
+	return service
 }
 
 func (s *Service) Close() {

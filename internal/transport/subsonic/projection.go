@@ -15,13 +15,8 @@ func asSong(t library.Track) song {
 	if created.IsZero() {
 		created = t.ModifiedAt
 	}
-	kind := "music"
-	isVideo := strings.HasPrefix(t.ContentType, "video/")
-	if isVideo {
-		kind = "video"
-	}
 	return song{
-		IsVideo:     isVideo,
+		IsVideo:     false,
 		Path:        t.Path,
 		Duration:    int(t.Duration + 0.5),
 		Genre:       t.Genre,
@@ -41,7 +36,7 @@ func asSong(t library.Track) song {
 		Size:        t.Size,
 		ContentType: t.ContentType,
 		Suffix:      strings.TrimPrefix(strings.ToLower(filepath.Ext(t.Path)), "."),
-		Type:        kind,
+		Type:        "music",
 	}
 }
 func catalog(ctx context.Context, lib *library.Library) ([]artist, error) {

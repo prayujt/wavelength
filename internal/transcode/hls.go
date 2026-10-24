@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/prayujt/wavelength/internal/library"
@@ -20,18 +19,14 @@ const hlsLifetime = 2 * time.Hour
 
 var segmentName = regexp.MustCompile(`^segment[0-9]+\.ts$`)
 
-type HLSOptions struct {
-	BitRate    int
-	Size       string
-	AudioTrack *int
-}
+type HLSOptions struct{ BitRate int }
 type Playlist struct {
 	SessionID string
 	Body      []byte
 }
 type jobKey struct {
-	owner, track, size string
-	bitrate, audio     int
+	owner, track string
+	bitrate      int
 }
 type hlsJob struct {
 	id, owner, dir string
@@ -59,35 +54,11 @@ func (s *Service) HLS(ctx context.Context, owner, id string, options HLSOptions)
 	if options.BitRate < 16 || options.BitRate > 100000 {
 		return Playlist{}, ErrInvalid
 	}
-	size, err := ScaleArgument(options.Size)
-	if err != nil {
+	if _, err := s.lib.Get(ctx, id); err != nil {
 		return Playlist{}, err
 	}
-	track, err := s.lib.Get(ctx, id)
-	if err != nil {
-		return Playlist{}, err
-	}
-	audioMap := "0:a:0?"
-	audioIndex := -1
-	if options.AudioTrack != nil && strings.HasPrefix(track.ContentType, "video/") {
-		audioIndex = *options.AudioTrack
-		if audioIndex < 0 {
-			return Playlist{}, ErrInvalid
-		}
-		streams, err := s.lib.MediaStreams(ctx, id)
-		if err != nil {
-			return Playlist{}, err
-		}
-		found := false
-		for _, stream := range streams {
-			found = found || stream.Type == "audio" && stream.Index == audioIndex
-		}
-		if !found {
-			return Playlist{}, library.ErrNotFound
-		}
-		audioMap = "0:" + strconv.Itoa(audioIndex)
-	}
-	key := jobKey{owner: owner, track: id, size: options.Size, bitrate: options.BitRate, audio: audioIndex}
+	key := jobKey{owner: owner, track: id, bitrate: options.BitRate}
+	var err error
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()
@@ -105,7 +76,7 @@ func (s *Service) HLS(ctx context.Context, owner, id string, options HLSOptions)
 			s.mu.Unlock()
 			return Playlist{}, errors.New("HLS session capacity reached")
 		}
-		job, err = s.startHLS(ctx, key, track.ContentType, size, audioMap)
+		job, err = s.startHLS(ctx, key)
 		if err != nil {
 			s.mu.Unlock()
 			return Playlist{}, err
@@ -117,7 +88,7 @@ func (s *Service) HLS(ctx context.Context, owner, id string, options HLSOptions)
 	return waitPlaylist(ctx, job)
 }
 
-func (s *Service) startHLS(request context.Context, key jobKey, kind, size, audioMap string) (*hlsJob, error) {
+func (s *Service) startHLS(request context.Context, key jobKey) (*hlsJob, error) {
 	source, _, err := s.lib.OpenTrack(request, key.track)
 	if err != nil {
 		return nil, err
@@ -129,14 +100,7 @@ func (s *Service) startHLS(request context.Context, key jobKey, kind, size, audi
 	}
 	ctx, cancel := context.WithTimeout(s.ctx, hlsLifetime)
 	args := []string{"-v", "error", "-nostdin", "-i", "/dev/fd/3"}
-	if strings.HasPrefix(kind, "video/") {
-		args = append(args, "-map", "0:v:0", "-map", audioMap, "-c:v", "libx264", "-preset", "veryfast", "-pix_fmt", "yuv420p", "-b:v", strconv.Itoa(key.bitrate)+"k", "-c:a", "aac", "-b:a", "128k")
-		if size != "" {
-			args = append(args, "-vf", "scale="+size)
-		}
-	} else {
-		args = append(args, "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", strconv.Itoa(key.bitrate)+"k")
-	}
+	args = append(args, "-map", "0:a:0", "-vn", "-c:a", "aac", "-b:a", strconv.Itoa(key.bitrate)+"k")
 	args = append(args, "-f", "hls", "-hls_time", "6", "-hls_playlist_type", "vod", "-hls_segment_filename", filepath.Join(directory, "segment%06d.ts"), filepath.Join(directory, "index.m3u8"))
 	command := exec.CommandContext(ctx, "ffmpeg", args...)
 	command.ExtraFiles = []*os.File{source}

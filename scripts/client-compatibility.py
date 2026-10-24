@@ -15,9 +15,7 @@ import signal
 import subprocess
 import tempfile
 import threading
-import time
 import json
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit, urlencode
 from urllib.request import urlopen
 import libsonic
@@ -44,28 +42,12 @@ def run():
             return struct.pack('!I', len(value)) + kind + value + struct.pack('!I', zlib.crc32(kind + value))
         png = b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('!2I5B', 1, 1, 8, 2, 0, 0, 0)) + chunk(b'IDAT', zlib.compress(b'\x00\xff\x00\x00')) + chunk(b'IEND', b'')
         (album / 'cover.png').write_bytes(png)
-        avatars = root / 'data' / 'avatars'
-        avatars.mkdir(parents=True)
-        (avatars / 'client.png').write_bytes(png)
         env = os.environ | {
             'WAVELENGTH_MUSIC_DIR': str(root / 'music'), 'WAVELENGTH_DATA_DIR': str(root / 'data'),
             'WAVELENGTH_ADDR': '127.0.0.1:0', 'WAVELENGTH_TOKEN': 'native-is-separate',
             'WAVELENGTH_SUBSONIC_ADDR': '127.0.0.1:0', 'WAVELENGTH_SUBSONIC_USER': 'client',
-            'WAVELENGTH_SUBSONIC_PASSWORD': 'client-secret', 'WAVELENGTH_SUBSONIC_PUBLIC_URL': 'https://share.example.test',
+            'WAVELENGTH_SUBSONIC_PASSWORD': 'client-secret',
         }
-        class Feed(BaseHTTPRequestHandler):
-            def do_GET(self):
-                self.send_response(200)
-                self.end_headers()
-                if self.path == '/episode.flac':
-                    self.wfile.write(source.read_bytes())
-                else:
-                    self.wfile.write(f'<rss version="2.0"><channel><title>Client podcast</title><item><guid>one</guid><title>Episode</title><enclosure url="http://127.0.0.1:{self.server.server_port}/episode.flac" type="audio/flac"/></item></channel></rss>'.encode())
-            def log_message(self, *args):
-                pass
-        feed = ThreadingHTTPServer(('127.0.0.1', 0), Feed)
-        feed_thread = threading.Thread(target=feed.serve_forever, daemon=True)
-        feed_thread.start()
         process = subprocess.Popen([str(binary)], env=env, stderr=subprocess.PIPE, text=True)
         logs = queue.Queue()
         def collect():
@@ -120,9 +102,9 @@ def run():
                 check('getRandomSongs')
                 check('getSongsByGenre', 'Rock')
                 check('star', sids=[folder_artist, folder_album, track])
-                check('getStarred')
+                assert check('getStarred')['starred'] == {'artist': [], 'album': [], 'song': []}
                 check('star', albumIds=[tag_album], artistIds=[artist])
-                check('getStarred2')
+                assert check('getStarred2')['starred2'] == {'artist': [], 'album': [], 'song': []}
                 check('setRating', track, 5)
                 check('scrobble', track, submission=False)
                 check('getNowPlaying')
@@ -144,7 +126,7 @@ def run():
                 check('getPlayQueue')
                 check('getLyrics', artist='Tag Artist', title='Client Tone')
                 check('addChatMessage', 'Client integration')
-                check('getChatMessages')
+                assert check('getChatMessages')['chatMessages']['chatMessage'] == []
                 check('getUsers')
                 check('getUser', 'client')
                 check('createUser', 'temporary', 'password', 't@example.test')
@@ -152,30 +134,23 @@ def run():
                 check('changePassword', 'temporary', 'new-password')
                 check('deleteUser', 'temporary')
                 check('createInternetRadioStation', 'https://radio.example.test/live', 'Station')
-                station = check('getInternetRadioStations')['internetRadioStations']['internetRadioStation'][0]['id']
+                assert check('getInternetRadioStations')['internetRadioStations']['internetRadioStation'] == []
+                station = 'missing'
                 check('updateInternetRadioStation', station, 'https://radio.example.test/live', 'Renamed')
                 check('deleteInternetRadioStation', station)
-                check('createShare', shids=[folder_album], description='Independent client share')
-                share = check('getShares')['shares']['share'][0]['id']
-                check('updateShare', share, description='Updated share')
-                check('deleteShare', share)
-                check('createPodcastChannel', f'http://127.0.0.1:{feed.server_port}/feed')
-                channel = check('getPodcasts')['podcasts']['channel'][0]
-                episode = channel['episode'][0]['id']
-                check('downloadPodcastEpisode', episode)
-                deadline = time.monotonic() + 10
-                while True:
-                    channel = check('getPodcasts', pid=channel['id'])['podcasts']['channel'][0]
-                    if channel['episode'][0]['status'] == 'completed':
-                        break
-                    assert channel['episode'][0]['status'] != 'error', channel
-                    assert time.monotonic() < deadline, 'Podcast download did not finish'
-                    time.sleep(0.02)
-                check('getNewestPodcasts')
+                assert check('createShare', shids=[folder_album])['shares']['share'] == []
+                assert check('getShares')['shares']['share'] == []
+                check('updateShare', 'missing', description='Ignored')
+                check('deleteShare', 'missing')
+                check('createPodcastChannel', 'http://127.0.0.1:1/must-not-fetch')
+                assert check('getPodcasts')['podcasts']['channel'] == []
+                check('downloadPodcastEpisode', 'missing')
+                assert check('getNewestPodcasts')['newestPodcasts']['episode'] == []
                 check('refreshPodcasts')
-                check('deletePodcastEpisode', episode)
-                check('deletePodcastChannel', channel['id'])
-                video_id = check('getVideos')['videos']['video'][0]['id']
+                check('deletePodcastEpisode', 'missing')
+                check('deletePodcastChannel', 'missing')
+                assert check('getVideos')['videos']['video'] == []
+                video_id = 'missing'
                 # py-sonic casts video IDs to int and parses captions as JSON.
                 # The protocol defines string IDs and binary captions: check these
                 # two operations directly rather than patching the external client.
@@ -184,9 +159,9 @@ def run():
                     with urlopen(f'http://127.0.0.1:{port}/rest/{endpoint}?{query}', timeout=10) as response:
                         body = response.read()
                     if endpoint == 'getVideoInfo':
-                        assert json.loads(body)['subsonic-response']['videoInfo']['id'] == video_id
+                        assert json.loads(body)['subsonic-response']['videoInfo'] == {'id': video_id, 'captions': [], 'audioTrack': [], 'conversion': []}
                     else:
-                        assert b'Client caption' in body
+                        assert body == b'WEBVTT\n\n'
                     covered.add(endpoint)
                     calls += 1
                 check('getScanStatus')
@@ -194,7 +169,10 @@ def run():
                 for method, args in [('download', (track,)), ('stream', (track,)), ('getCoverArt', (folder_album,)), ('getAvatar', ('client',))]:
                     with closing(getattr(client, method)(*args)) as response:
                         body = response.read()
-                    assert body, method
+                    if method == 'getAvatar':
+                        assert body == b'', method
+                    else:
+                        assert body, method
                     if method in ('download', 'stream'):
                         assert body == source.read_bytes(), method
                     calls += 1
@@ -212,7 +190,13 @@ def run():
             contract = json.loads((binary.parent.parent / 'internal/transport/subsonic/testdata/contract.json').read_text())['endpoints']
             supported = set(contract) - {'jukeboxControl'}
             assert covered == supported, f'Endpoint coverage mismatch: missing={supported - covered}, extra={covered - supported}'
-            print(f'PASS: all {len(covered)} supported legacy endpoints; {calls} operations (73 endpoints via py-sonic, 2 video endpoints via direct HTTP) against real binary; token/password POST and GET connectivity; filesystem and ID3 browsing, state, accounts, encoded playback, HLS and assets')
+            for name in ('podcasts', 'avatars', 'converted', 'subsonic.key'):
+                assert not (root / 'data' / name).exists(), name
+            import sqlite3
+            with sqlite3.connect(root / 'data' / 'wavelength.db') as db:
+                scopes = {row[0] for row in db.execute('SELECT DISTINCT scope FROM app_state')}
+                assert not scopes & {'subsonic-users', 'shares', 'podcasts', 'radio', 'chat'}, scopes
+            print(f'PASS: {len(covered)} legacy endpoints, including empty compatibility stubs; {calls} operations against real binary; environment-only credentials, core music state, encoded audio, HLS and artwork')
         finally:
             process.send_signal(signal.SIGTERM)
             try:
@@ -222,9 +206,6 @@ def run():
                 process.wait()
                 raise
             reader.join(timeout=2)
-            feed.shutdown()
-            feed.server_close()
-            feed_thread.join(timeout=2)
             assert code == 0, f'Wavelength exited {code}'
 
 

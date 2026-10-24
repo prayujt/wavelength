@@ -18,11 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/prayujt/wavelength/internal/accounts"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
-	"github.com/prayujt/wavelength/internal/podcasts"
-	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/transcode"
 	"github.com/prayujt/wavelength/internal/transport/subsonic"
@@ -59,8 +56,8 @@ func newFixture(t *testing.T, data, music string) *fixture {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	dependencies, close := testDependencies(t, ctx, lib, database.StateStore{DB: db}, data, "admin", "secret")
-	server, err := subsonic.New(ctx, subsonic.Config{PublicURL: "https://music.example.test", AvatarDir: filepath.Join(data, "avatars")}, dependencies)
+	dependencies, close := testDependencies(ctx, lib, database.StateStore{DB: db})
+	server, err := subsonic.New(ctx, subsonic.Config{Username: "admin", Password: "secret"}, dependencies)
 	if err != nil {
 		close()
 		cancel()
@@ -193,17 +190,12 @@ func TestBrowseSearchListsAndProtocolValidation(t *testing.T) {
 		t.Fatal("genre missing from XML")
 	}
 }
-func TestPersistentPlaylistsAnnotationsQueueAndAccounts(t *testing.T) {
+func TestPersistentPlaylistsHistoryAndQueue(t *testing.T) {
 	f := newFixture(t, "", "")
-	track, album, artist := f.ids(t)
+	track, _, _ := f.ids(t)
 	created := f.ok(t, "createPlaylist", url.Values{"name": {"Road"}, "songId": {track, track}})["playlist"].(map[string]any)
 	id := created["id"].(string)
-	f.ok(t, "updatePlaylist", url.Values{"playlistId": {id}, "songIndexToRemove": {"0"}, "public": {"true"}, "comment": {"Road trip"}})
-	if entries := list(f.ok(t, "getPlaylist", url.Values{"id": {id}}), "playlist", "entry"); len(entries) != 1 {
-		t.Fatal(entries)
-	}
-	f.ok(t, "star", url.Values{"id": {track}, "albumId": {album}, "artistId": {artist}})
-	f.ok(t, "setRating", url.Values{"id": {track}, "rating": {"5"}})
+	f.ok(t, "updatePlaylist", url.Values{"playlistId": {id}, "songIndexToRemove": {"0"}, "comment": {"Road trip"}})
 	f.ok(t, "scrobble", url.Values{"id": {track}})
 	f.ok(t, "scrobble", url.Values{"id": {track}, "submission": {"false"}})
 	if len(list(f.ok(t, "getNowPlaying", nil), "nowPlaying", "entry")) != 1 {
@@ -211,25 +203,11 @@ func TestPersistentPlaylistsAnnotationsQueueAndAccounts(t *testing.T) {
 	}
 	f.ok(t, "createBookmark", url.Values{"id": {track}, "position": {"12000"}, "comment": {"Resume"}})
 	f.ok(t, "savePlayQueue", url.Values{"id": {track}, "current": {track}, "position": {"12000"}})
-	f.ok(t, "createUser", url.Values{"username": {"listener"}, "password": {"app-password"}, "email": {"listener@example.test"}})
-	reader := url.Values{"u": {"listener"}, "p": {"app-password"}}
-	if len(list(f.ok(t, "getPlaylists", reader), "playlists", "playlist")) != 1 {
-		t.Fatal("public playlist not visible")
-	}
-	args := url.Values{"u": {"listener"}, "p": {"app-password"}, "playlistId": {id}, "name": {"stolen"}}
-	expectCode(t, f.call(t, "updatePlaylist", args), 50)
-	expectCode(t, f.call(t, "getUsers", reader), 50)
-	args = url.Values{"u": {"listener"}, "p": {"app-password"}, "username": {"listener"}, "password": {"new-password"}}
-	f.ok(t, "changePassword", args)
-	expectCode(t, f.call(t, "ping", reader), 40)
 	f.lib.Close()
 	f.db.Close()
 	f = newFixture(t, f.data, f.music)
 	if len(list(f.ok(t, "getPlaylist", url.Values{"id": {id}}), "playlist", "entry")) != 1 {
 		t.Fatal("playlist lost on restart")
-	}
-	if len(list(f.ok(t, "getStarred2", nil), "starred2", "song")) != 1 {
-		t.Fatal("favorites lost")
 	}
 	if len(list(f.ok(t, "getBookmarks", nil), "bookmarks", "bookmark")) != 1 {
 		t.Fatal("bookmark lost")
@@ -237,22 +215,14 @@ func TestPersistentPlaylistsAnnotationsQueueAndAccounts(t *testing.T) {
 	if len(list(f.ok(t, "getPlayQueue", nil), "playQueue", "entry")) != 1 {
 		t.Fatal("queue lost")
 	}
-	f.ok(t, "ping", url.Values{"u": {"listener"}, "p": {"new-password"}})
-	var raw []byte
-	if err := f.db.QueryRow("SELECT value FROM app_state WHERE scope='subsonic-users' AND key='listener'").Scan(&raw); err != nil {
-		t.Fatal(err)
+	if f.ok(t, "getSong", url.Values{"id": {track}})["song"].(map[string]any)["playCount"] != float64(1) {
+		t.Fatal("listening history lost")
 	}
-	if bytes.Contains(raw, []byte("new-password")) {
-		t.Fatal("plaintext password stored")
-	}
-	f.ok(t, "unstar", url.Values{"id": {track}, "albumId": {album}, "artistId": {artist}})
 	f.ok(t, "deleteBookmark", url.Values{"id": {track}})
 	f.ok(t, "deletePlaylist", url.Values{"id": {id}})
-	f.ok(t, "deleteUser", url.Values{"username": {"listener"}})
 	expectCode(t, f.call(t, "getPlaylist", url.Values{"id": {id}}), 70)
-	expectCode(t, f.call(t, "ping", url.Values{"u": {"listener"}, "p": {"new-password"}}), 40)
 }
-func TestArtworkLyricsDownloadRadioChatAndScanning(t *testing.T) {
+func TestArtworkLyricsDownloadAndScanning(t *testing.T) {
 	f := newFixture(t, "", "")
 	track, _, _ := f.ids(t)
 	file, err := os.Create(filepath.Join(f.music, "A/First/cover.png"))
@@ -280,15 +250,6 @@ func TestArtworkLyricsDownloadRadioChatAndScanning(t *testing.T) {
 	download := f.raw(t, "download", url.Values{"id": {track}})
 	if download.Header().Get("Content-Disposition") == "" || download.Body.Len() != 256 {
 		t.Fatal("download failed")
-	}
-	f.ok(t, "createInternetRadioStation", url.Values{"name": {"Station"}, "streamUrl": {"https://radio.example.test/live"}})
-	stations := list(f.ok(t, "getInternetRadioStations", nil), "internetRadioStations", "internetRadioStation")
-	id := stations[0].(map[string]any)["id"].(string)
-	f.ok(t, "updateInternetRadioStation", url.Values{"id": {id}, "name": {"Updated"}, "streamUrl": {"https://radio.example.test/live"}})
-	f.ok(t, "deleteInternetRadioStation", url.Values{"id": {id}})
-	f.ok(t, "addChatMessage", url.Values{"message": {"Hello"}})
-	if len(list(f.ok(t, "getChatMessages", nil), "chatMessages", "chatMessage")) != 1 {
-		t.Fatal("chat missing")
 	}
 	f.ok(t, "startScan", nil)
 	deadline := time.Now().Add(5 * time.Second)
@@ -331,7 +292,7 @@ func TestExportXMLContractFixtures(t *testing.T) {
 		"getIndexes": {}, "getMusicDirectory": {"id": {"1"}}, "getGenres": {}, "getAlbumList": {"type": {"alphabeticalByName"}}, "getAlbumList2": {"type": {"alphabeticalByName"}}, "getRandomSongs": {}, "getSongsByGenre": {"genre": {"Rock"}},
 		"search": {"any": {"One"}}, "search2": {"query": {"Artist"}}, "search3": {"query": {"Artist"}}, "getStarred": {}, "getStarred2": {},
 		"getArtistInfo": {"id": {artist}}, "getArtistInfo2": {"id": {artist}}, "getAlbumInfo": {"id": {album}}, "getAlbumInfo2": {"id": {album}}, "getSimilarSongs": {"id": {track}}, "getSimilarSongs2": {"id": {artist}}, "getTopSongs": {"artist": {"Artist A"}},
-		"getUser": {"username": {"admin"}}, "getUsers": {}, "getPlaylists": {}, "getPlaylist": {"id": {playlist}}, "getNowPlaying": {}, "getBookmarks": {}, "getPlayQueue": {}, "getInternetRadioStations": {}, "getChatMessages": {}, "getScanStatus": {}, "getShares": {}, "getPodcasts": {}, "getNewestPodcasts": {}, "getVideos": {},
+		"getUser": {"username": {"admin"}}, "getUsers": {}, "getPlaylists": {}, "getPlaylist": {"id": {playlist}}, "getNowPlaying": {}, "getBookmarks": {}, "getPlayQueue": {}, "getInternetRadioStations": {}, "getChatMessages": {}, "getScanStatus": {}, "getShares": {}, "getPodcasts": {}, "getNewestPodcasts": {}, "getVideos": {}, "getVideoInfo": {"id": {"missing"}},
 	}
 	for endpoint, args := range cases {
 		args.Set("f", "xml")
@@ -342,31 +303,7 @@ func TestExportXMLContractFixtures(t *testing.T) {
 	}
 }
 
-func testDependencies(t *testing.T, ctx context.Context, lib *library.Library, store state.Store, data, user, password string) (subsonic.Dependencies, func()) {
-	t.Helper()
-	key, err := state.LoadKey(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	accountService, err := accounts.New(store, key, user, password)
-	if err != nil {
-		t.Fatal(err)
-	}
-	podcastService, err := podcasts.New(ctx, store, filepath.Join(data, "podcasts"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	transcoder, err := transcode.New(ctx, lib, filepath.Join(data, "converted"))
-	if err != nil {
-		podcastService.Close()
-		t.Fatal(err)
-	}
-	return subsonic.Dependencies{
-		Library:    lib,
-		Accounts:   accountService,
-		UserData:   userdata.New(store, lib),
-		Podcasts:   podcastService,
-		Shares:     sharing.New(store, lib),
-		Transcoder: transcoder,
-	}, func() { podcastService.Close(); transcoder.Close() }
+func testDependencies(ctx context.Context, lib *library.Library, store state.Store) (subsonic.Dependencies, func()) {
+	transcoder := transcode.New(ctx, lib)
+	return subsonic.Dependencies{Library: lib, UserData: userdata.New(store, lib), Transcoder: transcoder}, transcoder.Close
 }

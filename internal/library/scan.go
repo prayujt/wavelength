@@ -89,6 +89,9 @@ func (l *Library) Scan(ctx context.Context) (ScanResult, error) {
 		if err := file.Close(); err != nil {
 			return err
 		}
+		if strings.HasPrefix(track.ContentType, "video/") {
+			return nil
+		}
 		if track.Title == "" {
 			track.Title = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
 		}
@@ -112,5 +115,4 @@ var contentTypes = map[string]string{
 	".mp3": "audio/mpeg", ".flac": "audio/flac", ".m4a": "audio/mp4", ".mp4": "video/mp4",
 	".wma": "audio/x-ms-wma", ".ape": "audio/x-ape", ".oga": "audio/ogg", ".m4b": "audio/mp4", ".mpc": "audio/x-musepack", ".shn": "audio/x-shorten", ".wv": "audio/wavpack", ".dsf": "audio/dsf",
 	".ogg": "audio/ogg", ".opus": "audio/ogg", ".wav": "audio/wav", ".aac": "audio/aac", ".aiff": "audio/aiff", ".aif": "audio/aiff",
-	".mkv": "video/x-matroska", ".webm": "video/webm", ".m4v": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo", ".flv": "video/x-flv", ".mpeg": "video/mpeg", ".mpg": "video/mpeg",
 }
