@@ -70,7 +70,7 @@ func (a *api) compatibility(w http.ResponseWriter, r *http.Request, endpoint str
 
 func (a *api) compatibilityUser() map[string]any {
 	return map[string]any{
-		"username": a.username, "email": "", "folder": []string{"1"}, "maxBitRate": 0,
+		"username": a.username, "email": "", "folder": []int{1}, "maxBitRate": 0,
 		"adminRole": true, "streamRole": true, "downloadRole": true, "playlistRole": true, "coverArtRole": true,
 		"settingsRole": false, "jukeboxRole": false, "uploadRole": false, "commentRole": false,
 		"podcastRole": false, "shareRole": false, "videoConversionRole": false, "scrobblingEnabled": false,

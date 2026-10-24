@@ -97,3 +97,27 @@ func TestListeningStateAndInvalidQueue(t *testing.T) {
 		t.Fatalf("bookmark update: %+v, %v", after, err)
 	}
 }
+
+func TestScrobbleTimesPreserveNewestPlayAndUpdateNowPlaying(t *testing.T) {
+	ctx := context.Background()
+	service := userdata.New(&state.Memory{}, tracks{})
+	start := time.Now().Truncate(time.Second)
+	latest := start.Add(time.Millisecond)
+	for _, stamp := range []time.Time{start, latest, start} {
+		if err := service.RecordPlay(ctx, "alice", "client", "track", stamp, true); err != nil {
+			t.Fatal(err)
+		}
+	}
+	history, err := service.History(ctx, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp, err := time.Parse(time.RFC3339Nano, history["track"].LastPlayed)
+	if err != nil || !stamp.Equal(latest) || history["track"].Plays != 3 {
+		t.Fatalf("out-of-order submissions changed the newest play: %+v (%v)", history, err)
+	}
+	playing, err := service.NowPlaying(ctx)
+	if err != nil || len(playing) != 1 || playing[0].ID != "track" {
+		t.Fatalf("submitted scrobble missing from now playing: %+v (%v)", playing, err)
+	}
+}

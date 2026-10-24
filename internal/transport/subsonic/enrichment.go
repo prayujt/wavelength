@@ -20,7 +20,7 @@ func (a *api) enrichment(r *http.Request, result *response, c collection, endpoi
 		if result.Error != nil {
 			return
 		}
-		count, err := number(r, "count", 50, 500)
+		count, err := number(r, "count", 50, maxResultCount)
 		if err != nil {
 			failure(result, 10, err.Error())
 			return
@@ -76,7 +76,7 @@ func (a *api) enrichment(r *http.Request, result *response, c collection, endpoi
 		}
 	}
 	if endpoint == "getArtistInfo" || endpoint == "getArtistInfo2" {
-		count, err := number(r, "count", 20, 500)
+		count, err := number(r, "count", 20, maxResultCount)
 		if err != nil {
 			failure(result, 10, err.Error())
 			return
@@ -102,7 +102,7 @@ func (a *api) enrichment(r *http.Request, result *response, c collection, endpoi
 		payload(result, name, map[string]any{"similarArtist": pageSlice(similar, 0, count)})
 		return
 	}
-	count, err := number(r, "count", 50, 500)
+	count, err := number(r, "count", 50, maxResultCount)
 	if err != nil {
 		failure(result, 10, err.Error())
 		return

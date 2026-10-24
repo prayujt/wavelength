@@ -272,7 +272,7 @@ func TestArtworkLyricsDownloadAndScanning(t *testing.T) {
 	}
 }
 
-// Optional export consumed by scripts/validate-subsonic.py's independent XSD validator.
+// Optional export consumed by scripts/validate-subsonic.py's XML/JSON schema validator.
 func TestExportXMLContractFixtures(t *testing.T) {
 	dir := os.Getenv("WAVELENGTH_XML_FIXTURES")
 	if dir == "" {
@@ -295,10 +295,12 @@ func TestExportXMLContractFixtures(t *testing.T) {
 		"getUser": {"username": {"admin"}}, "getUsers": {}, "getPlaylists": {}, "getPlaylist": {"id": {playlist}}, "getNowPlaying": {}, "getBookmarks": {}, "getPlayQueue": {}, "getInternetRadioStations": {}, "getChatMessages": {}, "getScanStatus": {}, "getShares": {}, "getPodcasts": {}, "getNewestPodcasts": {}, "getVideos": {}, "getVideoInfo": {"id": {"missing"}},
 	}
 	for endpoint, args := range cases {
-		args.Set("f", "xml")
-		response := f.raw(t, endpoint, args)
-		if err := os.WriteFile(filepath.Join(dir, endpoint+".xml"), response.Body.Bytes(), 0600); err != nil {
-			t.Fatal(err)
+		for _, format := range []string{"xml", "json"} {
+			args.Set("f", format)
+			response := f.raw(t, endpoint, args)
+			if err := os.WriteFile(filepath.Join(dir, endpoint+"."+format), response.Body.Bytes(), 0600); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
 }

@@ -67,8 +67,10 @@ counts are preserved. The obsolete `WAVELENGTH_SUBSONIC_PUBLIC_URL` setting is i
   restart persistence, source immutability and graceful shutdown.
 - `scripts/client-compatibility.py` checks all 75 responding endpoints using py-sonic
   and direct HTTP, distinguishing real music functionality from empty stubs.
-- `scripts/validate-subsonic.py` validates exported XML fixtures against the pinned
-  official 1.16.1 XSD, with the documented string-ID correction for `PlayQueue.current`.
+- `scripts/validate-subsonic.py` validates exported XML fixtures and JSON field types
+  against the pinned official 1.16.1 XSD, with the documented string-ID correction
+  for `PlayQueue.current`. Music-folder IDs remain integers in both `getMusicFolders`
+  and user permissions, while artist, album and track IDs are strings.
 
 The endpoint inventory is in `internal/transport/subsonic/testdata/contract.json`.
 Required-input checks cover that inventory. Real-client coverage does not certify every

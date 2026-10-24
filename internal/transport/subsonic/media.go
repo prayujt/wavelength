@@ -93,7 +93,7 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 				slog.Error("transcoded stream failed", "error", err)
 			}
 		} else if err != nil {
-			failure(result, 0, err.Error())
+			legacyError(result, err)
 		}
 		return true
 	case "getCoverArt":
@@ -183,24 +183,32 @@ func (a *api) handle(w http.ResponseWriter, r *http.Request, endpoint string, re
 		result.Status = "streamed"
 		return true
 	case "getLyrics":
-		page, err := a.lib.List(r.Context(), library.Query{Search: r.Form.Get("title"), Limit: 500})
-		if err != nil {
-			legacyError(result, err)
-			return true
-		}
 		lyrics := ""
-		for _, track := range page.Tracks {
-			if artist := r.Form.Get("artist"); artist != "" && !strings.EqualFold(artist, track.Artist) {
-				continue
-			}
-			value, e := a.lib.Lyrics(r.Context(), track.ID)
-			if e == nil {
-				lyrics = value
-				break
-			}
-			if !errors.Is(e, library.ErrNotFound) {
-				legacyError(result, e)
+		for offset := 0; ; offset += 500 {
+			page, err := a.lib.List(r.Context(), library.Query{Search: r.Form.Get("title"), Limit: 500, Offset: offset})
+			if err != nil {
+				legacyError(result, err)
 				return true
+			}
+			for _, track := range page.Tracks {
+				if artist := r.Form.Get("artist"); artist != "" && !strings.EqualFold(artist, track.Artist) {
+					continue
+				}
+				if title := r.Form.Get("title"); title != "" && !strings.EqualFold(title, track.Title) {
+					continue
+				}
+				value, e := a.lib.Lyrics(r.Context(), track.ID)
+				if e == nil {
+					lyrics = value
+					break
+				}
+				if !errors.Is(e, library.ErrNotFound) {
+					legacyError(result, e)
+					return true
+				}
+			}
+			if lyrics != "" || len(page.Tracks) < 500 {
+				break
 			}
 		}
 		payload(result, "lyrics", map[string]any{"artist": r.Form.Get("artist"), "title": r.Form.Get("title"), "value": lyrics})

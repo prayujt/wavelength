@@ -87,7 +87,7 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "getLicense":
 		result.License = &license{Valid: true}
 	case "getMusicFolders":
-		result.Folders = &folders{Folders: []folder{{ID: "1", Name: "Music"}}}
+		result.Folders = &folders{Folders: []folder{{ID: 1, Name: "Music"}}}
 	default:
 		fail(70, "Endpoint not implemented")
 	}

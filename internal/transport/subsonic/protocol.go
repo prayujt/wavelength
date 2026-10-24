@@ -76,7 +76,7 @@ func writeResponse(w http.ResponseWriter, r *http.Request, result response) {
 		}
 		return
 	}
-	w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
 	var out bytes.Buffer
 	out.WriteString(xml.Header)
 	encoder := xml.NewEncoder(&out)
