@@ -67,8 +67,10 @@ func (s GrantStore) Get(ctx context.Context, id string) (sharing.Grant, error) {
 func (s GrantStore) ByTokenHash(ctx context.Context, hash string) (sharing.Grant, error) {
 	return scanGrant(s.DB.QueryRowContext(ctx, "SELECT "+grantColumns+" FROM media_grants WHERE token_hash=?", hash))
 }
+
+// Derived playback grants are managed through their parent share.
 func (s GrantStore) List(ctx context.Context, owner, root, kind string, limit, offset int) ([]sharing.Grant, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT "+grantColumns+" FROM media_grants WHERE owner=? AND root_id=? AND kind=? ORDER BY created_at DESC,id LIMIT ? OFFSET ?", owner, root, kind, limit, offset)
+	rows, err := s.DB.QueryContext(ctx, "SELECT "+grantColumns+" FROM media_grants WHERE owner=? AND root_id=? AND kind=? AND parent_id='' ORDER BY created_at DESC,id LIMIT ? OFFSET ?", owner, root, kind, limit, offset)
 	if err != nil {
 		return nil, err
 	}

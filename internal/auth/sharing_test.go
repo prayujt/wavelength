@@ -141,6 +141,10 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertAudio(derived.URL)
+	directLinks, err := rpc.ListAccessLinks(ctx, rpcRequest(alice.Access, &pb.ListAccessLinksRequest{Kind: "playback"}))
+	if err != nil || len(directLinks.Msg.Links) != 1 || directLinks.Msg.Links[0].Id != direct.Msg.Link.Id {
+		t.Fatal("recipient playback grants appeared in the owner's direct links", directLinks, err)
+	}
 	list, err := rpc.ListAccessLinks(ctx, rpcRequest(alice.Access, &pb.ListAccessLinksRequest{}))
 	if err != nil || len(list.Msg.Links) != 1 || list.Msg.Links[0].Id != sharedID {
 		t.Fatal(list, err)

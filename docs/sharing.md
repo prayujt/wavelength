@@ -43,7 +43,9 @@ Creation returns `{link, url}`. The record includes `id`, `kind`, `name`,
 `track_ids`, `created_at`, and optional `expires_at`/`revoked_at`. List requests
 accept `kind` (`share` by default or `playback`), `limit` (default/max 100), and
 `offset`. Only creation returns the bearer URL; keep it when created. Revoke by
-record `id`. A playback link does not create a share webpage.
+record `id`. Recipient playback grants are managed through their parent share and
+do not clutter the owner’s direct playback-link list. A playback link does not
+create a share webpage.
 
 For sharing, supply a name, ordered local `track_ids` (1–1000), and an optional
 future `expires_at` (protobuf Timestamp for RPC, RFC3339 for MCP). Album and
