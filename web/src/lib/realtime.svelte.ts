@@ -36,6 +36,7 @@ export class RealtimeState {
             if (event.payload.case === 'ready') {
               this.connected = true;
               delay = 1000;
+              basket.invalidateLookups();
               this.resetVersion++;
               this.libraryVersion++;
             } else if (event.payload.case === 'importUpdated') {

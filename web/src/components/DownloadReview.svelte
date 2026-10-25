@@ -56,7 +56,7 @@
     busy = true;
     error = '';
     try {
-      await basket.lookup(basket.tracks, controller.signal);
+      await basket.lookup(basket.tracks, controller.signal, true);
       if (!basket.tracks.length) {
         error = 'These songs are already in your library.';
         return;
@@ -108,18 +108,22 @@
         <div class="track-info">
           <strong>{track.title}</strong><span
             >{track.artist} · {track.album}</span
+          ><span
+            >{basket.sources[refKey(track.ref)]?.title ||
+              'Automatic matching'}</span
           ><button
             class="source-choice"
             disabled={busy}
-            aria-label={`Choose recording for ${track.title}`}
+            aria-label={`${basket.sources[refKey(track.ref)] ? 'Change' : 'Choose'} recording for ${track.title}`}
             onclick={() => (choosing = track)}
             ><SlidersHorizontal size={12} />{basket.sources[refKey(track.ref)]
-              ?.title || 'Automatic match'}</button
+              ? 'Change recording'
+              : 'Choose recording'}</button
           >{#if basket.sources[refKey(track.ref)]}<button
               class="text-button muted small-text"
               disabled={busy}
               onclick={() => basket.automatic(track)}
-              >Use automatic match</button
+              >Use automatic matching</button
             >{/if}
         </div>
         <button
@@ -151,8 +155,8 @@
         onclick={loadPlaylists}>Load more playlists</button
       >{/if}
     <p class="muted small-text">
-      Automatic matching uses only strong matches. If a recording is uncertain,
-      you can choose one from Downloads.
+      Choose a recording above, or leave automatic matching on. Uncertain
+      matches will wait for your choice in Downloads.
     </p>
   </div>
   <div class="dialog-actions">

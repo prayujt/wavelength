@@ -21,6 +21,9 @@ Spotify imports are outside this capability. Saved audio can be replaced explici
    or fingerprint identity.
 4. Submit selected tracks or one release. Explicit YouTube source references bypass
    automatic selection. Without one, only strong, unambiguous matches are accepted.
+   Discovery metadata already seen by the server is included in queued receipts, so
+   titles and artwork can appear before a worker starts. This display preview is
+   persisted with the job and does not bypass authoritative metadata resolution.
 5. Subscribe to `RealtimeService.Subscribe` before loading the job snapshot, or poll the returned job. Completed items contain local track IDs for existing
    playback and collection APIs. Ambiguous items pause at `needs_selection`; choose
    a source and retry with a zero-based item override.
@@ -58,12 +61,18 @@ to rank it. Only public music metadata is sent, not users, playlists, or OAuth c
 Jev answers two questions per candidate: a Noul probability of the same complete
 recording/version, and a source-evidence rubric from 0 to 4 that favors corroborated
 artist, label or auto-generated releases over uncertain fan uploads. The returned
-rank is `0.8 * recording_probability + 0.2 * source_rubric / 4`. It is a composite
-rank, **not a calibrated percentage of correctness**. Existing title/artist, duration
+rank is `recording_probability * (0.8 + 0.2 * source_rubric / 4)`. It is a composite
+rank, **not a calibrated percentage of correctness**. Source preference can reduce
+the rank but cannot lift a weak recording match above the recording probability. Existing title/artist, duration
 and alternate-version checks still apply; Jev cannot override their rejection.
-Suitability also requires recording probability >= 0.95. Automatic selection requires
+Suitability also requires recording probability >= 0.90. Automatic selection requires
 rank >= 0.90 and a 0.03 margin over every other suitable candidate. These are conservative
-initial policy values, covered by fixtures rather than a measured music benchmark.
+policy values, covered by fixtures rather than a measured music benchmark.
+For an audio library, corroborated artist/label audio and Topic/YouTube Music releases
+are preferred over fan lyric videos. Official lyric videos remain valid alternatives.
+Recording identity and source preference are evaluated separately: punctuation and
+on-screen lyrics do not change the recording, and absent optional metadata alone
+is not evidence of a mismatch.
 
 Requests have an eight-second deadline, at most two concurrent calls, and bounded
 input/output. Successful results are cached in memory for ten minutes (up to 256

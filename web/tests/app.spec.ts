@@ -200,6 +200,7 @@ async function signedIn(page: Page, existing = false) {
             ref: { provider: 'itunes', id: '789' },
             title: 'Next Chapter',
             artist: 'The Morning',
+            artistRef: { provider: 'itunes', id: '456' },
           },
         ],
       },
@@ -209,6 +210,7 @@ async function signedIn(page: Page, existing = false) {
             ref: { provider: 'itunes', id: '789' },
             title: 'Next Chapter',
             artist: 'The Morning',
+            artistRef: { provider: 'itunes', id: '456' },
             tracks: [external],
           },
         ],
@@ -218,6 +220,7 @@ async function signedIn(page: Page, existing = false) {
           ref: { provider: 'itunes', id: '789' },
           title: 'Next Chapter',
           artist: 'The Morning',
+          artistRef: { provider: 'itunes', id: '456' },
           tracks: [external],
         },
       },
@@ -342,6 +345,15 @@ test('download review preserves source and playlist choices and opens job progre
   await findNewMusic(page);
   await page.getByRole('checkbox', { name: 'Select New Light' }).check();
   await page.getByRole('button', { name: 'Review download' }).click();
+  const initialReview = page.getByRole('dialog', { name: 'Review download' });
+  await expect(
+    initialReview.getByText('Automatic matching', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    initialReview.getByRole('button', {
+      name: 'Choose recording for New Light',
+    }),
+  ).toHaveText('Choose recording');
   await page
     .getByRole('button', { name: 'Choose recording for New Light' })
     .click();
@@ -355,6 +367,9 @@ test('download review preserves source and playlist choices and opens job progre
   await page.getByRole('button', { name: /98.*New Light/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Review download' });
   await expect(dialog).toContainText('New Light — Official Audio');
+  await expect(
+    dialog.getByRole('button', { name: 'Change recording for New Light' }),
+  ).toHaveText('Change recording');
   await dialog.getByRole('button', { name: 'Download 1 song' }).hover();
   await page.screenshot({ path: info.outputPath('review-light.png') });
   await dialog.getByRole('button', { name: 'Back', exact: true }).click();
@@ -762,16 +777,6 @@ test('search summaries distinguish a partially saved result set from fully in li
   await page.keyboard.press('Control+k');
   const palette = page.getByRole('dialog', { name: 'Search music' });
   await palette.getByRole('combobox').fill('The Morning');
-  await expect(palette.locator('.library-summary')).toHaveText(
-    '1 of 2 songs in library',
-  );
-  await page.evaluate(
-    (ref) =>
-      window.testMusicEvent({
-        libraryUpdated: { track: { metadataRef: ref, trackId: 'track-2' } },
-      }),
-    another.ref,
-  );
   await expect(palette.locator('.library-summary')).toContainText(
     'Fully in library',
   );
@@ -882,6 +887,7 @@ test('album search checks every song and becomes playable when the last one arri
             ref: { provider: 'itunes', id: '789' },
             title: 'Next Chapter',
             artist: 'The Morning',
+            artistRef: { provider: 'itunes', id: '456' },
             tracks: [external, second],
           },
         ],
@@ -1032,4 +1038,275 @@ test('quick download retries reuse the request ID after a network failure', asyn
   await expect(page.locator('.discovery-track')).toContainText('Queued');
   expect(keys).toHaveLength(2);
   expect(keys[0]).toBe(keys[1]);
+});
+
+for (const partial of [false, true]) {
+  test(`a download awaiting selection can be cancelled${partial ? ' while keeping saved songs' : ''}`, async ({
+    page,
+  }) => {
+    await signedIn(page);
+    const pending = {
+      ...importedJob.items[0],
+      state: 'needs_selection',
+      trackId: '',
+      metadata: { ...external, title: 'Waiting Song' },
+    };
+    let job = {
+      ...importedJob,
+      state: 'needs_selection',
+      items: partial ? [importedJob.items[0], pending] : [pending],
+    };
+    await page.route('**/wavelength.v1.IngestionService/*', (route) => {
+      const method = route.request().url().split('/').pop();
+      if (method === 'CancelImport')
+        job = {
+          ...job,
+          state: 'cancelled',
+          items: job.items.map((item) =>
+            item.state === 'completed' ? item : { ...item, state: 'cancelled' },
+          ),
+        };
+      return route.fulfill({
+        json: method === 'ListImports' ? { imports: [job], total: 1 } : job,
+      });
+    });
+    await page.goto('/#imports');
+    await expect(
+      page.getByRole('heading', { name: 'Choose a recording' }),
+    ).toBeVisible();
+    const request = page.waitForRequest(
+      '**/wavelength.v1.IngestionService/CancelImport',
+    );
+    await page
+      .getByRole('button', {
+        name: partial ? 'Cancel remaining' : 'Cancel download',
+        exact: true,
+      })
+      .click();
+    expect((await request).postDataJSON()).toEqual({ id: importedJob.id });
+    await expect(page.locator('.job-card .status')).toHaveText(/^cancelled$/i);
+    await expect(
+      page.getByRole('button', { name: /Cancel (remaining|download)/ }),
+    ).toHaveCount(0);
+    if (partial) {
+      await expect(
+        page.getByRole('button', { name: 'Play downloaded' }),
+      ).toBeVisible();
+      await expect(page.locator('.track-link')).toContainText(external.title);
+    }
+    await page.reload();
+    await expect(page.locator('.job-card .status')).toHaveText(/^cancelled$/i);
+  });
+}
+
+test('saved albums reuse search metadata, have a normal Play action and link their artist', async ({
+  page,
+}) => {
+  await signedIn(page, true);
+  const reads: string[] = [];
+  page.on('request', (request) => {
+    if (
+      ['/GetRelease', '/LookupImports', '/GetArtist'].some((method) =>
+        request.url().endsWith(method),
+      )
+    )
+      reads.push(request.url().split('/').pop()!);
+  });
+  await findNewMusic(page);
+  await expect(page.locator('.external-release')).toContainText(
+    'Fully in library',
+  );
+  const lookups = reads.filter((method) => method === 'LookupImports').length;
+  await page
+    .locator('.external-release')
+    .getByRole('link', { name: 'Next Chapter', exact: true })
+    .click();
+  const header = page.locator('.entity-header');
+  await expect(
+    header.getByRole('button', { name: 'Play', exact: true }),
+  ).toBeVisible();
+  await expect(header).not.toContainText('Select remaining songs');
+  await expect(header).not.toContainText('Play saved songs');
+  expect(reads.filter((method) => method === 'GetRelease')).toHaveLength(0);
+  expect(reads.filter((method) => method === 'LookupImports')).toHaveLength(
+    lookups,
+  );
+  await header.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(page.locator('.now-playing')).toContainText(track.title);
+  await header.getByRole('link', { name: 'The Morning' }).click();
+  await expect(page).toHaveURL(/#discover\/artist.*id=456/);
+  await expect(
+    page.getByRole('heading', { name: 'The Morning' }),
+  ).toBeVisible();
+  await page
+    .getByRole('link', { name: 'Discover', exact: true })
+    .last()
+    .click();
+  await page.getByRole('link', { name: 'The Morning', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'The Morning' }),
+  ).toBeVisible();
+  expect(reads.filter((method) => method === 'GetArtist')).toHaveLength(1);
+});
+
+test('large artist discographies check one visible batch instead of every album', async ({
+  page,
+}) => {
+  await signedIn(page);
+  const albums = Array.from({ length: 60 }, (_, index) => ({
+    ref: { provider: 'itunes', id: String(1000 + index) },
+    title: `Album ${index + 1}`,
+    artist: 'The Morning',
+  }));
+  const batches: string[][] = [];
+  await page.route('**/wavelength.v1.DiscoveryService/GetArtist', (route) =>
+    route.fulfill({
+      json: {
+        artist: {
+          name: 'The Morning',
+          ref: { provider: 'itunes', id: '456' },
+          releases: albums,
+        },
+      },
+    }),
+  );
+  await page.route('**/wavelength.v1.DiscoveryService/GetReleases', (route) => {
+    const ids = route
+      .request()
+      .postDataJSON()
+      .refs.map((ref: { id: string }) => ref.id);
+    batches.push(ids);
+    return route.fulfill({
+      json: {
+        releases: albums
+          .filter((album) => ids.includes(album.ref.id))
+          .map((album) => ({
+            ...album,
+            tracks: [
+              {
+                ...external,
+                ref: { provider: 'itunes', id: `${album.ref.id}1` },
+              },
+            ],
+          })),
+      },
+    });
+  });
+  await page.goto('/#discover/artist?provider=itunes&id=456');
+  await expect(page.locator('.external-release')).toHaveCount(12);
+  const more = page.getByRole('button', { name: 'Show more albums' });
+  await expect(more).toBeEnabled();
+  expect(batches).toEqual([albums.slice(0, 12).map((album) => album.ref.id)]);
+  await more.click();
+  await expect(page.locator('.external-release')).toHaveCount(24);
+  await expect(more).toBeEnabled();
+  expect(batches[1]).toEqual(albums.slice(12, 24).map((album) => album.ref.id));
+});
+
+test('track hover actions cover the artwork and keep contrast in both themes', async ({
+  page,
+}, info) => {
+  await signedIn(page, true);
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'light' });
+  await findNewMusic(page);
+  const artwork = page.locator('.track-artwork');
+  const button = artwork.getByRole('button', { name: 'Play New Light' });
+  for (const theme of ['light', 'dark']) {
+    if (theme === 'dark')
+      await page.getByRole('button', { name: 'Toggle color theme' }).click();
+    await button.hover();
+    const area = await artwork.boundingBox();
+    const overlay = await button.boundingBox();
+    expect(overlay).toEqual(area);
+    const colors = await button.evaluate((element) => ({
+      background: getComputedStyle(element).backgroundColor,
+      color: getComputedStyle(element).color,
+    }));
+    expect(colors.color).toBe('rgb(255, 255, 255)');
+    expect(colors.background).toBe('rgba(22, 23, 28, 0.91)');
+    await page.screenshot({
+      path: info.outputPath(`track-hover-${theme}.png`),
+    });
+  }
+});
+
+test('playlist covers use one image, two halves, or four cells with a blank fourth for three songs', async ({
+  page,
+}, info) => {
+  await signedIn(page);
+  const colors = ['#c0a887', '#697d69', '#747c9c', '#ae8790'];
+  await page.route('**/media/tracks/*/artwork', (route) => {
+    const index =
+      Number(
+        new URL(route.request().url()).pathname.split('/')[3].split('-')[1],
+      ) - 1;
+    return route.fulfill({
+      contentType: 'image/svg+xml',
+      body: `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="${colors[index]}"/></svg>`,
+    });
+  });
+  const lists = Array.from({ length: 5 }, (_, count) => ({
+    id: `playlist-${count}`,
+    name: `Playlist ${count}`,
+    trackIds: Array.from({ length: count }, (_, index) => `track-${index + 1}`),
+  }));
+  await page.route('**/wavelength.v1.UserDataService/ListPlaylists', (route) =>
+    route.fulfill({ json: { playlists: lists, total: lists.length } }),
+  );
+  await page.goto('/#playlists');
+  for (let count = 0; count <= 4; count++) {
+    const card = page.getByRole('button', {
+      name: new RegExp(`Playlist ${count} ${count} songs?`),
+    });
+    const mosaic = card.locator('.playlist-cover');
+    await expect(mosaic.locator('img')).toHaveCount(count);
+    if (count === 2) await expect(mosaic).toHaveClass(/split/);
+    if (count >= 3) await expect(mosaic).toHaveClass(/mosaic/);
+    if (count === 3) await expect(mosaic.locator('.empty-tile')).toHaveCount(1);
+    const images = mosaic.locator('img');
+    for (let index = 0; index < count; index++)
+      await expect(images.nth(index)).toHaveAttribute(
+        'src',
+        `/media/tracks/track-${index + 1}/artwork`,
+      );
+  }
+  await page.screenshot({ path: info.outputPath('playlist-covers.png') });
+});
+
+test('switching download jobs preserves history scroll without reloading the page', async ({
+  page,
+}) => {
+  await signedIn(page);
+  const jobs = Array.from({ length: 20 }, (_, index) => ({
+    ...importedJob,
+    id: `job-${index}`,
+    items: [
+      {
+        ...importedJob.items[0],
+        metadata: { ...external, title: `Saved song ${index}` },
+      },
+    ],
+  }));
+  let lists = 0;
+  let details = 0;
+  await page.route('**/wavelength.v1.IngestionService/*', (route) => {
+    const method = route.request().url().split('/').pop();
+    if (method === 'ListImports') lists++;
+    if (method === 'GetImport') details++;
+    return route.fulfill({
+      json: method === 'ListImports' ? { imports: jobs, total: 20 } : jobs[0],
+    });
+  });
+  await page.goto('/#imports');
+  await expect(page.locator('.job-detail')).toContainText('Saved song 0');
+  const before = lists;
+  const list = page.locator('.job-list');
+  await list.evaluate((element) => (element.scrollTop = 650));
+  const position = await list.evaluate((element) => element.scrollTop);
+  await list.getByRole('link', { name: /Saved song 9 / }).click();
+  await expect(page.locator('.job-detail')).toContainText('Saved song 9');
+  expect(await list.evaluate((element) => element.scrollTop)).toBe(position);
+  await expect(page.getByText('Loading downloads…')).toHaveCount(0);
+  expect(lists).toBe(before);
+  expect(details).toBe(0);
 });

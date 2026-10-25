@@ -12,7 +12,7 @@
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
-  import Cover from '../components/Cover.svelte';
+  import PlaylistCover from '../components/PlaylistCover.svelte';
   import Notice from '../components/Notice.svelte';
   import Modal from '../components/Modal.svelte';
   import TrackList from '../components/TrackList.svelte';
@@ -172,6 +172,7 @@
         void load();
       }}><ArrowLeft size={20} /></button
     >
+    <PlaylistCover name={selected.name} trackIds={selected.trackIds} small />
     <h2>{selected.name}</h2>
     <span class="count"
       >{selected.trackIds.length}
@@ -242,7 +243,10 @@
     {#each playlists as playlist}<button
         class="music-card"
         onclick={() => open(playlist.id)}
-        ><Cover name={playlist.name} /><strong>{playlist.name}</strong><span
+        ><PlaylistCover
+          name={playlist.name}
+          trackIds={playlist.trackIds}
+        /><strong>{playlist.name}</strong><span
           >{playlist.trackIds.length}
           {playlist.trackIds.length === 1 ? 'song' : 'songs'} · {playlist.public
             ? 'Shared'

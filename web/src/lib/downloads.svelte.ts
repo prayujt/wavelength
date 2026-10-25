@@ -21,6 +21,8 @@ export class DownloadSelection {
   playlistId = $state('');
   private requestId = '';
   private importVersion = 0;
+  private lookupGeneration = 0;
+  private lookedUp = new Set<string>();
   private downloadRequests = new Map<string, string>();
   duration = $derived(
     this.tracks.reduce((sum, track) => sum + track.durationSeconds, 0),
@@ -74,21 +76,30 @@ export class DownloadSelection {
     this.reviewing = false;
   }
 
-  async lookup(tracks: ExternalTrack[], signal?: AbortSignal) {
+  invalidateLookups() {
+    this.lookedUp.clear();
+    this.lookupGeneration++;
+  }
+
+  async lookup(tracks: ExternalTrack[], signal?: AbortSignal, refresh = false) {
     if (!tracks.length) return;
     if (tracks.length > 200) {
       for (let offset = 0; offset < tracks.length; offset += 200)
-        await this.lookup(tracks.slice(offset, offset + 200), signal);
+        await this.lookup(tracks.slice(offset, offset + 200), signal, refresh);
       return;
     }
     const metadataRefs = [
       ...new Map(
         tracks.flatMap((track) =>
-          track.ref ? [[refKey(track.ref), track.ref] as const] : [],
+          track.ref && (refresh || !this.lookedUp.has(refKey(track.ref)))
+            ? [[refKey(track.ref), track.ref] as const]
+            : [],
         ),
       ).values(),
     ];
+    if (!metadataRefs.length) return;
     const version = this.importVersion;
+    const generation = this.lookupGeneration;
     const result = await api.ingestion.lookupImports(
       { metadataRefs },
       { signal },
@@ -99,6 +110,8 @@ export class DownloadSelection {
       for (const ref of metadataRefs) delete imported[refKey(ref)];
     this.imported = imported;
     this.markImported(result.tracks);
+    if (generation === this.lookupGeneration)
+      for (const ref of metadataRefs) this.lookedUp.add(refKey(ref));
   }
 
   release(album: MusicRelease) {

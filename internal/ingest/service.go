@@ -124,7 +124,7 @@ func (s *Service) Create(ctx context.Context, owner string, r Request) (Job, err
 	now := time.Now().UTC()
 	j := Job{ID: rand.Text(), RootID: s.root.ID, Owner: owner, Request: r, RequestHash: hex.EncodeToString(hash[:]), State: Queued, Items: []Item{}, CreatedAt: now, UpdatedAt: now, Expanded: r.ReleaseRef.Empty()}
 	for _, i := range r.Items {
-		j.Items = append(j.Items, Item{Selection: i, State: Queued, Warnings: []string{}})
+		j.Items = append(j.Items, Item{Selection: i, Preview: s.deps.Discovery.Preview(i.MetadataRef), State: Queued, Warnings: []string{}})
 	}
 	j, err = s.deps.Store.Create(ctx, j)
 	if err == nil {

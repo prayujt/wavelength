@@ -598,3 +598,30 @@ func TestCancelledReplacementCleansNewAssetWithoutRemovingOriginal(t *testing.T)
 		t.Fatal("uncommitted replacement asset retained", err)
 	}
 }
+
+func TestQueuedJobPersistsDiscoveryPreviewWithoutTrustingItForPublication(t *testing.T) {
+	started := make(chan struct{})
+	f := setup(t, func(ctx context.Context, ref discovery.Ref, path string) error {
+		close(started)
+		<-ctx.Done()
+		return ctx.Err()
+	}, metadata{}, nil)
+	known, err := f.deps.Discovery.Track(context.Background(), metadataRef)
+	if err != nil {
+		t.Fatal(err)
+	}
+	j := create(t, f.s, "alice", request("preview"))
+	if j.Items[0].Preview == nil || j.Items[0].Preview.Title != known.Title || j.Items[0].Metadata != nil {
+		t.Fatal("queued receipt did not carry a separate display preview", j)
+	}
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("worker did not begin resolving")
+	}
+	saved, err := f.store.Get(context.Background(), f.root.ID, "alice", j.ID)
+	if err != nil || saved.Items[0].Preview == nil || saved.Items[0].Preview.Artist != known.Artist || saved.Items[0].Metadata == nil {
+		t.Fatal("preview was not persisted separately from resolved metadata", saved, err)
+	}
+	f.s.Cancel(context.Background(), "alice", j.ID)
+}

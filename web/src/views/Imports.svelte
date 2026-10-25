@@ -45,6 +45,7 @@
   let request = 0;
   let refreshQueued = false;
   const seenUpdates = new Set<string>();
+  let selectionRequest = 0;
   const active = (job: ImportJob) => ['queued', 'running'].includes(job.state);
   const completed = $derived(
     selected?.items.filter((item) => item.state === 'completed').length || 0,
@@ -76,11 +77,11 @@
         { signal: controller.signal },
       );
       let detail = result.imports.find(
-        (job) => job.id === (selected?.id || initialID),
+        (job) => job.id === (initialID || selected?.id),
       );
-      if (!detail && (selected?.id || initialID))
+      if (!detail && (initialID || selected?.id))
         detail = await api.ingestion.getImport(
-          { id: selected?.id || initialID },
+          { id: initialID || selected?.id || '' },
           { signal: controller.signal },
         );
       if (!detail && !initialID)
@@ -90,7 +91,8 @@
       jobs = result.imports.map((job) => realtime.latest(job));
       total = result.total;
       offset = nextOffset;
-      selected = detail ? realtime.latest(detail) : undefined;
+      if (!initialID || detail?.id === initialID)
+        selected = detail ? realtime.latest(detail) : undefined;
     } catch (cause) {
       if (generation === request && !controller.signal.aborted)
         error = errorMessage(cause);
@@ -125,21 +127,51 @@
       }
     });
   });
+  $effect(() => {
+    const id = initialID;
+    if (!loading && id) untrack(() => void select(id));
+  });
+  async function select(id: string) {
+    if (selected?.id === id) return;
+    const generation = ++selectionRequest;
+    overrides = {};
+    choosing = undefined;
+    error = '';
+    const known = jobs.find((job) => job.id === id);
+    if (known) {
+      selected = realtime.latest(known);
+      return;
+    }
+    try {
+      const job = await api.ingestion.getImport(
+        { id },
+        { signal: controller.signal },
+      );
+      if (generation === selectionRequest) selected = realtime.latest(job);
+    } catch (cause) {
+      if (generation === selectionRequest && !controller.signal.aborted)
+        error = errorMessage(cause);
+    }
+  }
   async function mutate(kind: 'cancel' | 'retry') {
     if (!selected || busy) return;
+    const id = selected.id;
     busy = true;
     error = '';
     try {
-      selected =
+      const job =
         kind === 'cancel'
-          ? await api.ingestion.cancelImport({ id: selected.id })
+          ? await api.ingestion.cancelImport({ id })
           : await api.ingestion.retryImport({
-              id: selected.id,
+              id,
               overrides: Object.entries(overrides).map(
                 ([index, sourceRef]) => ({ index: Number(index), sourceRef }),
               ),
             });
-      overrides = {};
+      if (selected?.id === id) {
+        selected = job;
+        overrides = {};
+      }
       await load();
     } catch (cause) {
       error = errorMessage(cause);
@@ -303,12 +335,14 @@
               >{/if}
           </div>{/each}
         <div class="dialog-actions">
-          {#if active(selected)}<button
+          {#if active(selected) || selected.state === 'needs_selection'}<button
               class="button secondary"
               disabled={busy}
               onclick={() => mutate('cancel')}
-              ><X size={14} /> Cancel remaining</button
-            >{:else if selected.state !== 'completed'}<button
+              ><X size={14} />{completed
+                ? 'Cancel remaining'
+                : 'Cancel download'}</button
+            >{/if}{#if !active(selected) && selected.state !== 'completed'}<button
               class="button primary"
               disabled={busy}
               onclick={() => mutate('retry')}

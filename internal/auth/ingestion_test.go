@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -195,7 +196,7 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	tls.EnableHTTP2 = true
 	tls.StartTLS()
 	defer tls.Close()
-	for _, options := range [][]connect.ClientOption{nil, {connect.WithProtoJSON()}, {connect.WithGRPCWeb()}, {connect.WithGRPC()}} {
+	for protocol, options := range [][]connect.ClientOption{nil, {connect.WithProtoJSON()}, {connect.WithGRPCWeb()}, {connect.WithGRPC()}} {
 		d := wavelengthv1connect.NewDiscoveryServiceClient(tls.Client(), tls.URL, options...)
 		result, err := d.Search(context.Background(), rpcRequest(alice.Access, &pb.SearchMusicRequest{Query: "Imported"}))
 		if err != nil || len(result.Msg.Tracks) != 1 {
@@ -206,6 +207,10 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 			t.Fatal("batch release lookup differs across protocols", albums, err)
 		}
 		imports := wavelengthv1connect.NewIngestionServiceClient(tls.Client(), tls.URL, options...)
+		queued, err := imports.CreateImport(context.Background(), rpcRequest(alice.Access, &pb.CreateImportRequest{RequestId: "queued-preview-" + strconv.Itoa(protocol), Items: []*pb.ImportSelection{{MetadataRef: &pb.ProviderRef{Provider: "itunes", Id: externalRef.ID}, SourceRef: &pb.ProviderRef{Provider: "youtube", Id: audioRef.ID}}}}))
+		if err != nil || queued.Msg.Items[0].Metadata == nil || queued.Msg.Items[0].Metadata.Title != "Imported Tone" {
+			t.Fatal("queued receipt omitted discovered metadata", queued, err)
+		}
 		matches, err := imports.LookupImports(context.Background(), rpcRequest(readonly.Access, &pb.LookupImportsRequest{MetadataRefs: []*pb.ProviderRef{{Provider: "itunes", Id: "123"}, {Provider: "itunes", Id: "789"}}}))
 		if err != nil || len(matches.Msg.Tracks) != 1 || matches.Msg.Tracks[0].TrackId != job.Items[0].TrackId {
 			t.Fatal("exact import lookup differs across protocols", matches, err)

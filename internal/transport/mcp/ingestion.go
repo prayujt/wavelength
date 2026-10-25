@@ -39,6 +39,8 @@ func job(j ingest.Job) object {
 		item := object{"metadata_ref": i.MetadataRef, "source_ref": i.SourceRef, "state": i.State, "error": i.Error, "track_id": i.TrackID, "reused": i.Reused, "warnings": warnings}
 		if i.Metadata != nil {
 			item["metadata"] = i.Metadata
+		} else if i.Preview != nil {
+			item["metadata"] = i.Preview
 		}
 		items = append(items, item)
 	}

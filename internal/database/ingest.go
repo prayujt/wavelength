@@ -157,6 +157,35 @@ func (s IngestStore) Origin(ctx context.Context, root, id string) (discovery.Ref
 	return ref, err
 }
 
+func (s IngestStore) LookupMany(ctx context.Context, root string, refs []discovery.Ref) (map[discovery.Ref]string, error) {
+	found := make(map[discovery.Ref]string)
+	if len(refs) == 0 {
+		return found, nil
+	}
+	conditions := make([]string, len(refs))
+	args := []any{root}
+	for i, ref := range refs {
+		conditions[i] = "(o.provider=? AND o.external_id=?)"
+		args = append(args, ref.Provider, ref.ID)
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT o.provider,o.external_id,o.track_id FROM track_origins o
+		JOIN tracks t ON t.root_id=o.root_id AND t.id=o.track_id
+		WHERE o.root_id=? AND (`+strings.Join(conditions, " OR ")+")", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ref discovery.Ref
+		var id string
+		if err := rows.Scan(&ref.Provider, &ref.ID, &id); err != nil {
+			return nil, err
+		}
+		found[ref] = id
+	}
+	return found, rows.Err()
+}
+
 // Publication and its job receipt share a transaction. A crash cannot expose a
 // catalog row without also recording that this item completed.
 func (s IngestStore) Publish(ctx context.Context, root ingest.Root, jobID string, index int, p ingest.Prepared) (library.Track, error) {
