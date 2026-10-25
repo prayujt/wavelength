@@ -1,4 +1,4 @@
-import React, { useId, useState } from 'react';
+import React, { useEffect, useId, useState } from 'react';
 import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { Image } from 'expo-image';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle, G } from 'react-native-svg';
@@ -6,6 +6,8 @@ import { authenticatedURL } from '../core/auth';
 import { useSession } from '../lib/session';
 import { colors, seed } from '../lib/theme';
 import { Txt } from './ui';
+import { installed } from '../lib/device-store';
+import { localArtwork } from '../lib/device-library';
 
 export function Artwork({
   path,
@@ -31,9 +33,30 @@ export function Artwork({
     sun = gradient + '-sun';
   const session = useSession(),
     [dark, mid, light] = colors(id);
+  const [savedImage, setSavedImage] = useState<{ key: string; uri?: string }>();
+  const imageKey = JSON.stringify([session.account?.key, path]);
+  const savedUri = savedImage?.key === imageKey ? savedImage.uri : undefined;
+  useEffect(() => {
+    if (!installed() || !session.account || !path) return;
+    let disposed = false,
+      uri: string | undefined;
+    void localArtwork(session.account, path)
+      .then((value) => {
+        uri = value;
+        if (disposed) {
+          if (value) URL.revokeObjectURL(value);
+        } else setSavedImage({ key: imageKey, uri: value });
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+      if (uri) URL.revokeObjectURL(uri);
+    };
+  }, [path, session.account, imageKey]);
   let source: { uri: string; headers?: Record<string, string> } | undefined;
   try {
-    if (path && session.grant)
+    if (savedUri) source = { uri: savedUri };
+    else if (path && session.grant)
       source = {
         uri: authenticatedURL(session.grant.server, path),
         headers: { Authorization: 'Bearer ' + session.grant.accessToken },

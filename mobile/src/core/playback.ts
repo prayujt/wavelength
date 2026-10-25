@@ -140,12 +140,10 @@ export class PlaybackController {
           tracks.push(...batch.filter((t): t is Track => !!t));
         }
         if (serial !== this.serial || this.snapshot.queue.length) return;
-        const index = Math.max(
-          0,
-          tracks.findIndex((t) => t.id === queue.currentTrackId),
-        );
+        const restoredIndex = tracks.findIndex((t) => t.id === queue.currentTrackId);
+        const index = Math.max(0, restoredIndex);
         this.original = tracks;
-        this.restoredPosition = Number(queue.positionMs) / 1000;
+        this.restoredPosition = restoredIndex >= 0 ? Number(queue.positionMs) / 1000 : 0;
         this.patch({ queue: tracks, index, track: tracks[index] });
       } catch {
         /* A failed restore never overwrites a newer local queue. */
@@ -346,6 +344,8 @@ export class PlaybackController {
       repeat:
         this.snapshot.repeat === 'off' ? 'all' : this.snapshot.repeat === 'all' ? 'one' : 'off',
     });
+  restoreSettings = (settings: { repeat?: RepeatMode; shuffle?: boolean }) =>
+    this.patch({ repeat: settings.repeat || 'off', shuffle: settings.shuffle || false });
   setVolume = (value: number) => this.audio.volume(Math.max(0, Math.min(1, value)));
   clear = async () => {
     this.serial++;

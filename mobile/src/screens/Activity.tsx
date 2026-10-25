@@ -13,7 +13,7 @@ import {
   X,
 } from 'lucide-react-native';
 import type { ImportJob } from '../gen/wavelength/v1/ingestion_pb';
-import { useAPI } from '../lib/session';
+import { useAPI, useSession } from '../lib/session';
 import { usePlayer } from '../lib/player';
 import { color } from '../lib/theme';
 import { duration } from '../core/queue';
@@ -229,6 +229,7 @@ function JobCard({ job }: { job: ImportJob }) {
 }
 
 export function ActivityScreen() {
+  const { online } = useSession();
   const [tab, setTab] = useState<'Downloads' | 'Listening'>('Downloads'),
     [outcome, setOutcome] = useState(''),
     api = useAPI(),
@@ -241,12 +242,15 @@ export function ActivityScreen() {
       const offset = pages.reduce((n, p) => n + p.imports.length, 0);
       return offset < last.total && last.imports.length ? offset : undefined;
     },
+    enabled: online,
     refetchInterval: (query) =>
-      query.state.data?.pages.some((p) =>
-        p.imports.some((j) => ['queued', 'running'].includes(j.state)),
-      )
-        ? 3000
-        : 15000,
+      !online
+        ? false
+        : query.state.data?.pages.some((p) =>
+              p.imports.some((j) => ['queued', 'running'].includes(j.state)),
+            )
+          ? 3000
+          : 15000,
   });
   const listening = useInfiniteQuery({
     queryKey: ['listening', outcome],
@@ -258,7 +262,7 @@ export function ActivityScreen() {
       return offset < last.total && last.sessions.length ? offset : undefined;
     },
     enabled: tab === 'Listening',
-    refetchInterval: 15000,
+    refetchInterval: online ? 15000 : false,
   });
   const jobs = downloads.data?.pages.flatMap((p) => p.imports) || [],
     sessions = listening.data?.pages.flatMap((p) => p.sessions) || [];

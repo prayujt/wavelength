@@ -3,6 +3,7 @@ package httpserver
 import (
 	"io/fs"
 	"net/http"
+	"path"
 	"strings"
 )
 
@@ -19,6 +20,31 @@ func WithWeb(assets fs.FS) Option {
 			w.Header().Set("X-Content-Type-Options", "nosniff")
 			w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https://*.mzstatic.com; media-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 			w.Header().Set("Cache-Control", "no-cache")
+			if r.URL.Path == "/app" {
+				http.Redirect(w, r, "/app/", http.StatusPermanentRedirect)
+				return
+			}
+			if strings.HasPrefix(r.URL.Path, "/app/") {
+				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.mzstatic.com; font-src 'self' data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+				w.Header().Set("Referrer-Policy", "no-referrer")
+				if r.URL.Path == "/app/sw.js" {
+					w.Header().Set("Service-Worker-Allowed", "/app/")
+					w.Header().Set("Content-Type", "application/javascript")
+				}
+				if r.URL.Path == "/app/manifest.webmanifest" {
+					w.Header().Set("Content-Type", "application/manifest+json")
+				}
+				if strings.HasPrefix(r.URL.Path, "/app/_expo/static/") || strings.HasPrefix(r.URL.Path, "/app/assets/") {
+					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				}
+				if strings.HasPrefix(r.URL.Path, "/app/oauth/") {
+					w.Header().Set("Cache-Control", "private, no-store")
+				}
+				if _, err := fs.Stat(assets, strings.TrimPrefix(r.URL.Path, "/")); err != nil && path.Ext(r.URL.Path) == "" && !strings.HasPrefix(r.URL.Path, "/app/_expo/") && !strings.HasPrefix(r.URL.Path, "/app/assets/") {
+					r = r.Clone(r.Context())
+					r.URL.Path = "/app/"
+				}
+			}
 			if strings.HasPrefix(r.URL.Path, "/assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			}

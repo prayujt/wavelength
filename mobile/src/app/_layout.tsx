@@ -15,6 +15,7 @@ import { PlayerProvider } from '../lib/player';
 import { FeedbackProvider } from '../components/feedback';
 import { Button, MotionProvider, Txt, WaveMark } from '../components/ui';
 import { color } from '../lib/theme';
+import { DeviceProvider, DeviceStatus } from '../components/device';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 export const unstable_settings = { anchor: 'index' };
@@ -47,7 +48,7 @@ function Navigation() {
       <Stack.Screen name="index" />
       <Stack.Screen name="welcome" />
       <Stack.Screen name="oauth/callback" />
-      <Stack.Protected guard={!!session.grant || session.preview}>
+      <Stack.Protected guard={!!session.grant || !!session.account || session.preview}>
         <Stack.Screen name="(app)" />
       </Stack.Protected>
     </Stack>
@@ -71,8 +72,11 @@ export default function RootLayout() {
         <FeedbackProvider>
           <SessionProvider>
             <PlayerProvider>
-              <StatusBar style="light" />
-              <Navigation />
+              <DeviceProvider>
+                <StatusBar style="light" />
+                <DeviceStatus />
+                <Navigation />
+              </DeviceProvider>
             </PlayerProvider>
           </SessionProvider>
         </FeedbackProvider>

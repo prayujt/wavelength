@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/prayujt/wavelength/internal/listening"
 )
@@ -38,9 +39,24 @@ func (s ListeningStore) Create(ctx context.Context, session listening.Session) (
 	if err = rejectDeletedTracks(ctx, tx, []string{session.Track.ID}); err != nil {
 		return listening.Session{}, err
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO listening_sessions(owner,root_id,id,track_id,artist_id,album_id,origin,started_at,session_json) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,root_id,id) DO NOTHING`, session.Owner, session.RootID, session.ID, session.Track.ID, session.ArtistID, session.AlbumID, session.Origin, session.StartedAt.UnixMilli(), string(body))
+	result, err := tx.ExecContext(ctx, `INSERT INTO listening_sessions(owner,root_id,id,track_id,artist_id,album_id,origin,started_at,session_json) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,root_id,id) DO NOTHING`, session.Owner, session.RootID, session.ID, session.Track.ID, session.ArtistID, session.AlbumID, session.Origin, session.StartedAt.UnixMilli(), string(body))
 	if err != nil {
 		return listening.Session{}, err
+	}
+	inserted, err := result.RowsAffected()
+	if err != nil {
+		return listening.Session{}, err
+	}
+	if inserted == 1 && session.CountPlay {
+		// Session insertion and aggregate count commit together. Retried offline starts
+		// cannot increment twice, including after an uncertain HTTP response.
+		stamp := session.StartedAt.Format(time.RFC3339Nano)
+		_, err = tx.ExecContext(ctx, `INSERT INTO app_state(scope,key,value) VALUES(?,?,json_object('plays',1,'last_played',?))
+		ON CONFLICT(scope,key) DO UPDATE SET value=json_set(app_state.value,'$.plays',coalesce(json_extract(app_state.value,'$.plays'),0)+1,'$.last_played',
+		CASE WHEN julianday(?) > coalesce(julianday(json_extract(app_state.value,'$.last_played')),0) THEN ? ELSE json_extract(app_state.value,'$.last_played') END)`, "annotations/"+session.Owner, session.Track.ID, stamp, stamp, stamp)
+		if err != nil {
+			return listening.Session{}, err
+		}
 	}
 	stored, err := scanSession(tx.QueryRowContext(ctx, "SELECT session_json FROM listening_sessions WHERE owner=? AND root_id=? AND id=?", session.Owner, session.RootID, session.ID))
 	if err != nil {

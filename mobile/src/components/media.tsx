@@ -12,6 +12,8 @@ import {
   CirclePlus,
   Copy,
   Disc3,
+  Download,
+  Trash2,
   ListEnd,
   ListPlus,
   MoreHorizontal,
@@ -32,6 +34,7 @@ import { Artwork } from './artwork';
 import { Equalizer } from './equalizer';
 import { Button, IconButton, Press, Txt } from './ui';
 import { useFeedback } from './feedback';
+import { useDevice } from './device';
 
 type Menu = { open(track: Track): void; share(ids: string[], name: string): Promise<void> };
 const MenuContext = createContext<Menu>({ open() {}, async share() {} });
@@ -42,6 +45,7 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
     [adding, setAdding] = useState(false);
   const [shared, setShared] = useState<{ url: string; name: string } | null>(null);
   const api = useAPI(),
+    device = useDevice(),
     player = usePlayer(),
     feedback = useFeedback(),
     cache = useQueryClient();
@@ -66,6 +70,21 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
   }
   const actions: { title: string; icon: LucideIcon; run(): unknown }[] = track
     ? [
+        ...(device.enabled
+          ? [
+              {
+                title: device.items.some((item) => item.track.id === track.id)
+                  ? 'Remove download from device'
+                  : 'Download to device',
+                icon: device.items.some((item) => item.track.id === track.id) ? Trash2 : Download,
+                run() {
+                  const saved = device.items.some((item) => item.track.id === track.id);
+                  close();
+                  return saved ? device.remove(track.id) : device.save([track]);
+                },
+              },
+            ]
+          : []),
         {
           title: 'Play next',
           icon: SkipForward,
@@ -329,6 +348,7 @@ export function TrackRow({
   onPress?: () => unknown;
 }) {
   const player = usePlayer(),
+    device = useDevice(),
     menu = useMediaMenu(),
     active = player.track?.id === track.id;
   return (
@@ -369,6 +389,9 @@ export function TrackRow({
             </Txt>
             <Txt muted size={12} numberOfLines={1}>
               {subtitle || track.artist}
+              {device.enabled && device.items.some((item) => item.track.id === track.id)
+                ? ' · Downloaded'
+                : ''}
             </Txt>
           </View>
         </Press>

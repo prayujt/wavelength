@@ -5,28 +5,61 @@ import * as Crypto from 'expo-crypto';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { fetch as nativeFetch } from 'expo/fetch';
-import { focusManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  focusManager,
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { OAuthSession, type Grant, type Vault } from '../core/auth';
 import { createAPI, type API } from './api';
+import * as device from './device-store';
+import { deviceAPI, syncHistory } from './device-api';
+import { cancelDownloads } from './device-library';
 
 const vault: Vault = {
-  async get(key) {
+  async get(key, state) {
     return Platform.OS === 'web'
-      ? (globalThis.sessionStorage?.getItem(key) ?? null)
+      ? key.endsWith('pending.v1')
+        ? ((state ? await device.read<string>('pending:' + state) : undefined) ??
+          globalThis.sessionStorage?.getItem(key) ??
+          null)
+        : ((await device.read<string>('credential:' + key)) ?? null)
       : SecureStore.getItemAsync(key);
   },
   async set(key, value) {
-    if (Platform.OS === 'web') globalThis.sessionStorage?.setItem(key, value);
-    else
+    if (Platform.OS === 'web') {
+      if (key.endsWith('pending.v1')) {
+        const pending = JSON.parse(value) as { state: string; expiresAt: number };
+        await device.write('pending:' + pending.state, value);
+        globalThis.sessionStorage?.setItem(key, value);
+        for (const [oldKey, raw] of await device.entries<string>('pending:'))
+          if (JSON.parse(raw).expiresAt < Date.now()) await device.erase(oldKey);
+      } else {
+        await device.write('credential:' + key, value);
+        device.announce();
+      }
+    } else
       await SecureStore.setItemAsync(key, value, {
         keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
       });
   },
-  async remove(key) {
-    if (Platform.OS === 'web') globalThis.sessionStorage?.removeItem(key);
-    else await SecureStore.deleteItemAsync(key);
+  async remove(key, state) {
+    if (Platform.OS === 'web') {
+      if (key.endsWith('pending.v1')) {
+        globalThis.sessionStorage?.removeItem(key);
+        if (state) await device.erase('pending:' + state);
+        else
+          for (const [pendingKey] of await device.entries('pending:'))
+            await device.erase(pendingKey);
+      } else {
+        await device.erase('credential:' + key);
+        device.announce();
+      }
+    } else await SecureStore.deleteItemAsync(key);
   },
 };
+if (Platform.OS === 'web') vault.lock = (run) => device.exclusive('credentials', run);
 function base64url(bytes: Uint8Array) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   let out = '';
@@ -43,6 +76,8 @@ type Session = {
   grant: Grant | null;
   ready: boolean;
   preview: boolean;
+  account: device.LocalAccount | null;
+  online: boolean;
   api: API | null;
   login(server: string): Promise<void>;
   complete(url: string): Promise<void>;
@@ -53,10 +88,14 @@ type Session = {
 };
 const Context = createContext<Session | null>(null);
 export const DEFAULT_SERVER =
-  process.env.EXPO_PUBLIC_WAVELENGTH_URL || 'https://wavelength.prayujt.com';
+  Platform.OS === 'web' && typeof location !== 'undefined' && location.pathname.startsWith('/app/')
+    ? location.origin
+    : process.env.EXPO_PUBLIC_WAVELENGTH_URL || 'https://wavelength.prayujt.com';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [grant, setGrant] = useState<Grant | null>(null),
+    [account, setAccount] = useState<device.LocalAccount | null>(null),
+    [online, setOnline] = useState(device.online),
     [ready, setReady] = useState(false),
     [preview, setPreview] = useState(false),
     [error, setError] = useState('');
@@ -64,8 +103,13 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { staleTime: 20000, retry: 1, refetchOnWindowFocus: false },
-          mutations: { retry: false },
+          queries: {
+            staleTime: 20000,
+            retry: 1,
+            refetchOnWindowFocus: false,
+            networkMode: 'always',
+          },
+          mutations: { retry: false, networkMode: 'always' },
         },
       }),
   );
@@ -87,24 +131,98 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         },
         nativeFetch as typeof fetch,
         (value) => {
-          if (!value) queries.clear();
+          if (!value && Platform.OS !== 'web') queries.clear();
           setGrant(value);
         },
       ),
   );
-  const server = grant?.server;
-  const version = auth.version;
+  const server = account?.server || grant?.server;
+  const identity = account?.key;
   const api = useMemo(
-    () => (server || preview ? createAPI(auth, preview, version) : null),
-    [server, preview, auth, version],
+    () => {
+      if (!server && !preview) return null;
+      const raw = createAPI(
+        auth,
+        preview,
+        Platform.OS === 'web' && account ? -1 : auth.version,
+        server,
+        account?.user.id,
+      );
+      return Platform.OS === 'web' && account && !preview ? deviceAPI(raw, account) : raw;
+    },
+    // Token rotation and connectivity do not tear down a playing local source.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [server, preview, auth, identity],
   );
 
   useEffect(() => {
-    void auth
-      .restore()
+    void (async () => {
+      const restored = await auth.restore();
+      if (Platform.OS === 'web') {
+        const local = await device.currentAccount();
+        if (
+          local &&
+          ((!restored && device.installed()) ||
+            (restored?.accountId === local.user.id && restored.server === local.server))
+        )
+          setAccount(local);
+        if (
+          restored &&
+          (!local || restored.accountId !== local.user.id || restored.server !== local.server)
+        ) {
+          const user = await createAPI(auth).user.getCurrentUser({});
+          if (user.user) {
+            await auth.identifyAccount(user.user.id);
+            setAccount(await device.remember(restored.server, user.user));
+          }
+        }
+      }
+    })()
       .catch(() => setError('Could not restore your session. Please sign in again.'))
       .finally(() => setReady(true));
   }, [auth]);
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const connectivity = () => {
+      setOnline(device.online());
+      onlineManager.setOnline(device.online());
+    };
+    const channel =
+      typeof BroadcastChannel === 'undefined'
+        ? undefined
+        : new BroadcastChannel('wavelength-device');
+    if (channel)
+      channel.onmessage = () => {
+        void auth
+          .restore()
+          .then(() => device.currentAccount())
+          .then((local) => {
+            setAccount((previous) => {
+              if (previous?.key !== local?.key) queries.clear();
+              return previous?.key === local?.key ? previous : local || null;
+            });
+          });
+      };
+    connectivity();
+    window.addEventListener('online', connectivity);
+    window.addEventListener('offline', connectivity);
+    return () => {
+      channel?.close();
+      window.removeEventListener('online', connectivity);
+      window.removeEventListener('offline', connectivity);
+    };
+  }, [queries, auth]);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !account || !online || preview) return;
+    const sync = () => {
+      void syncHistory(account, createAPI(auth, false, auth.version, account.server)).catch(
+        () => {},
+      );
+    };
+    sync();
+    const timer = setInterval(sync, 30000);
+    return () => clearInterval(timer);
+  }, [account, online, preview, auth]);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     focusManager.setFocused(AppState.currentState === 'active');
@@ -115,11 +233,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function complete(url: string) {
-    await auth.complete(url);
+    const connected = await auth.complete(url);
+    if (Platform.OS === 'web') {
+      const user = await createAPI(auth).user.getCurrentUser({});
+      if (!user.user?.id) throw new Error('Wavelength could not identify this account.');
+      await auth.identifyAccount(user.user.id);
+      setAccount(await device.remember(connected.server, user.user));
+    }
     queries.clear();
     setPreview(false);
     setError('');
-    if (Platform.OS === 'web') window.history.replaceState({}, '', '/oauth/callback');
+    if (Platform.OS === 'web')
+      window.history.replaceState({}, '', browserBase() + '/oauth/callback');
     else {
       try {
         WebBrowser.dismissBrowser();
@@ -149,6 +274,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     grant,
     ready,
     preview,
+    account,
+    online,
     api,
     error,
     setError,
@@ -156,7 +283,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setError('');
       const returnUri =
         Platform.OS === 'web'
-          ? window.location.origin + '/oauth/callback'
+          ? window.location.origin + browserBase() + '/oauth/callback'
           : Linking.createURL('oauth/callback', { scheme: 'wavelength' });
       const url = await auth.begin(server, returnUri, Platform.OS === 'web');
       if (Platform.OS === 'web') window.location.assign(url);
@@ -174,8 +301,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setPreview(true);
     },
     async logout() {
+      cancelDownloads();
+      const local = account;
+      setAccount(null);
       setPreview(false);
       queries.clear();
+      if (Platform.OS === 'web' && local) {
+        await device.erase('active-account');
+        device.announce();
+        await device.exclusive('data:' + local.key, () =>
+          device.exclusive('events:' + local.key, () => device.clearAccount(local)),
+        );
+      }
       await auth.logout();
     },
     complete,
@@ -185,6 +322,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       <QueryClientProvider client={queries}>{children}</QueryClientProvider>
     </Context.Provider>
   );
+}
+export function browserBase() {
+  return typeof location !== 'undefined' && location.pathname.startsWith('/app') ? '/app' : '';
 }
 export function useSession() {
   const value = useContext(Context);

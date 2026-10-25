@@ -6,6 +6,7 @@ import { RefreshCw, Library, Plus } from 'lucide-react-native';
 import type { Album, Artist, Playlist, Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
+import { DeviceLibraryLink } from '../components/device';
 import { AlbumCard, ArtistCard, PlaylistCard, TrackRow } from '../components/media';
 import {
   Empty,
@@ -106,6 +107,7 @@ export function LibraryScreen() {
               onChange={setSearch}
               placeholder={`Search your ${filter.toLowerCase()}`}
             />
+            <DeviceLibraryLink />
             <View
               style={{
                 flexDirection: 'row',

@@ -46,8 +46,10 @@ export function useTracks(ids: readonly string[]) {
 }
 export function useImports() {
   const api = useAPI();
+  const { online, preview } = useSession();
   return useQuery({
     queryKey: ['imports'],
+    enabled: online || preview,
     queryFn: () => api.ingestion.listImports({ limit: 100 }),
     refetchInterval: (query) =>
       query.state.data?.imports.some((j) => ['queued', 'running'].includes(j.state)) ? 3000 : 15000,
@@ -56,10 +58,10 @@ export function useImports() {
 export function useLibraryPulse() {
   const api = useAPI(),
     cache = useQueryClient();
-  const { preview } = useSession();
+  const { preview, online } = useSession();
   const [live, setLive] = useState(false);
   useEffect(() => {
-    if (preview) return;
+    if (preview || !online) return;
     let stopped = false,
       connection: AbortController | undefined,
       refresh: ReturnType<typeof setTimeout> | undefined;
@@ -148,7 +150,7 @@ export function useLibraryPulse() {
       app.remove();
       if (refresh) clearTimeout(refresh);
     };
-  }, [api, cache, preview]);
+  }, [api, cache, preview, online]);
   return useQuery({
     queryKey: ['library-pulse'],
     queryFn: async () => {
@@ -174,6 +176,6 @@ export function useLibraryPulse() {
       return version;
     },
     refetchInterval: 12000,
-    enabled: preview || !live,
+    enabled: preview || (online && !live),
   });
 }

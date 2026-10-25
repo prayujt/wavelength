@@ -27,22 +27,44 @@ func listeningSession(s listening.Session) *pb.ListeningSession {
 	return out
 }
 func (s *listeningService) StartListeningSession(ctx context.Context, r *connect.Request[pb.StartListeningSessionRequest]) (*connect.Response[pb.ListeningSession], error) {
+	at, err := listeningEventTime(r.Msg.OccurredAt)
+	if err != nil {
+		return nil, failure(err)
+	}
 	return personal(ctx, true, func(owner string) (*pb.ListeningSession, error) {
-		item, err := s.data.Start(ctx, owner, r.Msg.TrackId, r.Msg.Origin, r.Msg.RequestId)
+		item, err := s.data.Start(ctx, owner, r.Msg.TrackId, r.Msg.Origin, r.Msg.RequestId, listening.StartOptions{At: at, CountPlay: r.Msg.CountPlay})
 		return listeningSession(item), err
 	})
 }
 func (s *listeningService) ReportListeningProgress(ctx context.Context, r *connect.Request[pb.ReportListeningProgressRequest]) (*connect.Response[pb.ListeningSession], error) {
+	at, err := listeningEventTime(r.Msg.OccurredAt)
+	if err != nil {
+		return nil, failure(err)
+	}
 	return personal(ctx, true, func(owner string) (*pb.ListeningSession, error) {
-		item, err := s.data.Report(ctx, owner, r.Msg.SessionId, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs, Playing: r.Msg.Playing})
+		item, err := s.data.Report(ctx, owner, r.Msg.SessionId, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs, Playing: r.Msg.Playing, At: at})
 		return listeningSession(item), err
 	})
 }
 func (s *listeningService) FinishListeningSession(ctx context.Context, r *connect.Request[pb.FinishListeningSessionRequest]) (*connect.Response[pb.ListeningSession], error) {
+	at, err := listeningEventTime(r.Msg.OccurredAt)
+	if err != nil {
+		return nil, failure(err)
+	}
 	return personal(ctx, true, func(owner string) (*pb.ListeningSession, error) {
-		item, err := s.data.Finish(ctx, owner, r.Msg.SessionId, r.Msg.Outcome, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs})
+		item, err := s.data.Finish(ctx, owner, r.Msg.SessionId, r.Msg.Outcome, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs, At: at})
 		return listeningSession(item), err
 	})
+}
+
+func listeningEventTime(stamp *timestamppb.Timestamp) (time.Time, error) {
+	if stamp == nil {
+		return time.Time{}, nil
+	}
+	if stamp.CheckValid() != nil {
+		return time.Time{}, listening.ErrInvalid
+	}
+	return stamp.AsTime(), nil
 }
 func (s *listeningService) ListListeningSessions(ctx context.Context, r *connect.Request[pb.ListListeningSessionsRequest]) (*connect.Response[pb.ListListeningSessionsResponse], error) {
 	return personal(ctx, false, func(owner string) (*pb.ListListeningSessionsResponse, error) {

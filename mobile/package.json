@@ -70,7 +70,8 @@
     "export": "expo export --platform all --max-workers 2",
     "doctor": "expo-doctor",
     "check:native": "node scripts/check-native.mjs",
-    "screenshots": "node scripts/screenshots.mjs"
+    "screenshots": "node scripts/screenshots.mjs",
+    "build:pwa": "WAVELENGTH_PWA=1 expo export --platform web --max-workers 2 --output-dir pwa-dist && node scripts/pwa.mjs pwa-dist"
   },
   "private": true,
   "engines": {

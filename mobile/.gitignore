@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+pwa-dist/
 
 # Expo
 .expo/

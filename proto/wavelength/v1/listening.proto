@@ -36,6 +36,11 @@ message StartListeningSessionRequest {
   // Stable client-generated ID (8..128 letters, digits, underscores or dashes).
   // Reusing the same ID and input returns the existing session.
   string request_id = 3;
+  // Original device time for durable offline replay. Omit for server time.
+  google.protobuf.Timestamp occurred_at = 4;
+  // Count this play atomically with the first insertion of this request ID.
+  // Such clients must not also submit a counting RecordPlay request.
+  bool count_play = 5;
 }
 message ReportListeningProgressRequest {
   string session_id = 1;
@@ -43,12 +48,14 @@ message ReportListeningProgressRequest {
   int64 listened_ms = 2;
   int64 position_ms = 3;
   bool playing = 4;
+  google.protobuf.Timestamp occurred_at = 5;
 }
 message FinishListeningSessionRequest {
   string session_id = 1;
   string outcome = 2;
   int64 listened_ms = 3;
   int64 position_ms = 4;
+  google.protobuf.Timestamp occurred_at = 5;
 }
 message ListListeningSessionsRequest {
   // Optional local catalog IDs; supplied filters are combined.

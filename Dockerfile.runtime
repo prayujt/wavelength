@@ -5,6 +5,13 @@ RUN npm ci
 COPY web/ ./
 RUN npm run check && npm run build
 
+FROM --platform=$BUILDPLATFORM node:24-alpine AS mobile
+WORKDIR /mobile
+COPY mobile/package.json mobile/package-lock.json ./
+RUN npm ci
+COPY mobile/ ./
+RUN npm run check && npm run build:pwa
+
 FROM alpine:3.24
 
 WORKDIR /app
@@ -21,5 +28,6 @@ ENV WAVELENGTH_ADDR=0.0.0.0:8080 \
     WAVELENGTH_WEB_DIR=/web
 
 COPY --from=web /web/dist /web
+COPY --from=mobile /mobile/pwa-dist /web/app
 
 EXPOSE 8080 8081

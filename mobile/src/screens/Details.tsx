@@ -12,6 +12,7 @@ import { color, colors } from '../lib/theme';
 import { duration, shuffled } from '../core/queue';
 import { Artwork } from '../components/artwork';
 import { AlbumCard, TrackRow, useMediaMenu } from '../components/media';
+import { DeviceDownload } from '../components/device';
 import {
   Button,
   Empty,
@@ -117,6 +118,7 @@ function CollectionActions({
       }}
     >
       <View style={{ flexDirection: 'row', gap: 5 }}>
+        <DeviceDownload tracks={tracks} />
         {edit && <IconButton icon={Edit3} label="Edit playlist" onPress={edit} />}
         <IconButton
           icon={Share2}
