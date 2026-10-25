@@ -2061,3 +2061,63 @@ label {
     opacity: 1;
   }
 }
+
+.access-links {
+  margin-top: 1.5rem;
+}
+.access-link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.access-link-row p {
+  margin: 0.4rem 0 0;
+}
+.shared-player {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+.shared-player .login-brand {
+  margin-bottom: 3rem;
+}
+.shared-track {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.8rem;
+  text-align: left;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 4px;
+}
+.shared-track > span:first-of-type {
+  display: grid;
+  gap: 0.35rem;
+  flex: 1;
+}
+.shared-track:hover,
+.shared-track.current {
+  background: var(--hover);
+}
+.shared-audio {
+  position: sticky;
+  bottom: 1rem;
+  margin-top: 2rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.shared-audio audio {
+  width: 100%;
+}
+.shared-audio p {
+  margin: 0 0 0.75rem;
+}

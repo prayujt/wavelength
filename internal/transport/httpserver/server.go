@@ -101,20 +101,26 @@ func WithNative(lib *library.Library, manager *auth.Manager) Option {
 }
 
 // WithPersonal shares feature services and OIDC identities across native RPC and MCP.
-func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Manager, acquisition ...transportmcp.Acquisition) Option {
+func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Manager, features ...transportmcp.Features) Option {
 	return func(mux *http.ServeMux) {
 		path, handler := rpc.UserDataHandler(data, manager)
 		mux.Handle(path, handler)
-		if len(acquisition) > 0 {
-			path, handler := rpc.DiscoveryHandler(acquisition[0].Discovery, manager)
-			mux.Handle(path, handler)
-			path, handler = rpc.IngestionHandler(acquisition[0].Ingest, manager)
-			mux.Handle(path, handler)
-			path, handler = rpc.RealtimeHandler(acquisition[0].Ingest, manager)
-			mux.Handle(path, handler)
+		if len(features) > 0 {
+			if features[0].Links != nil {
+				path, handler := rpc.SharingHandler(features[0].Links, manager)
+				mux.Handle(path, handler)
+			}
+			if features[0].Discovery != nil && features[0].Ingest != nil {
+				path, handler := rpc.DiscoveryHandler(features[0].Discovery, manager)
+				mux.Handle(path, handler)
+				path, handler = rpc.IngestionHandler(features[0].Ingest, manager)
+				mux.Handle(path, handler)
+				path, handler = rpc.RealtimeHandler(features[0].Ingest, manager)
+				mux.Handle(path, handler)
+			}
 		}
 		if manager.OAuthEnabled() {
-			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager, acquisition...))
+			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager, features...))
 		}
 	}
 }

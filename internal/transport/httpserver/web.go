@@ -22,6 +22,13 @@ func WithWeb(assets fs.FS) Option {
 			if strings.HasPrefix(r.URL.Path, "/assets/") {
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 			}
+			if strings.HasPrefix(r.URL.Path, "/s/") && strings.Count(r.URL.Path, "/") == 2 {
+				w.Header().Set("Cache-Control", "private, no-store")
+				w.Header().Set("Referrer-Policy", "no-referrer")
+				w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+				r = r.Clone(r.Context())
+				r.URL.Path = "/"
+			}
 			files.ServeHTTP(w, r)
 		}))
 	}

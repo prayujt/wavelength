@@ -1223,7 +1223,11 @@ test('track hover actions cover the artwork and keep contrast in both themes', a
       color: getComputedStyle(element).color,
     }));
     expect(colors.color).toBe('rgb(255, 255, 255)');
-    expect(colors.background).toBe('rgba(22, 23, 28, 0.91)');
+    await expect
+      .poll(() =>
+        button.evaluate((element) => getComputedStyle(element).backgroundColor),
+      )
+      .toBe('rgba(22, 23, 28, 0.91)');
     await page.screenshot({
       path: info.outputPath(`track-hover-${theme}.png`),
     });
@@ -1309,4 +1313,60 @@ test('switching download jobs preserves history scroll without reloading the pag
   await expect(page.getByText('Loading downloads…')).toHaveCount(0);
   expect(lists).toBe(before);
   expect(details).toBe(0);
+});
+
+test('opening lyrics immediately centers the current line while playback is paused', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.route('**/wavelength.v1.LibraryService/GetLyrics', (route) =>
+    route.fulfill({
+      json: {
+        lyrics: Array.from(
+          { length: 60 },
+          (_, i) => `[00:${(i * 0.04).toFixed(2)}]Lyric line ${i + 1}`,
+        ).join('\n'),
+      },
+    }),
+  );
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'Play First Light', exact: true })
+    .click();
+  await expect
+    .poll(() =>
+      page
+        .locator('audio')
+        .evaluate((audio: HTMLAudioElement) => audio.readyState),
+    )
+    .toBeGreaterThan(0);
+  await page.locator('audio').evaluate((audio: HTMLAudioElement) => {
+    audio.pause();
+    audio.currentTime = 2;
+    audio.dispatchEvent(new Event('timeupdate'));
+  });
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page
+      .getByRole('button', { name: 'Show lyrics', exact: true })
+      .click();
+    const lyrics = page.getByRole('complementary', {
+      name: 'Lyrics',
+      exact: true,
+    });
+    await expect(lyrics.locator('[aria-current="true"]')).toHaveText(
+      'Lyric line 51',
+    );
+    await expect
+      .poll(
+        () =>
+          lyrics
+            .locator('.lyrics-scroll')
+            .evaluate((element) => element.scrollTop),
+        { timeout: 1500 },
+      )
+      .toBeGreaterThan(100);
+    await lyrics
+      .getByRole('button', { name: 'Close lyrics', exact: true })
+      .click();
+  }
 });

@@ -10,10 +10,6 @@ import (
 	"github.com/prayujt/wavelength/internal/ingest"
 )
 
-type Acquisition struct {
-	Discovery *discovery.Service
-	Ingest    *ingest.Service
-}
 type metadataRefInput struct {
 	Ref discovery.Ref `json:"ref"`
 }
@@ -64,7 +60,7 @@ func addAcquisition[In any](s *mcp.Server, name, description string, mutate, ext
 		return nil, out, nil
 	})
 }
-func registerAcquisition(s *mcp.Server, a Acquisition) {
+func registerAcquisition(s *mcp.Server, a Features) {
 	addAcquisition(s, "lookup_imports", "Find exact metadata references already in the shared library, or resolve saved track_ids to their original metadata references. Returns local track IDs for playback; never downloads or contacts a provider.", false, false, func(ctx context.Context, in lookupInput) (object, error) {
 		found, err := a.Ingest.Lookup(ctx, in.Refs)
 		if err != nil {

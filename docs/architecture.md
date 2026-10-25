@@ -15,6 +15,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `telemetry` | Per-instance Prometheus registry, bounded metrics and operational snapshots |
 | `realtime` | Bounded in-process delivery of committed changes to connected clients |
 | `providers/itunes`, `providers/youtube`, `providers/jev` | Bounded metadata, yt-dlp and optional Jev ranking implementations |
+| `sharing` | Scoped, revocable public shares and temporary playback grants |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
@@ -23,6 +24,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `transport/rpc` | Protobuf/Connect/gRPC library and personal-state contracts |
 | `transport/mcp` | Stateless Streamable HTTP tools over the same feature services |
 | `transport/httpserver` | Native routing, authentication mounting and health endpoints |
+| `transport/sharing` | Public share metadata, scoped artwork and capability-authorized media |
 | `transport/media` | HTTP range/HEAD playback, authenticated artwork, and encoded response delivery |
 | `transport/subsonic` | Legacy credentials, parameters, IDs, XML/JSON projections and stateless stubs |
 
@@ -32,7 +34,8 @@ The dependency test in `internal/architecture` protects these boundaries.
 
 Subsonic receives its services explicitly. It does not read environment variables,
 open SQLite or manage encoder processes. Removed legacy features are stateless
-compatibility handlers; no account, sharing or podcast services are constructed.
+compatibility handlers; no account, sharing or podcast backend is constructed for
+that boundary. Native sharing has its own feature service.
 Filesystem-derived IDs and response shapes remain there because they are part of the
 legacy contract. Core track metadata and tag-based album grouping are shared.
 
@@ -118,8 +121,9 @@ HTTP endpoint, enumerate files, or own a second persistence model.
 
 Keep protocol DTOs, parameter parsing and status codes in the relevant transport.
 The native v1 contract covers library browsing/playback and personal collections.
-MCP exposes all of those operations except audio-byte streaming, returning an
-authenticated playback link instead. DiscoveryService and IngestionService expose metadata lookup, recording selection,
+MCP exposes all of those operations except audio-byte streaming, returning private
+playback information or explicitly created temporary bearer audio links instead.
+DiscoveryService and IngestionService expose metadata lookup, recording selection,
 and durable import jobs through native RPC and MCP. Imports require a named user
 and wavelength:ingest; attaching a playlist also requires wavelength:write. There is no plugin registry or parallel
 implementation of feature behavior inside the legacy adapter.

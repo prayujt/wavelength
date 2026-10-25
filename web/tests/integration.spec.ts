@@ -297,3 +297,116 @@ test('global search recognizes an imported provider reference and plays it witho
   await expect(page.locator('.now-playing')).toContainText('Imported Tone');
   expect(writes).toEqual([]);
 });
+
+test('share pages play without a session and revocation stops their audio links', async ({
+  page,
+  browser,
+}, info) => {
+  await login(page);
+  await page
+    .getByRole('button', { name: 'More options for First Light' })
+    .click();
+  await page.getByRole('button', { name: 'Share song', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Share music' });
+  await dialog
+    .getByRole('button', { name: 'Create link', exact: true })
+    .click();
+  const sharedURL = await dialog
+    .getByRole('textbox', { name: 'Created link' })
+    .inputValue();
+  expect(sharedURL).toContain('/s/');
+  const anonymous = await browser.newContext();
+  const recipient = await anonymous.newPage();
+  try {
+    await recipient.goto(sharedURL);
+    await expect(
+      recipient.getByRole('heading', { name: 'First Light', exact: true }),
+    ).toBeVisible();
+    await expect(
+      recipient.getByRole('link', { name: 'Sign in', exact: true }),
+    ).toHaveCount(0);
+    await expect
+      .poll(() =>
+        recipient
+          .locator('.entity-header img')
+          .evaluate((image: HTMLImageElement) => image.naturalWidth),
+      )
+      .toBe(16);
+    const audioResponse = recipient.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname.startsWith('/play/') && response.ok(),
+    );
+    await recipient
+      .getByRole('button', { name: 'Play First Light', exact: true })
+      .click();
+    const response = await audioResponse;
+    expect(response.headers()['content-type']).toBe('audio/mpeg');
+    await expect
+      .poll(() =>
+        recipient
+          .locator('audio')
+          .evaluate((audio: HTMLAudioElement) => audio.currentTime),
+      )
+      .toBeGreaterThan(0);
+    await recipient.screenshot({
+      path: info.outputPath('shared-player.png'),
+      fullPage: true,
+    });
+    const playbackURL = await recipient.locator('audio').getAttribute('src');
+    await dialog
+      .getByRole('button', { name: 'Revoke link', exact: true })
+      .click();
+    await expect(dialog.getByRole('status')).toContainText('Link revoked');
+    expect((await anonymous.request.get(playbackURL!)).status()).toBe(404);
+    await recipient.reload();
+    await expect(recipient.getByRole('alert')).toContainText(
+      'expired, was revoked',
+    );
+  } finally {
+    await anonymous.close();
+  }
+});
+
+test('direct playback URLs can be copied for another player and managed from Links', async ({
+  page,
+  browser,
+}) => {
+  await login(page);
+  await page
+    .getByRole('button', { name: 'More options for First Light' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Playback link', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Create playback link' });
+  await dialog
+    .getByRole('button', { name: 'Create link', exact: true })
+    .click();
+  const playbackURL = await dialog
+    .getByRole('textbox', { name: 'Created link' })
+    .inputValue();
+  expect(playbackURL).toContain('/play/');
+  const anonymous = await browser.newContext();
+  try {
+    const response = await anonymous.request.get(playbackURL, {
+      headers: { Range: 'bytes=0-15' },
+    });
+    expect(response.status()).toBe(206);
+    expect(response.headers()['content-length']).toBe('16');
+    expect(response.headers()['content-range']).toMatch(/^bytes 0-15\//);
+    await page.keyboard.press('Escape');
+    await page.getByRole('link', { name: 'Links', exact: true }).click();
+    await page
+      .getByRole('button', { name: 'Playback links', exact: true })
+      .click();
+    const row = page
+      .locator('.access-link-row')
+      .filter({ hasText: 'First Light' })
+      .first();
+    await row.getByRole('button', { name: 'Revoke', exact: true }).click();
+    await expect(row).toContainText('Revoked');
+    expect((await anonymous.request.get(playbackURL)).status()).toBe(404);
+  } finally {
+    await anonymous.close();
+  }
+});

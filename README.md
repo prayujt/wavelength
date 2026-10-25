@@ -110,7 +110,8 @@ The native API browses and searches tracks, artists, and albums, returns playbac
 URLs, serves artwork, reads stored lyrics, and streams audio. Its `UserDataService` manages the signed-in listener's
 playlists, queue, bookmarks, listening history, and now-playing state. The contract
 is [library.proto](proto/wavelength/v1/library.proto), extended by
-[discovery and ingestion](proto/wavelength/v1/ingestion.proto), with
+[discovery and ingestion](proto/wavelength/v1/ingestion.proto) and
+[sharing](proto/wavelength/v1/sharing.proto), with
 generated Go messages and Connect clients under `gen/`. The Connect handler serves
 Connect, gRPC, and gRPC-Web clients.
 
@@ -131,6 +132,12 @@ curl http://127.0.0.1:8080/media/tracks/TRACK_ID \
 support byte ranges and seeking; `StreamAudio` provides server-streamed binary
 chunks. Media requests use the same authentication as the native API.
 
+Explicitly create temporary direct audio URLs for Sonos and other players with
+`SharingService.CreatePlaybackLink`, or public player pages with `CreateShare`.
+Both are scoped to selected music and revocable. Songs, albums and playlists have
+share controls in the UI; **Links** manages existing access. See
+[playback and sharing links](docs/sharing.md) for RPC/MCP usage and lifetimes.
+
 For browser sign-in, configure a generic OIDC provider, register `/auth/callback`,
 and visit `/auth/login`. Sessions authenticate API and media requests;
 cookie-authenticated Connect POSTs also require `Origin` and `X-CSRF-Token`.
@@ -139,13 +146,14 @@ See [OIDC setup](docs/oidc.md). Terminate TLS at your deployment proxy.
 ## MCP for AI clients
 
 With OIDC and a music library configured, connect a remote MCP client to
-`https://music.example.com/mcp` on the native listener. The service offers 32 tools:
+`https://music.example.com/mcp` on the native listener. The service offers 36 tools:
 
 - External music search, artist/release lookup, and recording candidates.
 - Create/get/list/cancel/retry ingestion jobs.
 - Current user; browse/search/get local tracks, artists, and albums; playback links and stored lyrics.
 - Match external song references to tracks already in the library.
-- List/get/create/update/delete playlists, with explicit public sharing.
+- List/get/create/update/delete playlists, with visibility to other signed-in listeners.
+- Create temporary playback URLs and public share pages; list and revoke your links.
 - Read/save your queue; list/save/delete bookmarks.
 - Read listening history, record plays, and read your own now-playing state.
 
@@ -162,8 +170,9 @@ provider's client secret. No second Authentik application or new environment var
 are needed. The same credentials work for native RPCs. See [OAuth details](docs/oidc.md#delegated-oauth-for-mcp-and-native-clients).
 
 The official Go MCP SDK serves stateless Streamable HTTP with JSON responses,
-including legacy 2025 protocol versions. MCP returns authenticated playback links;
-audio bytes stay on HTTP/gRPC. New authorizations request read, personal-write, and
+including legacy 2025 protocol versions. MCP returns private playback information
+and can explicitly create temporary bearer URLs for external players; audio bytes
+stay on HTTP/gRPC. New authorizations request read, personal-write, and
 ingestion permissions; audio streaming is a separate scope. Existing connections
 need a fresh authorization to gain ingestion permission.
 
