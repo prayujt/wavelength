@@ -3,6 +3,7 @@ package rpc_test
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -34,6 +35,13 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(music, "tone.wav"), audio, 0600); err != nil {
 		t.Fatal(err)
 	}
+	artwork, _ := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4K0AAAAASUVORK5CYII=")
+	if err = os.WriteFile(filepath.Join(music, "cover.png"), artwork, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(filepath.Join(music, "tone.lrc"), []byte("[00:00.00]Saved lyrics"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	lib, err := library.Open(music, database.Catalog{DB: db})
 	if err != nil {
 		t.Fatal(err)
@@ -58,6 +66,13 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 		}
 		if response.Msg.Total != 1 || response.Msg.Tracks[0].Title != "tone" {
 			t.Fatal(response.Msg)
+		}
+		lyrics, err := client.GetLyrics(ctx, authorizedRequest(&pb.GetLyricsRequest{Id: response.Msg.Tracks[0].Id}))
+		if err != nil || lyrics.Msg.Lyrics != "[00:00.00]Saved lyrics" {
+			t.Fatal("lyrics differ between protocols", lyrics, err)
+		}
+		if response.Msg.Tracks[0].ArtworkPath == "" {
+			t.Fatal("missing artwork path")
 		}
 		if _, err = client.ListTracks(ctx, connect.NewRequest(&pb.ListTracksRequest{})); connect.CodeOf(err) != connect.CodeUnauthenticated {
 			t.Fatalf("authentication: %v", err)
@@ -92,6 +107,9 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 	album, err := client.GetAlbum(ctx, authorizedRequest(&pb.GetAlbumRequest{Id: artist.Msg.Albums[0].Id}))
 	if err != nil || len(album.Msg.Tracks) != 1 {
 		t.Fatalf("album %v %v", album, err)
+	}
+	if album.Msg.Album.ArtworkPath != album.Msg.Tracks[0].ArtworkPath || artist.Msg.Artist.ArtworkPath != album.Msg.Album.ArtworkPath {
+		t.Fatal("artwork projections disagree")
 	}
 	playback, err := client.GetPlaybackInfo(ctx, authorizedRequest(&pb.GetPlaybackInfoRequest{Id: id}))
 	if err != nil || !playback.Msg.SupportsRanges {
@@ -129,6 +147,46 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 	response.Body.Close()
 	if err != nil || response.StatusCode != 206 || !bytes.Equal(body, audio[4:21]) {
 		t.Fatal("HTTP seeking failed")
+	}
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		req, _ := http.NewRequestWithContext(ctx, method, server.URL+listing.Msg.Tracks[0].ArtworkPath, nil)
+		req.Header.Set("Authorization", "Bearer native-secret")
+		res, err := server.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := io.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil || res.StatusCode != 200 || res.Header.Get("Content-Type") != "image/png" {
+			t.Fatal("artwork response", res, err)
+		}
+		if method == http.MethodGet && !bytes.Equal(body, artwork) || method == http.MethodHead && len(body) != 0 {
+			t.Fatal("incorrect artwork body")
+		}
+	}
+	res, err := server.Client().Get(server.URL + listing.Msg.Tracks[0].ArtworkPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusUnauthorized {
+		t.Fatal("artwork accepted anonymous access")
+	}
+	if _, err = client.GetLyrics(ctx, authorizedRequest(&pb.GetLyricsRequest{Id: "missing"})); connect.CodeOf(err) != connect.CodeNotFound {
+		t.Fatal("missing lyrics", err)
+	}
+	if err := os.Remove(filepath.Join(music, "cover.png")); err != nil {
+		t.Fatal(err)
+	}
+	req, _ = http.NewRequestWithContext(ctx, http.MethodGet, server.URL+listing.Msg.Tracks[0].ArtworkPath, nil)
+	req.Header.Set("Authorization", "Bearer native-secret")
+	res, err = server.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	res.Body.Close()
+	if res.StatusCode != http.StatusNotFound {
+		t.Fatal("missing artwork did not return 404")
 	}
 	// The retired REST control API must remain unmounted.
 	response, err = server.Client().Get(server.URL + "/api/tracks")

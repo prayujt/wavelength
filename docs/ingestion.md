@@ -8,6 +8,10 @@ Spotify imports and audio replacement are outside this capability.
 
 1. Search iTunes music metadata with `search_music` / `DiscoveryService.Search`.
 2. Inspect an artist's available releases or a release's ordered tracks.
+   `lookup_imports` / `IngestionService.LookupImports` maps up to 200 exact provider
+   references to tracks already in the shared library, so clients can offer Play
+   instead of another download. It reads provenance without contacting a provider
+   or inspecting source files; it requires read permission rather than ingestion permission.
 3. Find candidate recordings for a track. Results expose uploader, duration, match
    score, suitability, and a reason. A score is a heuristic, not audio fingerprinting.
 4. Submit selected tracks or one release. Explicit YouTube source references bypass
@@ -33,7 +37,7 @@ MCP and native clients use the same delegated OAuth identity. Ingestion requires
 Shared development tokens and Subsonic credentials cannot own acquisition jobs.
 Existing delegated grants need fresh consent to add ingestion permission.
 
-MCP tools are `search_music`, `get_music_artist`, `get_music_release`,
+MCP tools are `search_music`, `get_music_artist`, `get_music_release`, `lookup_imports`,
 `find_audio_sources`, `import_music`, `get_import`, `list_imports`, `cancel_import`,
 and `retry_import`. They call the same services as DiscoveryService and
 IngestionService in [ingestion.proto](../proto/wavelength/v1/ingestion.proto).

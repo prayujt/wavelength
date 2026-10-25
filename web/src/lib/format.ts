@@ -17,13 +17,6 @@ export function initials(name: string) {
   );
 }
 
-export function hue(name: string) {
-  return [...name].reduce(
-    (hash, character) => (hash * 31 + character.charCodeAt(0)) % 360,
-    0,
-  );
-}
-
 export function stateLabel(state: string) {
   return state.replaceAll('_', ' ');
 }

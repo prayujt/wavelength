@@ -33,8 +33,9 @@ runtime base. See the [build workflow](.github/workflows/build.yml).
 ## Web player
 
 Configure [OIDC sign-in](docs/oidc.md) and open your public Wavelength URL. The web
-app browses your library, plays music, manages playlists, discovers new music, and
-tracks imports with recording selection, cancellation, and retries. It uses typed
+app includes library and external music search with Cmd/Ctrl+K, dedicated artist
+and album pages, artwork, playback, stored lyrics, and playlists. Downloads have
+selection, review, recording choices, progress, cancellation, and retries. It uses typed
 Connect RPC clients and your browser session; no API token is needed in the UI.
 
 The Svelte 5 + TypeScript client lives in [`web/`](web/README.md). The container
@@ -105,7 +106,7 @@ recovery, and runtime requirements.
 ## Native API
 
 The native API browses and searches tracks, artists, and albums, returns playback
-URLs, and streams audio. Its `UserDataService` manages the signed-in listener's
+URLs, serves artwork, reads stored lyrics, and streams audio. Its `UserDataService` manages the signed-in listener's
 playlists, queue, bookmarks, listening history, and now-playing state. The contract
 is [library.proto](proto/wavelength/v1/library.proto), extended by
 [discovery and ingestion](proto/wavelength/v1/ingestion.proto), with
@@ -137,11 +138,12 @@ See [OIDC setup](docs/oidc.md). Terminate TLS at your deployment proxy.
 ## MCP for AI clients
 
 With OIDC and a music library configured, connect a remote MCP client to
-`https://music.example.com/mcp` on the native listener. The service offers 30 tools:
+`https://music.example.com/mcp` on the native listener. The service offers 32 tools:
 
 - External music search, artist/release lookup, and recording candidates.
 - Create/get/list/cancel/retry ingestion jobs.
-- Current user; browse/search/get local tracks, artists, and albums; playback links.
+- Current user; browse/search/get local tracks, artists, and albums; playback links and stored lyrics.
+- Match external song references to tracks already in the library.
 - List/get/create/update/delete playlists, with explicit public sharing.
 - Read/save your queue; list/save/delete bookmarks.
 - Read listening history, record plays, and read your own now-playing state.

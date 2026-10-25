@@ -54,6 +54,9 @@ const (
 	// LibraryServiceGetPlaybackInfoProcedure is the fully-qualified name of the LibraryService's
 	// GetPlaybackInfo RPC.
 	LibraryServiceGetPlaybackInfoProcedure = "/wavelength.v1.LibraryService/GetPlaybackInfo"
+	// LibraryServiceGetLyricsProcedure is the fully-qualified name of the LibraryService's GetLyrics
+	// RPC.
+	LibraryServiceGetLyricsProcedure = "/wavelength.v1.LibraryService/GetLyrics"
 	// LibraryServiceStreamAudioProcedure is the fully-qualified name of the LibraryService's
 	// StreamAudio RPC.
 	LibraryServiceStreamAudioProcedure = "/wavelength.v1.LibraryService/StreamAudio"
@@ -111,6 +114,8 @@ type LibraryServiceClient interface {
 	GetAlbum(context.Context, *connect.Request[v1.GetAlbumRequest]) (*connect.Response[v1.GetAlbumResponse], error)
 	// Browsers should use this range-capable HTTP path with their existing session cookie.
 	GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error)
+	// Reads lyrics already stored with the track; never queries an external provider.
+	GetLyrics(context.Context, *connect.Request[v1.GetLyricsRequest]) (*connect.Response[v1.GetLyricsResponse], error)
 	// Native clients may also consume audio directly over gRPC/Connect server streaming.
 	StreamAudio(context.Context, *connect.Request[v1.StreamAudioRequest]) (*connect.ServerStreamForClient[v1.StreamAudioResponse], error)
 }
@@ -168,6 +173,12 @@ func NewLibraryServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(libraryServiceMethods.ByName("GetPlaybackInfo")),
 			connect.WithClientOptions(opts...),
 		),
+		getLyrics: connect.NewClient[v1.GetLyricsRequest, v1.GetLyricsResponse](
+			httpClient,
+			baseURL+LibraryServiceGetLyricsProcedure,
+			connect.WithSchema(libraryServiceMethods.ByName("GetLyrics")),
+			connect.WithClientOptions(opts...),
+		),
 		streamAudio: connect.NewClient[v1.StreamAudioRequest, v1.StreamAudioResponse](
 			httpClient,
 			baseURL+LibraryServiceStreamAudioProcedure,
@@ -186,6 +197,7 @@ type libraryServiceClient struct {
 	listAlbums      *connect.Client[v1.ListAlbumsRequest, v1.ListAlbumsResponse]
 	getAlbum        *connect.Client[v1.GetAlbumRequest, v1.GetAlbumResponse]
 	getPlaybackInfo *connect.Client[v1.GetPlaybackInfoRequest, v1.GetPlaybackInfoResponse]
+	getLyrics       *connect.Client[v1.GetLyricsRequest, v1.GetLyricsResponse]
 	streamAudio     *connect.Client[v1.StreamAudioRequest, v1.StreamAudioResponse]
 }
 
@@ -224,6 +236,11 @@ func (c *libraryServiceClient) GetPlaybackInfo(ctx context.Context, req *connect
 	return c.getPlaybackInfo.CallUnary(ctx, req)
 }
 
+// GetLyrics calls wavelength.v1.LibraryService.GetLyrics.
+func (c *libraryServiceClient) GetLyrics(ctx context.Context, req *connect.Request[v1.GetLyricsRequest]) (*connect.Response[v1.GetLyricsResponse], error) {
+	return c.getLyrics.CallUnary(ctx, req)
+}
+
 // StreamAudio calls wavelength.v1.LibraryService.StreamAudio.
 func (c *libraryServiceClient) StreamAudio(ctx context.Context, req *connect.Request[v1.StreamAudioRequest]) (*connect.ServerStreamForClient[v1.StreamAudioResponse], error) {
 	return c.streamAudio.CallServerStream(ctx, req)
@@ -239,6 +256,8 @@ type LibraryServiceHandler interface {
 	GetAlbum(context.Context, *connect.Request[v1.GetAlbumRequest]) (*connect.Response[v1.GetAlbumResponse], error)
 	// Browsers should use this range-capable HTTP path with their existing session cookie.
 	GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error)
+	// Reads lyrics already stored with the track; never queries an external provider.
+	GetLyrics(context.Context, *connect.Request[v1.GetLyricsRequest]) (*connect.Response[v1.GetLyricsResponse], error)
 	// Native clients may also consume audio directly over gRPC/Connect server streaming.
 	StreamAudio(context.Context, *connect.Request[v1.StreamAudioRequest], *connect.ServerStream[v1.StreamAudioResponse]) error
 }
@@ -292,6 +311,12 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 		connect.WithSchema(libraryServiceMethods.ByName("GetPlaybackInfo")),
 		connect.WithHandlerOptions(opts...),
 	)
+	libraryServiceGetLyricsHandler := connect.NewUnaryHandler(
+		LibraryServiceGetLyricsProcedure,
+		svc.GetLyrics,
+		connect.WithSchema(libraryServiceMethods.ByName("GetLyrics")),
+		connect.WithHandlerOptions(opts...),
+	)
 	libraryServiceStreamAudioHandler := connect.NewServerStreamHandler(
 		LibraryServiceStreamAudioProcedure,
 		svc.StreamAudio,
@@ -314,6 +339,8 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 			libraryServiceGetAlbumHandler.ServeHTTP(w, r)
 		case LibraryServiceGetPlaybackInfoProcedure:
 			libraryServiceGetPlaybackInfoHandler.ServeHTTP(w, r)
+		case LibraryServiceGetLyricsProcedure:
+			libraryServiceGetLyricsHandler.ServeHTTP(w, r)
 		case LibraryServiceStreamAudioProcedure:
 			libraryServiceStreamAudioHandler.ServeHTTP(w, r)
 		default:
@@ -351,6 +378,10 @@ func (UnimplementedLibraryServiceHandler) GetAlbum(context.Context, *connect.Req
 
 func (UnimplementedLibraryServiceHandler) GetPlaybackInfo(context.Context, *connect.Request[v1.GetPlaybackInfoRequest]) (*connect.Response[v1.GetPlaybackInfoResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.GetPlaybackInfo is not implemented"))
+}
+
+func (UnimplementedLibraryServiceHandler) GetLyrics(context.Context, *connect.Request[v1.GetLyricsRequest]) (*connect.Response[v1.GetLyricsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.GetLyrics is not implemented"))
 }
 
 func (UnimplementedLibraryServiceHandler) StreamAudio(context.Context, *connect.Request[v1.StreamAudioRequest], *connect.ServerStream[v1.StreamAudioResponse]) error {

@@ -133,6 +133,25 @@ func importResponse(j ingest.Job, err error) (*connect.Response[pb.ImportJob], e
 	}
 	return connect.NewResponse(importJob(j)), nil
 }
+func (s *ingestionService) LookupImports(ctx context.Context, r *connect.Request[pb.LookupImportsRequest]) (*connect.Response[pb.LookupImportsResponse], error) {
+	if err := auth.RequireScope(ctx, auth.ScopeRead); err != nil {
+		return nil, failure(err)
+	}
+	refs := make([]discovery.Ref, 0, len(r.Msg.MetadataRefs))
+	for _, ref := range r.Msg.MetadataRefs {
+		refs = append(refs, providerRef(ref))
+	}
+	found, err := s.ingest.Lookup(ctx, refs)
+	if err != nil {
+		return nil, failure(err)
+	}
+	out := &pb.LookupImportsResponse{}
+	for ref, id := range found {
+		out.Tracks = append(out.Tracks, &pb.ImportedTrack{MetadataRef: refMessage(ref), TrackId: id})
+	}
+	return connect.NewResponse(out), nil
+}
+
 func (s *ingestionService) CreateImport(ctx context.Context, r *connect.Request[pb.CreateImportRequest]) (*connect.Response[pb.ImportJob], error) {
 	owner, err := importUser(ctx, true)
 	if err != nil {

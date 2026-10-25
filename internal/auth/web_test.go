@@ -1,8 +1,11 @@
 package auth_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"image"
+	"image/png"
 	"net/http"
 	"os"
 	"os/exec"
@@ -10,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
@@ -56,6 +60,20 @@ func TestWebBrowser(t *testing.T) {
 	if output, err := exec.Command("ffmpeg", "-v", "error", "-f", "lavfi", "-i", "sine=duration=3", "-metadata", "title=First Light", "-metadata", "artist=The Morning", "-metadata", "album=Small Hours", file).CombinedOutput(); err != nil {
 		t.Fatalf("create audio fixture: %v\n%s", err, output)
 	}
+	var cover bytes.Buffer
+	if err := png.Encode(&cover, image.NewRGBA(image.Rect(0, 0, 16, 16))); err != nil {
+		t.Fatal(err)
+	}
+	tags, err := id3v2.Open(file, id3v2.Options{Parse: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tags.AddAttachedPicture(id3v2.PictureFrame{Encoding: id3v2.EncodingUTF8, MimeType: "image/png", PictureType: id3v2.PTFrontCover, Picture: cover.Bytes()})
+	tags.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{Encoding: id3v2.EncodingUTF8, Language: "eng", Lyrics: "[00:00.00]First line\n[00:02.00]Second line"})
+	if err := tags.Save(); err != nil {
+		t.Fatal(err)
+	}
+	tags.Close()
 	audio, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)

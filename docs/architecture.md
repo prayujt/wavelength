@@ -21,7 +21,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `transport/rpc` | Protobuf/Connect/gRPC library and personal-state contracts |
 | `transport/mcp` | Stateless Streamable HTTP tools over the same feature services |
 | `transport/httpserver` | Native routing, authentication mounting and health endpoints |
-| `transport/media` | HTTP range/HEAD playback and encoded response delivery |
+| `transport/media` | HTTP range/HEAD playback, authenticated artwork, and encoded response delivery |
 | `transport/subsonic` | Legacy credentials, parameters, IDs, XML/JSON projections and stateless stubs |
 
 Feature services accept contexts and typed inputs. Their persistence dependencies are
@@ -64,6 +64,13 @@ The schema upgrade preserves existing track IDs and metadata, removes obsolete
 scan bookkeeping, and keeps user state. WAL, foreign keys and a busy timeout remain
 enabled. Search uses the stored normalized text. Albums and artists are derived
 from track rows when requested.
+
+Native catalog responses include authenticated artwork paths derived from track
+IDs; listing tracks never reads tags to populate them. Artwork and saved lyrics
+are read on demand through the same confined library operations as the legacy
+adapter. `GetLyrics` / `get_lyrics` do not fetch lyrics from external services.
+Import lookup maps exact provider provenance to catalog IDs, independent of job
+ownership, because completed tracks belong to the shared library.
 
 Playlists, bookmarks, queues and listening history retain their record scopes and
 JSON layouts. Listening counts use the historical `annotations/<user>` scope, but

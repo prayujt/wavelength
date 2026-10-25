@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import {
     ListMusic,
+    Mic2,
     Pause,
     Play,
     SkipBack,
@@ -13,9 +14,11 @@
   import { duration } from '../lib/format';
   import Cover from './Cover.svelte';
   import Notice from './Notice.svelte';
+  import Lyrics from './Lyrics.svelte';
   let { player }: { player: PlayerState } = $props();
   let audio: HTMLAudioElement;
   let showQueue = $state(false);
+  let showLyrics = $state(false);
   let volume = $state(0.8);
   onMount(() => {
     player.audio = audio;
@@ -64,7 +67,11 @@
         class:active={index === player.index}
         class="queue-item"
         onclick={() => player.open(index, true)}
-        ><Cover name={track.album || track.title} small /><span
+        ><Cover
+          name={track.album || track.title}
+          artwork={track.artworkPath}
+          small
+        /><span
           ><strong>{track.title}</strong><small
             >{track.artist || 'Unknown artist'}</small
           ></span
@@ -73,21 +80,20 @@
       >{/each}
   </aside>
 {/if}
+{#if showLyrics}<Lyrics {player} close={() => (showLyrics = false)} />{/if}
 <footer class="player">
   <div class="now-playing">
-    <Cover name={player.track?.album || 'Wavelength'} small />
+    <Cover
+      name={player.track?.album || 'Wavelength'}
+      artwork={player.track?.artworkPath}
+      small
+    />
     <div>
       <strong>{player.track?.title || 'Nothing playing yet'}</strong><span
         >{player.track?.artist || 'Find your next favorite'}</span
       >
     </div>
   </div>
-  <button
-    class="icon-button mobile-queue"
-    aria-label="Show queue"
-    aria-expanded={showQueue}
-    onclick={() => (showQueue = !showQueue)}><ListMusic size={18} /></button
-  >
   <div class="player-center">
     <div class="playback-buttons">
       <button
@@ -128,11 +134,26 @@
   </div>
   <div class="player-tools">
     <button
+      class="icon-button"
+      class:active={showLyrics}
+      aria-label="Show lyrics"
+      aria-expanded={showLyrics}
+      title="Lyrics"
+      disabled={!player.track}
+      onclick={() => {
+        showLyrics = !showLyrics;
+        showQueue = false;
+      }}><Mic2 size={18} /></button
+    >
+    <button
       class:active={showQueue}
       class="icon-button"
       aria-label="Show queue"
       aria-expanded={showQueue}
-      onclick={() => (showQueue = !showQueue)}><ListMusic size={20} /></button
+      onclick={() => {
+        showQueue = !showQueue;
+        showLyrics = false;
+      }}><ListMusic size={20} /></button
     ><Volume2 size={18} /><input
       aria-label="Volume"
       type="range"

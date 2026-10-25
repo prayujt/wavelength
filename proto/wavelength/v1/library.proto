@@ -14,6 +14,8 @@ service LibraryService {
   rpc GetAlbum(GetAlbumRequest) returns (GetAlbumResponse);
   // Browsers should use this range-capable HTTP path with their existing session cookie.
   rpc GetPlaybackInfo(GetPlaybackInfoRequest) returns (GetPlaybackInfoResponse);
+  // Reads lyrics already stored with the track; never queries an external provider.
+  rpc GetLyrics(GetLyricsRequest) returns (GetLyricsResponse);
   // Native clients may also consume audio directly over gRPC/Connect server streaming.
   rpc StreamAudio(StreamAudioRequest) returns (stream StreamAudioResponse);
 }
@@ -94,12 +96,15 @@ message Track {
   int32 bit_rate_kbps = 13;
   google.protobuf.Timestamp created_at = 14;
   google.protobuf.Timestamp modified_at = 15;
+  // Authenticated image path; returns 404 when no artwork is available.
+  string artwork_path = 16;
 }
-message Artist { string id = 1; string name = 2; int32 album_count = 3; }
+message Artist { string id = 1; string name = 2; int32 album_count = 3; string artwork_path = 4; }
 message Album {
   string id = 1; string name = 2; string artist_id = 3; string artist = 4;
   int32 year = 5; string genre = 6; int32 track_count = 7;
   double duration_seconds = 8; google.protobuf.Timestamp created_at = 9;
+  string artwork_path = 10;
 }
 message ListTracksRequest { string query = 1; int32 limit = 2; int32 offset = 3; }
 message ListTracksResponse { repeated Track tracks = 1; int32 total = 2; }
@@ -115,5 +120,7 @@ message GetAlbumRequest { string id = 1; }
 message GetAlbumResponse { Album album = 1; repeated Track tracks = 2; }
 message GetPlaybackInfoRequest { string id = 1; }
 message GetPlaybackInfoResponse { Track track = 1; string http_path = 2; bool supports_ranges = 3; }
+message GetLyricsRequest { string id = 1; }
+message GetLyricsResponse { string lyrics = 1; }
 message StreamAudioRequest { string id = 1; int64 offset_bytes = 2; int64 length_bytes = 3; }
 message StreamAudioResponse { bytes data = 1; int64 offset_bytes = 2; }

@@ -3,7 +3,6 @@
   import { Check, X } from '@lucide/svelte';
   import type {
     ExternalTrack,
-    ProviderRef,
     SourceCandidate,
   } from '../gen/wavelength/v1/ingestion_pb';
   import { api } from '../lib/session.svelte';
@@ -17,7 +16,7 @@
     close,
   }: {
     track: ExternalTrack;
-    choose: (ref: ProviderRef) => void;
+    choose: (candidate: SourceCandidate) => void;
     close: () => void;
   } = $props();
   let candidates = $state<SourceCandidate[]>([]);
@@ -41,7 +40,7 @@
 <Modal label={`Choose a recording for ${track.title}`} {close}>
   <div class="section-heading">
     <div>
-      <p class="eyebrow">Choose a recording</p>
+      <p class="entity-type">Choose a recording</p>
       <h2 id="source-title">{track.title}</h2>
       <p class="muted">{track.artist} · {duration(track.durationSeconds)}</p>
     </div>
@@ -59,7 +58,7 @@
     {#each candidates as candidate}<button
         class="source-item"
         disabled={!candidate.ref}
-        onclick={() => candidate.ref && choose(candidate.ref)}
+        onclick={() => candidate.ref && choose(candidate)}
         ><span class="source-score" class:suitable={candidate.suitable}
           >{Math.round(candidate.score * 100)}<small>match</small></span
         ><span

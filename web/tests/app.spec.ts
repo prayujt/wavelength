@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+const artwork = '/media/tracks/track-1/artwork';
 const track = {
   id: 'track-1',
   title: 'First Light',
@@ -7,6 +8,21 @@ const track = {
   album: 'Small Hours',
   durationSeconds: 183,
   sizeBytes: '4096',
+  artworkPath: artwork,
+};
+const album = {
+  id: 'album-1',
+  name: 'Small Hours',
+  artist: 'The Morning',
+  artistId: 'artist-1',
+  trackCount: 1,
+  artworkPath: artwork,
+};
+const artist = {
+  id: 'artist-1',
+  name: 'The Morning',
+  albumCount: 1,
+  artworkPath: artwork,
 };
 const ref = { provider: 'itunes', id: '123' };
 const external = {
@@ -16,8 +32,20 @@ const external = {
   album: 'Next Chapter',
   durationSeconds: 180,
 };
+const importedJob = {
+  id: 'import-1',
+  state: 'completed',
+  items: [
+    {
+      metadataRef: ref,
+      metadata: external,
+      state: 'completed',
+      trackId: track.id,
+    },
+  ],
+};
 
-async function signedIn(page: Page) {
+async function signedIn(page: Page, existing = false) {
   await page.context().addCookies([
     {
       name: 'wavelength_session',
@@ -35,50 +63,65 @@ async function signedIn(page: Page) {
       },
     }),
   );
+  await page.route('**/media/tracks/*/artwork', (route) =>
+    route.fulfill({
+      contentType: 'image/png',
+      body: Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j4K0AAAAASUVORK5CYII=',
+        'base64',
+      ),
+    }),
+  );
+  const wave = Buffer.alloc(48044);
+  wave.write('RIFF');
+  wave.writeUInt32LE(48036, 4);
+  wave.write('WAVEfmt ', 8);
+  wave.writeUInt32LE(16, 16);
+  wave.writeUInt16LE(1, 20);
+  wave.writeUInt16LE(1, 22);
+  wave.writeUInt32LE(8000, 24);
+  wave.writeUInt32LE(16000, 28);
+  wave.writeUInt16LE(2, 32);
+  wave.writeUInt16LE(16, 34);
+  wave.write('data', 36);
+  wave.writeUInt32LE(48000, 40);
+  await page.route('**/media/tracks/track-1', (route) =>
+    route.fulfill({ contentType: 'audio/wav', body: wave }),
+  );
+  let created = false;
   await page.route(/\/wavelength\.v1\./, async (route) => {
     const request = route.request();
     expect(request.headers()['x-csrf-token']).toBe('test-csrf');
     expect(request.headers()['authorization']).toBeUndefined();
     expect(request.headers()['connect-protocol-version']).toBe('1');
     const method = new URL(request.url()).pathname.split('/').pop()!;
+    if (method === 'CreateImport') created = true;
     const responses: Record<string, object> = {
       GetCurrentUser: { user: { id: 'listener-1', name: 'Jamie' } },
       GetQueue: {},
       SaveQueue: {},
+      RecordPlay: {},
       ListTracks: { tracks: [track], total: 1 },
       GetTrack: { track },
-      ListAlbums: {
-        albums: [
-          {
-            id: 'album-1',
-            name: 'Small Hours',
-            artist: 'The Morning',
-            trackCount: 1,
-          },
-        ],
+      GetPlaybackInfo: {
+        track,
+        httpPath: '/media/tracks/track-1',
+        supportsRanges: true,
+      },
+      GetLyrics: { lyrics: '[00:00.00]First line\n[00:02.00]Second line' },
+      ListAlbums: { albums: [album], total: 1 },
+      ListArtists: { artists: [artist], total: 1 },
+      GetAlbum: { album, tracks: [track] },
+      GetArtist: { artist, albums: [album] },
+      ListPlaylists: {
+        playlists: [{ id: 'playlist-1', name: 'Downloads mix', trackIds: [] }],
         total: 1,
       },
-      ListArtists: {
-        artists: [{ id: 'artist-1', name: 'The Morning', albumCount: 1 }],
-        total: 1,
+      ListImports: {
+        imports: created ? [importedJob] : [],
+        total: created ? 1 : 0,
       },
-      GetAlbum: {
-        album: { id: 'album-1', name: 'Small Hours' },
-        tracks: [track],
-      },
-      GetArtist: {
-        artist: { id: 'artist-1', name: 'The Morning' },
-        albums: [
-          {
-            id: 'album-1',
-            name: 'Small Hours',
-            artist: 'The Morning',
-            trackCount: 1,
-          },
-        ],
-      },
-      ListPlaylists: { playlists: [], total: 0 },
-      ListImports: { imports: [], total: 0 },
+      GetImport: importedJob,
       Search: {
         tracks: [external],
         artists: [
@@ -94,6 +137,7 @@ async function signedIn(page: Page) {
       },
       GetRelease: {
         release: {
+          ref: { provider: 'itunes', id: '789' },
           title: 'Next Chapter',
           artist: 'The Morning',
           tracks: [external],
@@ -111,62 +155,30 @@ async function signedIn(page: Page) {
           },
         ],
       },
-      CreateImport: { id: 'import-1', state: 'queued' },
+      LookupImports: {
+        tracks: existing ? [{ metadataRef: ref, trackId: track.id }] : [],
+      },
+      CreateImport: importedJob,
     };
+    if (request.url().includes('.DiscoveryService/GetArtist'))
+      responses.GetArtist = {
+        artist: {
+          name: 'The Morning',
+          ref: { provider: 'itunes', id: '456' },
+          releases: [
+            {
+              ref: { provider: 'itunes', id: '789' },
+              title: 'Next Chapter',
+              artist: 'The Morning',
+            },
+          ],
+        },
+      };
     await route.fulfill({ json: responses[method] || {} });
   });
 }
 
-test('signed-out users start OIDC login without entering an API token', async ({
-  page,
-}, testInfo) => {
-  await page.route('**/auth/me', (route) =>
-    route.fulfill({ status: 401, json: { error: 'unauthorized' } }),
-  );
-  await page.goto('/');
-  await expect(
-    page.getByRole('link', { name: 'Sign in', exact: true }),
-  ).toHaveAttribute('href', '/auth/login?return_to=%2F');
-  await expect(page.getByRole('textbox')).toHaveCount(0);
-  await expect(page.getByRole('heading', { name: /Stay for/ })).toBeVisible();
-  await page.screenshot({
-    path: testInfo.outputPath('sign-in.png'),
-    fullPage: true,
-  });
-});
-
-test('library categories use generated Connect clients and keep the cookie private', async ({
-  page,
-}, testInfo) => {
-  await signedIn(page);
-  await page.goto('/');
-  await expect(
-    page.getByRole('button', { name: 'First Light', exact: true }),
-  ).toBeVisible();
-  await expect(page.locator('.account')).toContainText('Jamie');
-  await page.screenshot({
-    path: testInfo.outputPath('library.png'),
-    fullPage: true,
-  });
-  expect(await page.evaluate(() => document.cookie)).not.toContain(
-    'test-session',
-  );
-  await page.getByRole('button', { name: 'Albums', exact: true }).click();
-  await page.getByRole('button', { name: /Small Hours.*The Morning/ }).click();
-  await expect(
-    page.getByRole('button', { name: 'First Light', exact: true }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Artists', exact: true }).click();
-  await page.getByRole('button', { name: /The Morning.*1 album/ }).click();
-  await expect(
-    page.getByRole('heading', { name: 'The Morning', exact: true }),
-  ).toBeVisible();
-});
-
-test('discovery lets the listener select a song and a recording before importing', async ({
-  page,
-}) => {
-  await signedIn(page);
+async function findNewMusic(page: Page) {
   await page.goto('/#discover');
   await page
     .getByRole('textbox', { name: 'Search for new music' })
@@ -175,27 +187,184 @@ test('discovery lets the listener select a song and a recording before importing
   await expect(
     page.getByRole('checkbox', { name: 'Select New Light' }),
   ).toBeVisible();
+}
+
+test('signed-out users start OIDC login without entering an API token', async ({
+  page,
+}, info) => {
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ status: 401, json: { error: 'unauthorized' } }),
+  );
+  await page.goto('/');
+  await expect(
+    page.getByRole('link', { name: 'Sign in', exact: true }),
+  ).toHaveAttribute('href', '/auth/login?return_to=%2F');
+  await expect(page.getByRole('textbox')).toHaveCount(0);
+  await expect(
+    page.getByRole('heading', { name: 'Your music library' }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath('sign-in.png'),
+    fullPage: true,
+  });
+});
+
+test('artwork loads and artist/album pages have persistent navigation', async ({
+  page,
+}, info) => {
+  await signedIn(page);
+  await page.goto('/');
+  await expect(page.locator('.track-title img')).toBeVisible();
+  await expect
+    .poll(() =>
+      page
+        .locator('.track-title img')
+        .evaluate((img: HTMLImageElement) => img.naturalWidth),
+    )
+    .toBeGreaterThan(0);
+  expect(await page.evaluate(() => document.cookie)).not.toContain(
+    'test-session',
+  );
+  await page.screenshot({
+    path: info.outputPath('library.png'),
+    fullPage: true,
+  });
+  await page
+    .locator('.tabs')
+    .getByRole('link', { name: 'Albums', exact: true })
+    .click();
+  await page.getByRole('link', { name: /Small Hours.*The Morning/ }).click();
+  await expect(page).toHaveURL(/#album\/album-1$/);
+  await expect(
+    page.getByRole('heading', { name: 'Small Hours', exact: true }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'First Light', exact: true }),
+  ).toBeVisible();
+  await page
+    .locator('.entity-header')
+    .getByRole('link', { name: 'The Morning', exact: true })
+    .click();
+  await expect(page).toHaveURL(/#artist\/artist-1$/);
+  await expect(
+    page.getByRole('heading', { name: 'The Morning', exact: true }),
+  ).toBeVisible();
+  await page.screenshot({
+    path: info.outputPath('artist.png'),
+    fullPage: true,
+  });
+});
+
+test('download review preserves source and playlist choices and opens job progress', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await findNewMusic(page);
   await page
     .getByRole('button', { name: 'Choose recording for New Light' })
     .click();
   await page.getByRole('button', { name: /98.*New Light/ }).click();
-  const request = page.waitForRequest(
-    (request) =>
-      request.url().endsWith('/IngestionService/CreateImport') ||
-      request.url().endsWith('.IngestionService/CreateImport'),
+  await page.getByRole('button', { name: 'Review download' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Review download' });
+  await expect(dialog).toContainText('New Light — Official Audio');
+  await dialog
+    .getByRole('combobox', { name: 'Download playlist' })
+    .selectOption('playlist-1');
+  const submitted = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/CreateImport',
   );
-  await page
-    .getByRole('button', { name: 'Add to library', exact: true })
-    .click();
-  const body = (await request).postDataJSON();
-  expect(body.requestId).toBeTruthy();
-  expect(body.items).toEqual([
-    { metadataRef: ref, sourceRef: { provider: 'youtube', id: 'BaW_jenozKc' } },
-  ]);
-  await expect(page.getByRole('heading', { name: 'Downloads.' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Download 1 song' }).click();
+  expect((await submitted).postDataJSON()).toMatchObject({
+    requestId: expect.any(String),
+    playlistId: 'playlist-1',
+    items: [
+      {
+        metadataRef: ref,
+        sourceRef: { provider: 'youtube', id: 'BaW_jenozKc' },
+      },
+    ],
+  });
+  await expect(page).toHaveURL(/#imports\/import-1$/);
+  await expect(
+    page.getByRole('heading', { name: 'Download complete' }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Play downloaded' }),
+  ).toBeVisible();
 });
 
-test('an uncertain import can choose a recording and retry without losing completed items', async ({
+test('discovery identifies existing downloads and allows direct playback', async ({
+  page,
+}) => {
+  await signedIn(page, true);
+  await findNewMusic(page);
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeDisabled();
+  await expect(page.locator('.discovery-track')).toContainText('In library');
+  await page
+    .getByRole('button', { name: 'Play New Light', exact: true })
+    .click();
+  await expect(page.locator('.now-playing')).toContainText('First Light');
+});
+
+test('Cmd/Ctrl+K searches library and external music with different actions', async ({
+  page,
+}, info) => {
+  await signedIn(page);
+  await page.goto('/');
+  await page.keyboard.press('Control+k');
+  const dialog = page.getByRole('dialog', {
+    name: 'Search music',
+    exact: true,
+  });
+  await dialog.getByRole('combobox').fill('light');
+  await expect(
+    dialog.getByRole('option', { name: /First Light.*In library.*Play/ }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole('option', {
+      name: /New Light.*Not downloaded.*Review download/,
+    }),
+  ).toBeVisible();
+  await page.screenshot({ path: info.outputPath('search.png') });
+  await dialog
+    .getByRole('option', { name: /New Light.*Review download/ })
+    .click();
+  await expect(
+    page.getByRole('dialog', { name: 'Review download' }),
+  ).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Meta+k');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('combobox').press('ArrowDown');
+  await dialog.getByRole('combobox').press('Enter');
+  await expect(page).toHaveURL(/#discover$/);
+});
+
+test('external artist and release pages preserve selection while browsing', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await findNewMusic(page);
+  await page.getByRole('checkbox', { name: 'Select New Light' }).check();
+  await page.getByRole('link', { name: 'The Morning', exact: true }).click();
+  await expect(page).toHaveURL(/#discover\/artist/);
+  await expect(
+    page.getByRole('heading', { name: 'The Morning' }),
+  ).toBeVisible();
+  await page.getByRole('link', { name: /Next Chapter.*The Morning/ }).click();
+  await expect(page).toHaveURL(/#discover\/release/);
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole('heading', { name: 'Next Chapter' }),
+  ).toBeVisible();
+});
+
+test('an uncertain download can choose a recording and retry', async ({
   page,
 }) => {
   await signedIn(page);
@@ -211,16 +380,14 @@ test('an uncertain import can choose a recording and retry without losing comple
       },
     ],
   };
-  await page.route('**/wavelength.v1.IngestionService/*', (route) => {
-    const method = new URL(route.request().url()).pathname.split('/').pop();
-    return route.fulfill({
-      json: method === 'ListImports' ? { imports: [job], total: 1 } : job,
-    });
-  });
+  await page.route('**/wavelength.v1.IngestionService/*', (route) =>
+    route.fulfill({
+      json: route.request().url().endsWith('ListImports')
+        ? { imports: [job], total: 1 }
+        : job,
+    }),
+  );
   await page.goto('/#imports');
-  await page
-    .getByRole('button', { name: /New Light.*needs selection/ })
-    .click();
   await page
     .getByRole('button', { name: 'Choose recording for New Light' })
     .click();
@@ -249,33 +416,48 @@ test('expired RPC credentials return to sign-in', async ({ page }) => {
   ).toBeVisible();
 });
 
-test('mobile library fits the viewport and keeps navigation accessible', async ({
+test('mobile library keeps artwork and player controls visible', async ({
   page,
-}, testInfo) => {
+}, info) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signedIn(page);
   await page.goto('/');
-  await expect(
-    page.getByRole('button', { name: 'First Light', exact: true }),
-  ).toBeVisible();
+  await expect(page.locator('.track-title img')).toBeVisible();
   expect(
     await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
+      () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Show lyrics' })).toBeVisible();
   await page.getByRole('button', { name: 'Show queue' }).click();
   await expect(
     page.getByRole('complementary', { name: 'Playback queue' }),
   ).toBeVisible();
   await page.getByRole('button', { name: 'Close queue' }).click();
   await page.screenshot({
-    path: testInfo.outputPath('mobile-library.png'),
+    path: info.outputPath('mobile-library.png'),
     fullPage: true,
   });
+  await page.getByRole('button', { name: 'Show sidebar' }).click();
   await expect(
     page
       .getByRole('navigation')
       .getByRole('link', { name: 'Discover', exact: true }),
   ).toBeVisible();
+});
+
+test('missing artwork falls back to a cover instead of a broken image', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.route('**/media/tracks/*/artwork', (route) =>
+    route.fulfill({ status: 404 }),
+  );
+  await page.goto('/');
+  await expect(
+    page.getByRole('button', { name: 'First Light', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.track-title .cover svg')).toBeVisible();
+  await expect(page.locator('.track-title img')).toHaveCount(0);
 });

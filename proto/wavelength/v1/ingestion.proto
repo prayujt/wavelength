@@ -13,6 +13,8 @@ service DiscoveryService {
 }
 // Jobs belong to the authenticated user. Completed tracks enter the shared catalog.
 service IngestionService {
+  // Exact provider references already published in the shared library.
+  rpc LookupImports(LookupImportsRequest) returns (LookupImportsResponse);
   rpc CreateImport(CreateImportRequest) returns (ImportJob);
   rpc GetImport(GetImportRequest) returns (ImportJob);
   rpc ListImports(ListImportsRequest) returns (ListImportsResponse);
@@ -20,6 +22,9 @@ service IngestionService {
   rpc RetryImport(RetryImportRequest) returns (ImportJob);
 }
 message ProviderRef { string provider = 1; string id = 2; }
+message LookupImportsRequest { repeated ProviderRef metadata_refs = 1; }
+message ImportedTrack { ProviderRef metadata_ref = 1; string track_id = 2; }
+message LookupImportsResponse { repeated ImportedTrack tracks = 1; }
 message ExternalTrack {
   ProviderRef ref = 1;
   string title = 2; string artist = 3; string album = 4; string album_artist = 5;

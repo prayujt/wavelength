@@ -20,6 +20,17 @@ func (s *service) GetPlaybackInfo(ctx context.Context, r *connect.Request[pb.Get
 	}
 	return connect.NewResponse(&pb.GetPlaybackInfoResponse{Track: track(t), HttpPath: "/media/tracks/" + t.ID, SupportsRanges: true}), nil
 }
+func (s *service) GetLyrics(ctx context.Context, r *connect.Request[pb.GetLyricsRequest]) (*connect.Response[pb.GetLyricsResponse], error) {
+	if r.Msg.Id == "" {
+		return nil, invalid("id is required")
+	}
+	lyrics, err := s.library.Lyrics(ctx, r.Msg.Id)
+	if err != nil {
+		return nil, failure(err)
+	}
+	return connect.NewResponse(&pb.GetLyricsResponse{Lyrics: lyrics}), nil
+}
+
 func (s *service) StreamAudio(ctx context.Context, r *connect.Request[pb.StreamAudioRequest], stream *connect.ServerStream[pb.StreamAudioResponse]) error {
 	if err := auth.RequireScope(ctx, auth.ScopeStream); err != nil {
 		return failure(err)
