@@ -4,6 +4,7 @@ package httpserver
 import (
 	"context"
 	"encoding/json"
+	"net"
 	"net/http"
 	"time"
 
@@ -35,7 +36,15 @@ func New(addr string, ping func(context.Context) error, options ...Option) *http
 	for _, option := range options {
 		option(mux)
 	}
-	return &http.Server{Addr: addr, Handler: h2c.NewHandler(mux, &http2.Server{}), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
+	requests, cancelRequests := context.WithCancel(context.Background())
+	server := &http.Server{
+		Addr: addr, Handler: h2c.NewHandler(mux, &http2.Server{}),
+		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
+		BaseContext: func(net.Listener) context.Context { return requests },
+	}
+	// Long-lived streams must finish before Shutdown waits for active requests.
+	server.RegisterOnShutdown(cancelRequests)
+	return server
 }
 
 func respond(w http.ResponseWriter, status int, value string) {
@@ -87,6 +96,8 @@ func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Ma
 			path, handler := rpc.DiscoveryHandler(acquisition[0].Discovery, manager)
 			mux.Handle(path, handler)
 			path, handler = rpc.IngestionHandler(acquisition[0].Ingest, manager)
+			mux.Handle(path, handler)
+			path, handler = rpc.RealtimeHandler(acquisition[0].Ingest, manager)
 			mux.Handle(path, handler)
 		}
 		if manager.OAuthEnabled() {

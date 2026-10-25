@@ -156,6 +156,60 @@ test('playlist create, add, edit, remove and delete work through Connect', async
   ).toBeVisible();
 });
 
+test('a download in another tab updates Discover through the shared stream', async ({
+  page,
+}) => {
+  const subscription = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/wavelength.v1.RealtimeService/Subscribe') &&
+      response.ok(),
+  );
+  await login(page);
+  await subscription;
+  await page
+    .getByRole('navigation')
+    .getByRole('link', { name: 'Discover', exact: true })
+    .click();
+  await page
+    .getByRole('textbox', { name: 'Search for new music' })
+    .fill('Streamed Artist');
+  await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await expect(
+    page.getByRole('checkbox', { name: 'Select Streamed Tone' }),
+  ).toBeEnabled();
+  const downloader = await page.context().newPage();
+  try {
+    await downloader.goto('/#discover');
+    await downloader
+      .getByRole('textbox', { name: 'Search for new music' })
+      .fill('Streamed Artist');
+    await downloader
+      .getByRole('button', { name: 'Search', exact: true })
+      .click();
+    await downloader
+      .getByRole('checkbox', { name: 'Select Streamed Tone' })
+      .check();
+    await downloader.getByRole('button', { name: 'Review download' }).click();
+    await downloader
+      .getByRole('dialog', { name: 'Review download' })
+      .getByRole('button', { name: 'Download 1 song' })
+      .click();
+    await expect(
+      downloader.getByRole('heading', { name: 'Download complete' }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole('checkbox', { name: 'Select Streamed Tone' }),
+    ).toBeDisabled();
+    await expect(page.locator('.discovery-track')).toContainText('In library');
+    await downloader.locator('.track-link').click();
+    await expect(
+      downloader.getByRole('heading', { name: 'Streamed Album', exact: true }),
+    ).toBeVisible();
+  } finally {
+    await downloader.close();
+  }
+});
+
 test('reviewed downloads enter the library and selected playlist and can be played', async ({
   page,
 }, info) => {
@@ -184,11 +238,12 @@ test('reviewed downloads enter the library and selected playlist and can be play
     .getByRole('textbox', { name: 'Search for new music' })
     .fill('Imported Artist');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Select Imported Tone' }).check();
+  await page.getByRole('button', { name: 'Review download' }).click();
   await page
     .getByRole('button', { name: 'Choose recording for Imported Tone' })
     .click();
   await page.getByRole('button', { name: /99.*Imported Tone/ }).click();
-  await page.getByRole('button', { name: 'Review download' }).click();
   const review = page.getByRole('dialog', { name: 'Review download' });
   await review
     .getByRole('combobox', { name: 'Download playlist' })
@@ -233,7 +288,9 @@ test('global search recognizes an imported provider reference and plays it witho
   });
   await expect(playable).toHaveCount(2);
   await expect(
-    dialog.getByRole('option', { name: /Imported Tone.*Review download/ }),
+    dialog.getByRole('option', {
+      name: /Imported Tone.*Not downloaded.*Download/,
+    }),
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('search.png') });
   await playable.last().click();

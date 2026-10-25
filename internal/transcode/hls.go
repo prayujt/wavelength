@@ -26,6 +26,7 @@ type Playlist struct {
 }
 type jobKey struct {
 	owner, track string
+	source       string
 	bitrate      int
 }
 type hlsJob struct {
@@ -54,11 +55,11 @@ func (s *Service) HLS(ctx context.Context, owner, id string, options HLSOptions)
 	if options.BitRate < 16 || options.BitRate > 100000 {
 		return Playlist{}, ErrInvalid
 	}
-	if _, err := s.lib.Get(ctx, id); err != nil {
+	track, err := s.lib.Get(ctx, id)
+	if err != nil {
 		return Playlist{}, err
 	}
-	key := jobKey{owner: owner, track: id, bitrate: options.BitRate}
-	var err error
+	key := jobKey{owner: owner, track: id, source: track.Path, bitrate: options.BitRate}
 	s.mu.Lock()
 	if s.closed {
 		s.mu.Unlock()

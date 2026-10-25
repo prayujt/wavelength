@@ -30,8 +30,9 @@ const (
 )
 
 type Selection struct {
-	MetadataRef discovery.Ref `json:"metadata_ref"`
-	SourceRef   discovery.Ref `json:"source_ref,omitempty"`
+	MetadataRef    discovery.Ref `json:"metadata_ref"`
+	SourceRef      discovery.Ref `json:"source_ref,omitempty"`
+	ReplaceTrackID string        `json:"replace_track_id,omitempty"`
 }
 type Request struct {
 	RequestID  string        `json:"request_id"`
@@ -48,14 +49,17 @@ type Root struct{ ID, Path string }
 // Prepared is persisted before a file becomes visible, allowing finalization to
 // resume after a crash without enumerating the library or redoing a download.
 type Prepared struct {
-	Track  library.Track `json:"track"`
-	SHA256 string        `json:"sha256"`
+	Track        library.Track `json:"track"`
+	SHA256       string        `json:"sha256"`
+	PreviousPath string        `json:"previous_path,omitempty"`
 }
 type Item struct {
 	Selection
 	State     string           `json:"state"`
 	Error     string           `json:"error,omitempty"`
 	TrackID   string           `json:"track_id,omitempty"`
+	AlbumID   string           `json:"album_id,omitempty"`
+	ArtistID  string           `json:"artist_id,omitempty"`
 	Reused    bool             `json:"reused"`
 	Metadata  *discovery.Track `json:"metadata,omitempty"`
 	Prepared  *Prepared        `json:"prepared,omitempty"`
@@ -87,6 +91,7 @@ type Store interface {
 	Next(context.Context, string) (Job, error)
 	Update(context.Context, string, func(*Job) error) (Job, error)
 	Lookup(context.Context, string, discovery.Ref) (library.Track, error)
+	Origin(context.Context, string, string) (discovery.Ref, error)
 	Publish(context.Context, Root, string, int, Prepared) (library.Track, error)
 }
 type Downloader interface {

@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { create } from '@bufbuild/protobuf';
-  import { ArrowLeft, Check, Download, Play } from '@lucide/svelte';
+  import { ArrowLeft, Download, Play } from '@lucide/svelte';
   import {
     ProviderRefSchema,
     type MusicArtist,
     type MusicRelease,
   } from '../gen/wavelength/v1/ingestion_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
-  import { DownloadSelection } from '../lib/downloads.svelte';
+  import { DownloadSelection, refKey } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
@@ -16,18 +17,24 @@
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import ExternalTracks from '../components/ExternalTracks.svelte';
+  import LibraryStatus from '../components/LibraryStatus.svelte';
+  import ExternalRelease from '../components/ExternalRelease.svelte';
   let {
     kind,
     provider,
     id,
     basket,
     player,
+    realtime,
+    searchContext,
   }: {
     kind: string;
     provider: string;
     id: string;
     basket: DownloadSelection;
     player: PlayerState;
+    realtime: RealtimeState;
+    searchContext: Record<string, string>;
   } = $props();
   let artist = $state<MusicArtist>();
   let release = $state<MusicRelease>();
@@ -56,6 +63,11 @@
               { signal: controller.signal },
             )
           ).release;
+          if (release?.ref)
+            basket.releases = {
+              ...basket.releases,
+              [refKey(release.ref)]: release,
+            };
           checking = true;
           await basket.lookup(release?.tracks || [], controller.signal);
         }
@@ -68,6 +80,34 @@
     };
     void load();
     return () => controller.abort();
+  });
+  $effect(() => {
+    if (realtime.resetVersion)
+      untrack(() => {
+        if (release)
+          void basket
+            .lookup(release.tracks)
+            .catch((cause) => (error = errorMessage(cause)));
+      });
+  });
+  $effect(() => {
+    if (!artist?.releases.length) return;
+    const albums = artist.releases;
+    realtime.resetVersion; // Recheck saved songs after reconnecting.
+    const pending = new AbortController();
+    checking = true;
+    untrack(
+      () =>
+        void basket
+          .lookupReleases(albums, pending.signal)
+          .catch((cause) => {
+            if (!pending.signal.aborted) error = errorMessage(cause);
+          })
+          .finally(() => {
+            if (!pending.signal.aborted) checking = false;
+          }),
+    );
+    return () => pending.abort();
   });
   async function playSaved() {
     try {
@@ -85,7 +125,8 @@
   }
 </script>
 
-<a class="back-link" href="#discover"><ArrowLeft size={14} /> Discover</a
+<a class="back-link" href={link('discover', searchContext)}
+  ><ArrowLeft size={14} /> Discover</a
 ><Notice message={error} />
 {#if loading}<div class="loading-state" role="status">
     <span class="spinner"></span> Loading {kind === 'artist'
@@ -94,7 +135,9 @@
   </div>{:else if artist || release}<header class="entity-header">
     <Cover
       name={artist?.name || release?.title || ''}
-      artwork={release?.artworkUrl || artist?.releases[0]?.artworkUrl}
+      artwork={release?.artworkUrl ||
+        artist?.artworkUrl ||
+        artist?.releases[0]?.artworkUrl}
     />
     <div>
       <p class="entity-type">
@@ -120,10 +163,11 @@
               : 'Select album'}</button
           >{#if saved}<button class="button secondary" onclick={playSaved}
               ><Play size={14} /> Play saved songs</button
-            ><span class="library-badge"
-              ><Check size={12} />
-              {saved} of {release.tracks.length} in library</span
-            >{/if}
+            >{/if}<LibraryStatus
+            {saved}
+            total={release.tracks.length}
+            {checking}
+          />
         </div>{:else}<p class="entity-meta">
           Albums available to browse and download
         </p>{/if}
@@ -136,16 +180,13 @@
       {checking}
     />{:else}<div class="section-heading"><h2>Albums</h2></div>
     <div class="card-grid">
-      {#each artist?.releases || [] as item}<a
-          class="music-card"
-          href={link('discover/release', {
-            provider: item.ref?.provider || '',
-            id: item.ref?.id || '',
-          })}
-          ><Cover name={item.title} artwork={item.artworkUrl} /><strong
-            >{item.title}</strong
-          ><span>{item.artist}</span></a
-        >{/each}
+      {#each artist?.releases || [] as item}<ExternalRelease
+          album={item}
+          {basket}
+          {player}
+          context={searchContext}
+          {checking}
+        />{/each}
     </div>
     {#if !artist?.releases.length}<p class="muted">
         No albums returned for this artist.

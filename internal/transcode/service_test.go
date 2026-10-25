@@ -84,6 +84,23 @@ func TestStreamsAndHLSSessionsWithoutHTTP(t *testing.T) {
 	if segment == "" {
 		t.Fatal("playlist has no media segment")
 	}
+	// A replacement keeps the track ID but changes the asset backing it.
+	rootID, _ := lib.SourceRoot()
+	replacement := filepath.Join(root, "replacement.flac")
+	body, err = os.ReadFile(filepath.Join(root, "tone.flac"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(replacement, body, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, "UPDATE tracks SET path=? WHERE root_id=? AND id=?", "replacement.flac", rootID, id); err != nil {
+		t.Fatal(err)
+	}
+	updated, err := service.HLS(ctx, "alice", id, transcode.HLSOptions{BitRate: 64})
+	if err != nil || updated.SessionID == playlist.SessionID {
+		t.Fatal("replacement reused stale HLS audio", updated, err)
+	}
 	if _, err := service.Segment("bob", playlist.SessionID, segment); !errors.Is(err, library.ErrNotFound) {
 		t.Fatalf("foreign HLS access: %v", err)
 	}

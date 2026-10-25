@@ -12,6 +12,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/bogem/id3v2/v2"
 	"github.com/dhowden/tag"
 	"github.com/prayujt/wavelength/internal/discovery"
 )
@@ -83,5 +84,43 @@ func TestProviderNamesStayWithinDirectoryComponents(t *testing.T) {
 		if component == "." || component == ".." || strings.ContainsAny(component, "/\\") || len(component) > 200 || !utf8.ValidString(component) {
 			t.Fatal(name, component)
 		}
+	}
+}
+
+func TestReplacementRetainsEmbeddedArtworkAndLyrics(t *testing.T) {
+	oldPath := filepath.Join(t.TempDir(), "old.mp3")
+	newPath := filepath.Join(t.TempDir(), "new.mp3")
+	for _, path := range []string{oldPath, newPath} {
+		if err := os.WriteFile(path, []byte("replacement audio fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	old, err := id3v2.Open(oldPath, id3v2.Options{Parse: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old.AddAttachedPicture(id3v2.PictureFrame{Encoding: id3v2.EncodingUTF8, MimeType: "image/png", PictureType: id3v2.PTFrontCover, Description: "Cover", Picture: []byte("curated artwork")})
+	old.AddUnsynchronisedLyricsFrame(id3v2.UnsynchronisedLyricsFrame{Encoding: id3v2.EncodingUTF8, Language: "eng", Lyrics: "[00:01.00]Curated lyrics"})
+	if err = old.Save(); err != nil {
+		t.Fatal(err)
+	}
+	old.Close()
+	reader, err := os.Open(oldPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+	if err = preserveMediaTags(newPath, reader); err != nil {
+		t.Fatal(err)
+	}
+	current, err := id3v2.Open(newPath, id3v2.Options{Parse: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer current.Close()
+	pictures := current.GetFrames("APIC")
+	lyrics := current.GetFrames("USLT")
+	if len(pictures) != 1 || len(lyrics) != 1 || string(pictures[0].(id3v2.PictureFrame).Picture) != "curated artwork" || lyrics[0].(id3v2.UnsynchronisedLyricsFrame).Lyrics != "[00:01.00]Curated lyrics" {
+		t.Fatal(current.AllFrames())
 	}
 }

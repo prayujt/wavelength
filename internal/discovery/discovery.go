@@ -50,9 +50,10 @@ type Release struct {
 	Tracks     []Track `json:"tracks"`
 }
 type Artist struct {
-	Ref      Ref       `json:"ref"`
-	Name     string    `json:"name"`
-	Releases []Release `json:"releases"`
+	Ref        Ref       `json:"ref"`
+	Name       string    `json:"name"`
+	ArtworkURL string    `json:"artwork_url,omitempty"`
+	Releases   []Release `json:"releases"`
 }
 type Results struct {
 	Tracks   []Track   `json:"tracks"`
@@ -73,6 +74,7 @@ type Metadata interface {
 	Search(context.Context, string, int) (Results, error)
 	Track(context.Context, Ref) (Track, error)
 	Release(context.Context, Ref) (Release, error)
+	Releases(context.Context, []Ref) ([]Release, error)
 	Artist(context.Context, Ref) (Artist, error)
 }
 type Sources interface {
@@ -115,17 +117,22 @@ func (s *Service) Release(ctx context.Context, ref Ref) (Release, error) {
 	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	r, err := s.metadata.Release(lookup, ref)
-	if err == nil && (r.Ref != ref || len(r.Tracks) == 0 || len(r.Tracks) > 200) {
-		return Release{}, fmt.Errorf("%w: release must contain 1..200 tracks", ErrUnavailable)
-	}
 	if err == nil {
-		for _, t := range r.Tracks {
-			if !t.Ref.ValidMetadata() || t.Title == "" || t.Artist == "" || t.Duration <= 0 {
-				return Release{}, fmt.Errorf("%w: incomplete release metadata", ErrUnavailable)
-			}
-		}
+		err = validateRelease(ref, r)
 	}
 	return r, err
+}
+
+func validateRelease(ref Ref, release Release) error {
+	if release.Ref != ref || len(release.Tracks) == 0 || len(release.Tracks) > 200 {
+		return fmt.Errorf("%w: release must contain 1..200 tracks", ErrUnavailable)
+	}
+	for _, track := range release.Tracks {
+		if !track.Ref.ValidMetadata() || track.Title == "" || track.Artist == "" || track.Duration <= 0 {
+			return fmt.Errorf("%w: incomplete release metadata", ErrUnavailable)
+		}
+	}
+	return nil
 }
 func (s *Service) Artist(ctx context.Context, ref Ref) (Artist, error) {
 	if !ref.ValidMetadata() {
@@ -134,6 +141,34 @@ func (s *Service) Artist(ctx context.Context, ref Ref) (Artist, error) {
 	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
 	return s.metadata.Artist(lookup, ref)
+}
+
+func (s *Service) Releases(ctx context.Context, refs []Ref) ([]Release, error) {
+	if len(refs) == 0 || len(refs) > 20 {
+		return nil, ErrInvalid
+	}
+	requested := make(map[Ref]bool)
+	for _, ref := range refs {
+		if !ref.ValidMetadata() {
+			return nil, ErrInvalid
+		}
+		requested[ref] = true
+	}
+	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	releases, err := s.metadata.Releases(lookup, refs)
+	if err != nil {
+		return nil, err
+	}
+	for _, release := range releases {
+		if !requested[release.Ref] {
+			return nil, fmt.Errorf("%w: unexpected release", ErrUnavailable)
+		}
+		if err := validateRelease(release.Ref, release); err != nil {
+			return nil, err
+		}
+	}
+	return releases, nil
 }
 func (s *Service) FindSources(ctx context.Context, ref Ref) ([]Candidate, error) {
 	t, err := s.Track(ctx, ref)
