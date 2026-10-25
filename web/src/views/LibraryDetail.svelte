@@ -8,6 +8,7 @@
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
   import { link } from '../lib/navigation';
+  import ShareButton from '../components/ShareButton.svelte';
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import TrackList from '../components/TrackList.svelte';
@@ -95,7 +96,10 @@
           disabled={!tracks.length}
           onclick={() => player.play(tracks)}
           ><Play size={14} fill="currentColor" /> Play album</button
-        >{:else}<p class="entity-meta">
+        ><ShareButton
+          name={album.name}
+          trackIds={tracks.map((track) => track.id)}
+        />{:else}<p class="entity-meta">
           {albums.length}
           {albums.length === 1 ? 'album' : 'albums'} in your library
         </p>{/if}

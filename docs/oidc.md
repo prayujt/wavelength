@@ -161,17 +161,22 @@ each new grant; starting a flow with an old browser session cannot skip that che
 | Scope | Permission |
 | --- | --- |
 | `wavelength:read` | Required: shared catalog and your own collections/activity. |
-| `wavelength:write` | Create/change your collections and listening activity. |
-| `wavelength:stream` | HTTP audio bytes and native `StreamAudio`. |
+| `wavelength:write` | Create/change your collections and listening activity; manage access links. |
+| `wavelength:stream` | HTTP audio bytes, native `StreamAudio`, and temporary playback links. Creating public shares also requires write permission. |
 | `wavelength:ingest` | Acquire music into the shared catalog; cancel/retry your own imports. |
 
-Default consent and the MCP authentication challenge request read/write/ingest.
-Ingestion is listed explicitly on the consent screen; clients can request read-only
-or other narrower grants. Existing grants do not gain this permission on refresh;
-reconnect and authorize it to acquire music. Streaming must be requested separately. MCP offers playback URLs and never embeds a token in
-them: a signed-in browser can open them, or a native client supplies a stream-scoped
-bearer token. MCP has no audio-byte tool. Cookie/development credentials cannot
-authenticate MCP. Requests carrying a browser Origin must match the public origin.
+Default scope selection requests read/write/ingest; the MCP authentication challenge
+also advertises stream access. Clients must request `wavelength:stream` to create
+playback links or shares. Existing grants do not gain permissions on refresh;
+reconnect and authorize again. Consent describes streaming and link creation.
+
+`get_playback_info` returns a private URL requiring a signed-in browser or a
+stream-scoped bearer header. `create_playback_link` deliberately creates a limited,
+expiring bearer URL that another player can fetch without account credentials;
+`create_share` explicitly grants public access through a share webpage. See
+[sharing](sharing.md) for scopes, revocation and expiry. MCP has no audio-byte tool.
+Cookie/development credentials cannot authenticate MCP. Requests carrying a browser
+Origin must match the public origin.
 
 Access tokens last up to one hour. Refresh token families expire 30 days after
 authorization and rotate on each refresh; rotation also invalidates the previous

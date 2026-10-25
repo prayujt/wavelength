@@ -15,6 +15,7 @@
   let missing = $state(false);
   let following = $state(true);
   let viewport = $state<HTMLDivElement>();
+  let centered = false;
   const timed = $derived(lines.some((line) => line.at !== undefined));
   const active = $derived.by(() => {
     let index = -1;
@@ -27,6 +28,7 @@
     const id = player.track?.id;
     lines = [];
     following = true;
+    centered = false;
     untrack(() => viewport?.scrollTo({ top: 0, behavior: 'instant' }));
     error = '';
     missing = false;
@@ -54,25 +56,32 @@
   });
   $effect(() => {
     const index = active;
-    if (!following || index < 0) return;
+    const scroller = viewport;
+    if (loading || !scroller || !following || index < 0) return;
+    let cancelled = false;
     void tick().then(() => {
-      if (!following) return;
-      const line = viewport?.querySelector<HTMLElement>(
-        '[aria-current="true"]',
-      );
+      if (cancelled) return;
+      const line = scroller.querySelector<HTMLElement>('[aria-current="true"]');
       if (!line) return;
-      viewport?.scrollTo({
+      scroller.scrollTo({
         top: Math.max(
           0,
-          line.offsetTop -
-            (viewport?.clientHeight || 0) * 0.4 +
+          scroller.scrollTop +
+            line.getBoundingClientRect().top -
+            scroller.getBoundingClientRect().top -
+            scroller.clientHeight * 0.4 +
             line.offsetHeight / 2,
         ),
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches
-          ? 'instant'
-          : 'smooth',
+        behavior:
+          !centered || matchMedia('(prefers-reduced-motion: reduce)').matches
+            ? 'instant'
+            : 'smooth',
       });
+      centered = true;
     });
+    return () => {
+      cancelled = true;
+    };
   });
 </script>
 

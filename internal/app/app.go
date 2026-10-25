@@ -16,6 +16,7 @@ import (
 	"github.com/prayujt/wavelength/internal/providers/itunes"
 	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
+	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -57,6 +58,8 @@ func Run(ctx context.Context, c config.Config) error {
 	}
 	if lib != nil {
 		data := userdata.New(database.StateStore{DB: db}, lib)
+		links := sharing.New(database.GrantStore{DB: db}, lib, c.PublicURL)
+		options = append(options, httpserver.WithSharing(lib, links))
 		source := youtube.New()
 		var ranking []discovery.Option
 		if c.Jev.APIKey != "" {
@@ -69,7 +72,7 @@ func Run(ctx context.Context, c config.Config) error {
 			return fmt.Errorf("initialize ingestion: %w", err)
 		}
 		defer imports.Close()
-		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Acquisition{Discovery: discovery, Ingest: imports}))
+		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Features{Discovery: discovery, Ingest: imports, Links: links}))
 	}
 	servers := []server{{name: "native", http: httpserver.New(c.Addr, db.PingContext, options...)}}
 	if c.Subsonic.Enabled() {

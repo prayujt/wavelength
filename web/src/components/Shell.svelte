@@ -8,6 +8,7 @@
     Disc3,
     Download,
     ListMusic,
+    Link,
     LogOut,
     Moon,
     Music2,
@@ -32,6 +33,7 @@
   import Discover from '../views/Discover.svelte';
   import DiscoveryDetail from '../views/DiscoveryDetail.svelte';
   import Imports from '../views/Imports.svelte';
+  import Shares from '../views/Shares.svelte';
   import Playlists from '../views/Playlists.svelte';
   import Notice from './Notice.svelte';
   import Player from './Player.svelte';
@@ -62,6 +64,7 @@
         { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
         { label: 'Artists', page: 'library', tab: 'artists', icon: Users },
         { label: 'Playlists', page: 'playlists', tab: '', icon: ListMusic },
+        { label: 'Links', page: 'links', tab: '', icon: Link },
       ],
     },
     {
@@ -83,7 +86,9 @@
             ? 'Downloads'
             : route.page === 'playlists'
               ? 'Playlists'
-              : 'Library',
+              : route.page === 'links'
+                ? 'Links'
+                : 'Library',
   );
   const libraryTab = $derived(route.query.get('tab') || '');
   function active(page: string, tab: string) {
@@ -259,6 +264,7 @@
             {player}
             initialID={route.id}
             {realtime}
+          />{:else if route.page === 'links'}<Shares
           />{:else if route.page === 'playlists'}<Playlists
             {player}
             add={(track) => (adding = track)}

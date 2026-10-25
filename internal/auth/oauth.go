@@ -672,7 +672,7 @@ func (m *Manager) ProtectMCP(next http.Handler) http.Handler {
 			if errors.As(err, &failure) {
 				status = failure.StatusCode
 			}
-			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+m.MetadataURL()+`", scope="`+ScopeRead+` `+ScopeWrite+` `+ScopeIngest+`"`)
+			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+m.MetadataURL()+`", scope="`+ScopeRead+` `+ScopeWrite+` `+ScopeIngest+` `+ScopeStream+`"`)
 			oauthError(w, status, "invalid_token")
 			return
 		}

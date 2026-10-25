@@ -12,6 +12,7 @@
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
+  import ShareButton from '../components/ShareButton.svelte';
   import PlaylistCover from '../components/PlaylistCover.svelte';
   import Notice from '../components/Notice.svelte';
   import Modal from '../components/Modal.svelte';
@@ -182,6 +183,7 @@
         onclick={() => player.play(entries.map((entry) => entry.track))}
         ><Play size={15} fill="currentColor" /> Play all</button
       >{/if}
+    <ShareButton name={selected.name} trackIds={selected.trackIds} />
   </div>
   <form
     class="playlist-editor"

@@ -25,6 +25,7 @@ import (
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
@@ -159,11 +160,11 @@ func provider(t *testing.T, mode string) *httptest.Server {
 	return server
 }
 
-func app(t *testing.T, issuer, dataDir, music string, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Acquisition) (*httptest.Server, *sql.DB) {
+func app(t *testing.T, issuer, dataDir, music string, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Features) (*httptest.Server, *sql.DB) {
 	return appWithOptions(t, issuer, dataDir, music, nil, acquisition...)
 }
 
-func appWithOptions(t *testing.T, issuer, dataDir, music string, options []httpserver.Option, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Acquisition) (*httptest.Server, *sql.DB) {
+func appWithOptions(t *testing.T, issuer, dataDir, music string, options []httpserver.Option, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Features) (*httptest.Server, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(context.Background(), dataDir)
 	if err != nil {
@@ -181,17 +182,25 @@ func appWithOptions(t *testing.T, issuer, dataDir, music string, options []https
 		t.Fatal(err)
 	}
 	data := userdata.New(database.StateStore{DB: db}, lib)
-	features := []transportmcp.Acquisition{}
+	features := []transportmcp.Features{}
 	if len(acquisition) > 0 {
 		features = append(features, acquisition[0](db, lib, data))
 	}
+	links := sharing.New(database.GrantStore{DB: db}, lib, publicURL)
+	if len(features) == 0 {
+		features = append(features, transportmcp.Features{})
+	}
+	features[0].Links = links
+	options = append(options, httpserver.WithSharing(lib, links))
 	options = append(options, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...))
 	server.Config.Handler = httpserver.New("", db.PingContext, options...).Handler
 	server.Start()
 	t.Cleanup(func() {
 		server.Close()
 		for _, feature := range features {
-			feature.Ingest.Close()
+			if feature.Ingest != nil {
+				feature.Ingest.Close()
+			}
 		}
 		lib.Close()
 		db.Close()
