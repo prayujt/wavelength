@@ -20,15 +20,18 @@
   import { go, link } from '../lib/navigation';
   import Cover from './Cover.svelte';
   import Modal from './Modal.svelte';
+  import LibraryStatus from './LibraryStatus.svelte';
   let {
     player,
     basket,
     realtime,
+    openDiscover,
     close,
   }: {
     player: PlayerState;
     basket: DownloadSelection;
     realtime: RealtimeState;
+    openDiscover: (query: string) => void;
     close: () => void;
   } = $props();
   let query = $state('');
@@ -42,6 +45,9 @@
   let externalError = $state('');
   let active = $state(0);
   let input: HTMLInputElement;
+  const saved = $derived(
+    external?.tracks.filter((track) => basket.localID(track)).length || 0,
+  );
   const id = $props.id();
   const pages = [
     { name: 'Your library', page: 'library' },
@@ -162,6 +168,15 @@
           });
         },
       });
+    rows.push({
+      key: 'discover-search',
+      group: 'Search',
+      title: 'Search in Discover',
+      detail: `Full results for “${query.trim()}”`,
+      action: 'Open Discover',
+      kind: 'page',
+      run: () => openDiscover(query.trim()),
+    });
     return rows;
   });
   onMount(() => {
@@ -339,6 +354,11 @@
   <div class="command-footer">
     <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span
       ><kbd>↵</kbd> Select</span
-    ><span>Library + Discover</span>
+    ><span
+      >{#if external?.tracks.length}<LibraryStatus
+          {saved}
+          total={external.tracks.length}
+        />{:else}Library + Discover{/if}</span
+    >
   </div>
 </Modal>

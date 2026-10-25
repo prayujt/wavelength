@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { create } from '@bufbuild/protobuf';
-  import { ArrowLeft, Check, Download, Play } from '@lucide/svelte';
+  import { ArrowLeft, Download, Play } from '@lucide/svelte';
   import {
     ProviderRefSchema,
     type MusicArtist,
@@ -17,6 +17,7 @@
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import ExternalTracks from '../components/ExternalTracks.svelte';
+  import LibraryStatus from '../components/LibraryStatus.svelte';
   let {
     kind,
     provider,
@@ -137,10 +138,11 @@
               : 'Select album'}</button
           >{#if saved}<button class="button secondary" onclick={playSaved}
               ><Play size={14} /> Play saved songs</button
-            ><span class="library-badge"
-              ><Check size={12} />
-              {saved} of {release.tracks.length} in library</span
-            >{/if}
+            >{/if}<LibraryStatus
+            {saved}
+            total={release.tracks.length}
+            {checking}
+          />
         </div>{:else}<p class="entity-meta">
           Albums available to browse and download
         </p>{/if}

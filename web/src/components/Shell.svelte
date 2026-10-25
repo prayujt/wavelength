@@ -254,7 +254,7 @@
         >
       </div>
     </header>
-    <div class="content">
+    <div class="content" class:downloads-page={route.page === 'imports'}>
       <Notice
         message={error}
         dismiss={() => (error = '')}
@@ -329,6 +329,11 @@
     {player}
     {basket}
     {realtime}
+    openDiscover={(query) => {
+      discovery.query = query;
+      discovery.category = 'all';
+      go('discover', { q: query, category: 'all' });
+    }}
     close={() => (searchOpen = false)}
   />{/if}
 {#if basket.reviewing}<DownloadReview

@@ -288,7 +288,8 @@
                   : phases[item.state] || stateLabel(item.state)}{item.reused
                   ? ' · Already in library'
                   : ''}</small
-              >{#if item.error}<small class="error-text">{item.error}</small
+              >{#if item.error && item.state !== 'needs_selection'}<small
+                  class="error-text">{item.error}</small
                 >{/if}{#each item.warnings as warning}<small class="muted"
                   >{warning}</small
                 >{/each}

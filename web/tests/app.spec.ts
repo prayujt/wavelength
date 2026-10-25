@@ -709,3 +709,130 @@ test('timed lyrics follow playback and allow manual browsing before resuming', a
     .toBeGreaterThan(100);
   await page.screenshot({ path: info.outputPath('lyrics-dark.png') });
 });
+
+test('search summaries distinguish a partially saved result set from fully in library', async ({
+  page,
+}) => {
+  await signedIn(page, true);
+  const another = {
+    ...external,
+    ref: { provider: 'itunes', id: '124' },
+    title: 'Another Light',
+  };
+  await page.route('**/wavelength.v1.DiscoveryService/Search', (route) =>
+    route.fulfill({ json: { tracks: [external, another] } }),
+  );
+  await findNewMusic(page);
+  await expect(page.locator('.library-summary')).toHaveText(
+    '1 of 2 songs in library',
+  );
+  await page.evaluate(
+    (ref) =>
+      window.testMusicEvent({
+        libraryUpdated: { track: { metadataRef: ref, trackId: 'track-2' } },
+      }),
+    another.ref,
+  );
+  await expect(page.locator('.library-summary')).toContainText(
+    'Fully in library',
+  );
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Search music' });
+  await palette.getByRole('combobox').fill('The Morning');
+  await expect(palette.locator('.library-summary')).toHaveText(
+    '1 of 2 songs in library',
+  );
+  await page.evaluate(
+    (ref) =>
+      window.testMusicEvent({
+        libraryUpdated: { track: { metadataRef: ref, trackId: 'track-2' } },
+      }),
+    another.ref,
+  );
+  await expect(palette.locator('.library-summary')).toContainText(
+    'Fully in library',
+  );
+});
+
+test('Cmd/Ctrl+K can open the full Discover search with its query', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.goto('/');
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Search music' });
+  await palette.getByRole('combobox').fill('The Morning');
+  await palette.getByRole('option', { name: /Search in Discover/ }).click();
+  await expect(palette).not.toBeVisible();
+  await expect(
+    page.getByRole('textbox', { name: 'Search for new music' }),
+  ).toHaveValue('The Morning');
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/#discover\?q=The\+Morning&category=all$/);
+});
+
+test('download history and job details scroll independently without moving the page', async ({
+  page,
+}, info) => {
+  await signedIn(page);
+  const manyItems = Array.from({ length: 40 }, (_, index) => ({
+    ...importedJob.items[0],
+    state: 'needs_selection',
+    error:
+      'choose a recording with find_audio_sources, then retry this item with its source reference',
+    metadata: { ...external, title: `Song ${index + 1}` },
+  }));
+  const jobs = Array.from({ length: 20 }, (_, index) => ({
+    ...importedJob,
+    id: `import-${index + 1}`,
+    state: 'needs_selection',
+    items: manyItems,
+  }));
+  await page.route('**/wavelength.v1.IngestionService/ListImports', (route) =>
+    route.fulfill({ json: { imports: jobs, total: 20 } }),
+  );
+  await page.goto('/#imports');
+  await expect(
+    page.getByRole('heading', { name: 'Choose a recording' }),
+  ).toBeVisible();
+  await expect(page.locator('.job-detail')).not.toContainText(
+    'find_audio_sources',
+  );
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(size);
+    const list = page.locator('.job-list');
+    const detail = page.locator('.job-detail');
+    await expect
+      .poll(() =>
+        detail.evaluate(
+          (element) => element.scrollHeight > element.clientHeight,
+        ),
+      )
+      .toBe(true);
+    await expect
+      .poll(() =>
+        list.evaluate((element) => element.scrollHeight > element.clientHeight),
+      )
+      .toBe(true);
+    await list.evaluate((element) => (element.scrollTop = 160));
+    await detail.evaluate((element) => (element.scrollTop = 300));
+    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollHeight),
+    ).toBeLessThanOrEqual(size.height);
+    expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(
+      0,
+    );
+    expect(
+      await detail.evaluate((element) => element.scrollTop),
+    ).toBeGreaterThan(0);
+    await page.screenshot({
+      path: info.outputPath(`downloads-${size.width}.png`),
+    });
+  }
+});

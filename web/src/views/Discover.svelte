@@ -11,6 +11,7 @@
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import ExternalTracks from '../components/ExternalTracks.svelte';
+  import LibraryStatus from '../components/LibraryStatus.svelte';
   let {
     basket,
     player,
@@ -34,6 +35,10 @@
   let checking = $state(false);
   let error = $state('');
   let controller: AbortController | undefined;
+  const saved = $derived(
+    discovery.results?.tracks.filter((track) => basket.localID(track)).length ||
+      0,
+  );
   onMount(() => {
     discovery.category = ['all', 'tracks', 'releases', 'artists'].includes(
       initialCategory,
@@ -172,12 +177,19 @@
     >
       <div class="section-heading">
         <h2>Songs</h2>
-        <button
-          class="text-button accent"
-          disabled={checking}
-          onclick={() => basket.add(discovery.results?.tracks || [])}
-          >Select missing songs</button
-        >
+        <div class="entity-actions">
+          <LibraryStatus
+            {saved}
+            total={discovery.results.tracks.length}
+            {checking}
+          />
+          <button
+            class="text-button accent"
+            disabled={checking || saved === discovery.results.tracks.length}
+            onclick={() => basket.add(discovery.results?.tracks || [])}
+            >Select missing songs</button
+          >
+        </div>
       </div>
       <ExternalTracks
         tracks={discovery.results.tracks}

@@ -22,6 +22,11 @@ through the API; they do not have screens yet.
 Search results, category, selection, and scroll position survive artist/album
 browsing. The URL retains the submitted search and category for reloads. Completed
 download artwork and titles link into the local library, with artist links too.
+Song results show how many of the returned songs are already saved, changing to
+Fully in library when all are present. Album pages count the full release track
+list. Cmd/Ctrl+K also offers Search in Discover to open the full search page with
+the current query. Downloads keeps its compact history list and job details in
+separate scroll areas, including on mobile.
 
 One authenticated `RealtimeService.Subscribe` stream updates job progress and
 existing-download badges across pages and browser tabs. Reconnects refresh the

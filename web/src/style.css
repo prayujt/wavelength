@@ -424,6 +424,16 @@ kbd {
   max-width: 1500px;
   margin: 0 auto;
 }
+.content.downloads-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 136px);
+  overflow: hidden;
+}
+.downloads-page > .page-heading,
+.downloads-page > .pagination {
+  flex-shrink: 0;
+}
 .page-heading {
   display: flex;
   justify-content: space-between;
@@ -927,6 +937,16 @@ label {
   overflow-y: auto;
   margin: 18px -2px;
 }
+.library-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.library-summary.complete {
+  color: var(--positive);
+}
 .review-track {
   display: flex;
   gap: 11px;
@@ -1031,17 +1051,26 @@ label {
 }
 .imports-layout {
   display: grid;
-  grid-template-columns: minmax(250px, 0.75fr) minmax(310px, 1.25fr);
-  gap: 22px;
-  align-items: start;
+  grid-template-columns: minmax(210px, 260px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
 }
 .job-list {
   display: flex;
   flex-direction: column;
   gap: 7px;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--nav-line) transparent;
 }
 .job-card {
-  display: flex;
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr);
   align-items: center;
   gap: 11px;
   padding: 13px;
@@ -1049,6 +1078,14 @@ label {
   border-radius: 5px;
   text-align: left;
   background: var(--surface-raised);
+  flex-shrink: 0;
+}
+.job-card > .status {
+  grid-column: 2;
+  justify-self: start;
+}
+.job-card .job-icon {
+  grid-row: 1 / span 2;
 }
 .job-card.active {
   border-color: var(--nav-line);
@@ -1065,6 +1102,9 @@ label {
 .job-card strong {
   font-size: 11px;
   line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .job-card small {
   color: var(--muted);
@@ -1088,6 +1128,11 @@ label {
   color: var(--positive);
 }
 .job-detail {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--nav-line) transparent;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 20px;
@@ -1637,9 +1682,6 @@ label {
   .content {
     padding: 26px 24px;
   }
-  .imports-layout {
-    grid-template-columns: 1fr;
-  }
   .player {
     grid-template-columns: minmax(0, 1fr) minmax(200px, 1fr) auto;
     gap: 14px;
@@ -1650,6 +1692,14 @@ label {
   }
 }
 @media (max-width: 760px) {
+  .content.downloads-page {
+    height: calc(100dvh - 174px);
+  }
+  .imports-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(70px, 100px) minmax(0, 1fr);
+    gap: 12px;
+  }
   .app-shell,
   .app-shell.sidebar-collapsed {
     display: block;
