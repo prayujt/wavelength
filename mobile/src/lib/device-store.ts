@@ -91,7 +91,11 @@ export function announce() {
 export const accountKey = (server: string, user: string) => JSON.stringify([server, user]);
 export const partition = (account: LocalAccount) => 'account:' + account.key + ':';
 export async function remember(server: string, user: LocalUser) {
-  const account = { key: accountKey(server, user.id), server, user };
+  const account = {
+    key: accountKey(server, user.id),
+    server,
+    user: { id: user.id, name: user.name, email: user.email },
+  };
   await write('active-account', account);
   announce();
   return account;

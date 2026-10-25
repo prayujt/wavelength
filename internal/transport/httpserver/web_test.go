@@ -62,6 +62,7 @@ func TestPWASubpathFallbackAndHeaders(t *testing.T) {
 		body   string
 	}{
 		{"/", 200, "website"}, {"/app", 308, ""}, {"/app/", 200, "expo application"},
+		{"/app/index.html", 301, ""},
 		{"/app/library", 200, "expo application"}, {"/app/album/123", 200, "expo application"},
 		{"/app/oauth/callback?code=secret", 200, "expo application"},
 		{"/app/missing.js", 404, ""}, {"/app/_expo/missing", 404, ""},

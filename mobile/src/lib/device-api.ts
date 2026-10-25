@@ -72,7 +72,8 @@ async function localRead(
   input: JsonObject,
 ): Promise<JsonValue | undefined> {
   const prefix = partition(account);
-  if (service === 'user' && method === 'getCurrentUser') return { user: account.user };
+  if (service === 'user' && method === 'getCurrentUser')
+    return { user: { id: account.user.id, name: account.user.name, email: account.user.email } };
   if (service === 'user' && method === 'getQueue')
     return { queue: (await read<JsonObject>(prefix + 'queue')) || {} };
   if (service === 'library') {

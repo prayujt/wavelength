@@ -22,6 +22,12 @@ let workerRevision = 0;
 const server = createServer(async (request, response) => {
   try {
     const path = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
+    // Match the production Go file server's canonical index redirect, so the
+    // offline browser tests cannot accidentally depend on a redirected shell.
+    if (path === '/app/index.html') {
+      response.writeHead(301, { Location: './' }).end();
+      return;
+    }
     if (path === '/__test/update' && request.method === 'POST') {
       workerRevision++;
       response.writeHead(204).end();

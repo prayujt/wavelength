@@ -31,6 +31,7 @@ type Service struct {
 	deps     Dependencies
 	root     Root
 	files    *os.Root
+	dirsMu   sync.Mutex
 	staging  string
 	ctx      context.Context
 	cancel   context.CancelFunc

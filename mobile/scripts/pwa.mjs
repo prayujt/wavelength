@@ -17,9 +17,15 @@ async function walk(root) {
 }
 const files = (await walk(root)).sort();
 const hash = createHash('sha256');
+// A worker-only change must get a fresh disposable cache as well.
+hash.update(await readFile(new URL(import.meta.url)));
 for (const file of files) hash.update(await readFile(file));
 const cache = 'wavelength-app-shell-' + hash.digest('hex').slice(0, 16);
-const assets = files.map((file) => '/app/' + file.slice(root.length + 1));
+// Go's file server redirects index.html to ./; caching that redirected Response
+// makes Chromium reject an offline navigation. Precache the canonical URL.
+const assets = files.map((file) =>
+  file === join(root, 'index.html') ? '/app/' : '/app/' + file.slice(root.length + 1),
+);
 const worker = `// Generated from the actual Expo export. Music/account databases are never touched.
 const CACHE = ${JSON.stringify(cache)};
 const ASSETS = ${JSON.stringify(assets)};
@@ -41,7 +47,7 @@ self.addEventListener('fetch', event => {
   if (request.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith('/app/')) return;
   if (request.mode === 'navigate') {
     // Never persist OAuth codes, queries or callback responses. Only the clean shell.
-    event.respondWith(caches.open(CACHE).then(cache => cache.match('/app/index.html')).then(response => response || fetch(request)));
+    event.respondWith(caches.open(CACHE).then(cache => cache.match('/app/')).then(response => response || fetch(request)));
     return;
   }
   if (!ASSETS.includes(url.pathname) || url.search) return;
