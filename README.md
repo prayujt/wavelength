@@ -22,8 +22,8 @@ docker run --rm --name wavelength \
 ```
 
 Replace the source path with your music directory. Keep the data volume between
-runs: it holds the catalog and application state. Music acquisition needs a writable music mount. Playback alone works with a
-read-only mount. Imports create new files; existing source files are not rewritten.
+runs: it holds the catalog and application state. Music acquisition needs a
+writable music mount. Playback alone works with a read-only mount. Imports create new files; existing source files are not rewritten.
 
 Pushes to `main` publish `docker.prayujt.com/wavelength:latest` and a tag containing
 the full commit SHA. Images are built with [ko](https://ko.build/) on an Alpine
@@ -34,7 +34,7 @@ runtime base. See the [build workflow](.github/workflows/build.yml).
 Wavelength exposes a separate Subsonic-compatible listener for existing music
 clients. It supports library browsing and search, playlists, bookmarks and playback
 queues, cover art, lyrics, downloads, audio transcoding, and audio HLS. It uses the
-same indexed library and storage as the native API.
+same catalog and storage as the native API.
 
 To enable it in the Docker command above, add these options before the image name:
 

@@ -135,7 +135,7 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 	})
 	registerPersonal(s, data)
 	if len(acquisition) > 0 {
-		registerAcquisition(s, manager, acquisition[0])
+		registerAcquisition(s, acquisition[0])
 	}
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 1 << 20, PropagateRequestCancellation: true,

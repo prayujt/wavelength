@@ -3,6 +3,7 @@ package auth_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -55,8 +56,11 @@ type ingestSource struct {
 func (*ingestSource) Candidates(context.Context, discovery.Track) ([]discovery.Candidate, error) {
 	return []discovery.Candidate{{Ref: audioRef, Title: "Imported Tone", Uploader: "Imported Artist", Duration: .25, Score: .99, Suitable: true}}, nil
 }
-func (s *ingestSource) Download(ctx context.Context, _ discovery.Ref, path string) error {
+func (s *ingestSource) Download(ctx context.Context, ref discovery.Ref, path string) error {
 	s.downloads.Add(1)
+	if ref.ID == "abcdefghijk" {
+		return errors.New("fixture recording unavailable")
+	}
 	if s.block {
 		select {
 		case s.started <- struct{}{}:
@@ -91,15 +95,19 @@ func acquisitionFixture(t *testing.T, source *ingestSource) *httptest.Server {
 	})
 	return server
 }
-func waitImport(t *testing.T, client wavelengthv1connect.IngestionServiceClient, token, id string) *pb.ImportJob {
+func waitImport(t *testing.T, client wavelengthv1connect.IngestionServiceClient, token, id string, states ...string) *pb.ImportJob {
 	t.Helper()
+	want := ingest.Completed
+	if len(states) > 0 {
+		want = states[0]
+	}
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
 		r, err := client.GetImport(context.Background(), rpcRequest(token, &pb.GetImportRequest{Id: id}))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if r.Msg.State == ingest.Completed {
+		if r.Msg.State == want {
 			return r.Msg
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -196,6 +204,23 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	if source.downloads.Load() != 1 {
 		t.Fatal("duplicate acquisition", source.downloads.Load())
 	}
+	// A failed source can be replaced through MCP after the job was created by RPC.
+	failed, err := client.CreateImport(context.Background(), rpcRequest(alice.Access, &pb.CreateImportRequest{RequestId: "failed-source", Items: []*pb.ImportSelection{{MetadataRef: &pb.ProviderRef{Provider: "itunes", Id: "456"}, SourceRef: &pb.ProviderRef{Provider: "youtube", Id: "abcdefghijk"}}}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitImport(t, client, alice.Access, failed.Msg.Id, ingest.Failed)
+	tool(t, mcpAlice, "retry_import", map[string]any{"id": failed.Msg.Id, "overrides": []any{map[string]any{"index": 0, "source_ref": audioRef}}}, false)
+	waitImport(t, client, alice.Access, failed.Msg.Id)
+	// Release expansion and ordered playlist attachment use the same completed ID.
+	playlist := tool(t, mcpAlice, "create_playlist", map[string]any{"name": "Imported album"}, false)["playlist"].(map[string]any)
+	release := tool(t, mcpAlice, "import_music", map[string]any{"request_id": "album", "release_ref": externalRef, "playlist_id": playlist["id"]}, false)
+	waitImport(t, client, alice.Access, release["id"].(string))
+	saved := tool(t, mcpAlice, "get_playlist", map[string]any{"id": playlist["id"]}, false)["playlist"].(map[string]any)
+	if saved["track_ids"].([]any)[0] != job.Items[0].TrackId {
+		t.Fatal(saved)
+	}
+
 }
 func TestMCPImportCancellationAndSourceOverride(t *testing.T) {
 	source := &ingestSource{block: true, started: make(chan struct{}, 1)}

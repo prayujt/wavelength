@@ -40,7 +40,9 @@ func fakeCommand(t *testing.T, body string) *Client {
 	if err := os.WriteFile(path, []byte("#!/bin/sh\n"+body), 0700); err != nil {
 		t.Fatal(err)
 	}
-	return &Client{binary: path}
+	client := New()
+	client.binary = path
+	return client
 }
 func TestCandidatesAreRankedAndDownloadArgumentsAreBounded(t *testing.T) {
 	args := filepath.Join(t.TempDir(), "arguments")

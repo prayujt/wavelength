@@ -378,3 +378,46 @@ func TestSubmissionContextDoesNotOwnTheDownload(t *testing.T) {
 	close(gate)
 	wait(t, f.s, "alice", j.ID, ingest.Completed)
 }
+
+func TestRestartCleansCancellationRecordedBeforeShutdown(t *testing.T) {
+	f := setup(t, writeAudio, metadata{}, nil)
+	f.s.Close()
+	f.s = nil
+	reached := make(chan struct{})
+	f.deps.Store = interruptedPublication{Store: f.store, reached: reached}
+	f.start(t)
+	j := create(t, f.s, "alice", request("cancel-before-crash"))
+	<-reached
+	f.s.Close()
+	f.s = nil
+	j, err := f.store.Update(context.Background(), j.ID, func(j *ingest.Job) error {
+		j.State = ingest.Cancelled
+		j.Items[0].State = ingest.Cancelled
+		j.Cleaned = false
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(f.root.Path, j.Items[0].Prepared.Track.Path)
+	if _, err = os.Stat(path); err != nil {
+		t.Fatal("prepared file never reached publication boundary", err)
+	}
+	f.deps.Store = f.store
+	f.start(t)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		current, err := f.s.Get(context.Background(), "alice", j.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if current.Cleaned {
+			if _, err = os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+				t.Fatal("unpublished cancelled file remains", err)
+			}
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("cancellation cleanup was not recovered")
+}

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/dhowden/tag"
 	"github.com/prayujt/wavelength/internal/discovery"
@@ -72,6 +73,15 @@ func TestArtworkRequestsRejectUntrustedLocations(t *testing.T) {
 	for _, url := range []string{"http://127.0.0.1/private", "https://mzstatic.com.evil.example/cover", "https://user:password@is1.mzstatic.com/cover", "https://is1.mzstatic.com:8443/cover"} {
 		if _, _, err := m.cover(context.Background(), url); err == nil {
 			t.Fatal("untrusted artwork URL accepted", url)
+		}
+	}
+}
+
+func TestProviderNamesStayWithinDirectoryComponents(t *testing.T) {
+	for _, name := range []string{"../outside", "/tmp/music", "..", "artist\\album", strings.Repeat("🎵", 200)} {
+		component := component(name, "Unknown Artist")
+		if component == "." || component == ".." || strings.ContainsAny(component, "/\\") || len(component) > 200 || !utf8.ValidString(component) {
+			t.Fatal(name, component)
 		}
 	}
 }

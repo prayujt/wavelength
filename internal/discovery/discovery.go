@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
@@ -91,13 +92,17 @@ func (s *Service) Search(ctx context.Context, query string, limit int) (Results,
 	if limit == 0 {
 		limit = 10
 	}
-	return s.metadata.Search(ctx, query, limit)
+	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	return s.metadata.Search(lookup, query, limit)
 }
 func (s *Service) Track(ctx context.Context, ref Ref) (Track, error) {
 	if !ref.ValidMetadata() {
 		return Track{}, ErrInvalid
 	}
-	t, err := s.metadata.Track(ctx, ref)
+	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	t, err := s.metadata.Track(lookup, ref)
 	if err == nil && (t.Ref != ref || t.Title == "" || t.Artist == "" || t.Duration <= 0) {
 		return Track{}, fmt.Errorf("%w: incomplete track metadata", ErrUnavailable)
 	}
@@ -107,7 +112,9 @@ func (s *Service) Release(ctx context.Context, ref Ref) (Release, error) {
 	if !ref.ValidMetadata() {
 		return Release{}, ErrInvalid
 	}
-	r, err := s.metadata.Release(ctx, ref)
+	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	r, err := s.metadata.Release(lookup, ref)
 	if err == nil && (r.Ref != ref || len(r.Tracks) == 0 || len(r.Tracks) > 200) {
 		return Release{}, fmt.Errorf("%w: release must contain 1..200 tracks", ErrUnavailable)
 	}
@@ -124,7 +131,9 @@ func (s *Service) Artist(ctx context.Context, ref Ref) (Artist, error) {
 	if !ref.ValidMetadata() {
 		return Artist{}, ErrInvalid
 	}
-	return s.metadata.Artist(ctx, ref)
+	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	return s.metadata.Artist(lookup, ref)
 }
 func (s *Service) FindSources(ctx context.Context, ref Ref) ([]Candidate, error) {
 	t, err := s.Track(ctx, ref)
@@ -146,5 +155,7 @@ func Select(candidates []Candidate) (Ref, bool) {
 }
 
 func (s *Service) Candidates(ctx context.Context, t Track) ([]Candidate, error) {
-	return s.sources.Candidates(ctx, t)
+	lookup, cancel := context.WithTimeout(ctx, 60*time.Second)
+	defer cancel()
+	return s.sources.Candidates(lookup, t)
 }

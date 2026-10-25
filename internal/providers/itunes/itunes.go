@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -63,7 +64,10 @@ func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, e
 			}
 		}
 		if err := c.limiter.Wait(ctx); err != nil {
-			return nil, err
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			return nil, discovery.ErrUnavailable
 		}
 		req, err := http.NewRequestWithContext(ctx, "GET", c.base+path+"?"+q.Encode(), nil)
 		if err != nil {
@@ -154,6 +158,13 @@ func (c *Client) Release(ctx context.Context, r discovery.Ref) (discovery.Releas
 	if len(out.Tracks) == 0 {
 		return out, fmt.Errorf("%w: empty release", discovery.ErrNotFound)
 	}
+	sort.SliceStable(out.Tracks, func(i, j int) bool {
+		a, b := out.Tracks[i], out.Tracks[j]
+		if a.DiscNumber != b.DiscNumber {
+			return a.DiscNumber < b.DiscNumber
+		}
+		return a.TrackNumber < b.TrackNumber
+	})
 	return out, nil
 }
 func (c *Client) Artist(ctx context.Context, r discovery.Ref) (discovery.Artist, error) {

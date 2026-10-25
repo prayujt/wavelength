@@ -42,7 +42,8 @@ with sync_playwright() as playwright:
         if args["mode"] == "old-policy-control":
             assert page.locator('meta[name="referrer"]').count() == 0
         print("Consent document loaded", flush=True)
-        assert page.locator(".permissions li").count() == 2
+        assert page.locator(".permissions li").count() == 3
+        assert page.get_by_text("Acquire music", exact=True).is_visible()
         assert page.locator("button").count() == 2
         # The CSP nonce must permit the embedded design; no external assets/scripts.
         assert page.locator(".card").evaluate("e => getComputedStyle(e).borderRadius") == "20px"

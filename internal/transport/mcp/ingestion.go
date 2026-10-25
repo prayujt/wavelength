@@ -58,7 +58,7 @@ func addAcquisition[In any](s *mcp.Server, name, description string, mutate, ext
 		return nil, out, nil
 	})
 }
-func registerAcquisition(s *mcp.Server, manager *auth.Manager, a Acquisition) {
+func registerAcquisition(s *mcp.Server, a Acquisition) {
 	addAcquisition(s, "search_music", "Search external music metadata for songs, albums and artists. This does not download anything; list_tracks searches the local library.", false, true, func(ctx context.Context, in browseInput) (object, error) {
 		if in.Offset != 0 {
 			return nil, discovery.ErrInvalid
