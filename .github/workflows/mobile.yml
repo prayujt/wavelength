@@ -1,0 +1,51 @@
+name: Mobile
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "proto/**"
+      - "web/public/mobile-auth.*"
+      - ".github/workflows/mobile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "proto/**"
+      - "web/public/mobile-auth.*"
+      - ".github/workflows/mobile.yml"
+permissions:
+  contents: read
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: mobile/.node-version
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - run: npm ci
+      - run: npm run generate && git diff --exit-code -- src/gen
+      - run: npm run check && npm run lint && npm run format:check
+      - run: npx expo install --check && npx expo-doctor
+      - run: npm run check:native
+      - run: npm test
+      - run: npx expo export --platform all --max-workers 2
+      - run: npx playwright install --with-deps --only-shell chromium
+      - run: npm run test:ui
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: mobile-review-failure
+          path: |
+            mobile/playwright-report/
+            mobile/test-results/
+          retention-days: 7

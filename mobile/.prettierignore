@@ -1,0 +1,8 @@
+node_modules/
+.expo/
+dist/
+src/gen/
+test-results/
+playwright-report/
+package-lock.json
+assets/
