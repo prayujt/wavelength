@@ -3,6 +3,7 @@ package discovery
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -67,6 +68,8 @@ type Candidate struct {
 	Score    float64 `json:"score"`
 	Suitable bool    `json:"suitable"`
 	Reason   string  `json:"reason"`
+	// Evidence is provider metadata for internal ranking, not part of the API.
+	Evidence json.RawMessage `json:"-"`
 }
 
 type Metadata interface {
@@ -81,9 +84,17 @@ type Sources interface {
 type Service struct {
 	metadata Metadata
 	sources  Sources
+	ranker   Ranker
+	policy   SelectionPolicy
 }
 
-func New(metadata Metadata, sources Sources) *Service { return &Service{metadata, sources} }
+func New(metadata Metadata, sources Sources, options ...Option) *Service {
+	s := &Service{metadata: metadata, sources: sources, policy: SelectionPolicy{MinimumScore: .85, MinimumMargin: .05}}
+	for _, option := range options {
+		option(s)
+	}
+	return s
+}
 func (s *Service) Search(ctx context.Context, query string, limit int) (Results, error) {
 	query = strings.TrimSpace(query)
 	if query == "" || len(query) > 300 || limit < 0 || limit > 50 {
@@ -143,19 +154,12 @@ func (s *Service) FindSources(ctx context.Context, ref Ref) ([]Candidate, error)
 	return s.Candidates(ctx, t)
 }
 
-// Select only automates a strong, unambiguous match. Scores are heuristics, not probabilities.
-func Select(candidates []Candidate) (Ref, bool) {
-	if len(candidates) == 0 || !candidates[0].Suitable || candidates[0].Score < .85 {
-		return Ref{}, false
-	}
-	if len(candidates) > 1 && candidates[1].Suitable && candidates[0].Score-candidates[1].Score < .05 {
-		return Ref{}, false
-	}
-	return candidates[0].Ref, true
-}
-
 func (s *Service) Candidates(ctx context.Context, t Track) ([]Candidate, error) {
 	lookup, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
-	return s.sources.Candidates(lookup, t)
+	candidates, err := s.sources.Candidates(lookup, t)
+	if err != nil || s.ranker == nil || len(candidates) == 0 {
+		return candidates, err
+	}
+	return s.rank(lookup, t, candidates)
 }

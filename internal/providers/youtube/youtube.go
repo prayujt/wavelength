@@ -78,20 +78,24 @@ func (c *Client) Candidates(ctx context.Context, t discovery.Track) ([]discovery
 		return nil, fmt.Errorf("%w: %v", discovery.ErrUnavailable, err)
 	}
 	var response struct {
-		Entries []struct {
+		Entries []json.RawMessage `json:"entries"`
+	}
+	if err = json.Unmarshal(raw, &response); err != nil {
+		return nil, discovery.ErrUnavailable
+	}
+	out := []discovery.Candidate{}
+	for _, entry := range response.Entries {
+		var e struct {
 			ID       string  `json:"id"`
 			Title    string  `json:"title"`
 			Uploader string  `json:"uploader"`
 			Channel  string  `json:"channel"`
 			Duration float64 `json:"duration"`
 			Live     bool    `json:"is_live"`
-		} `json:"entries"`
-	}
-	if err = json.Unmarshal(raw, &response); err != nil {
-		return nil, discovery.ErrUnavailable
-	}
-	out := []discovery.Candidate{}
-	for _, e := range response.Entries {
+		}
+		if err := json.Unmarshal(entry, &e); err != nil {
+			return nil, discovery.ErrUnavailable
+		}
 		r := discovery.Ref{Provider: "youtube", ID: e.ID}
 		if !r.ValidSource() || e.Live {
 			continue
@@ -101,7 +105,7 @@ func (c *Client) Candidates(ctx context.Context, t discovery.Track) ([]discovery
 			uploader = e.Channel
 		}
 		score, suitable, reason := match(t, e.Title, uploader, e.Duration)
-		out = append(out, discovery.Candidate{Ref: r, Title: e.Title, Uploader: uploader, Duration: e.Duration, Score: score, Suitable: suitable, Reason: reason})
+		out = append(out, discovery.Candidate{Ref: r, Title: e.Title, Uploader: uploader, Duration: e.Duration, Score: score, Suitable: suitable, Reason: reason, Evidence: entry})
 	}
 	sort.SliceStable(out, func(i, j int) bool { return out[i].Score > out[j].Score })
 	return out, nil

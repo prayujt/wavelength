@@ -201,6 +201,46 @@ func TestAmbiguousMatchRequiresSelectionAndRetry(t *testing.T) {
 	}
 	wait(t, f.s, "alice", j.ID, ingest.Completed)
 }
+
+type unavailableRanker struct{ calls *atomic.Int32 }
+
+func (r unavailableRanker) Rank(context.Context, discovery.Track, []discovery.Candidate) ([]discovery.Candidate, error) {
+	r.calls.Add(1)
+	return nil, errors.New("ranking provider unavailable")
+}
+
+func TestRankingOutagePausesAndExplicitRetryBypassesRanking(t *testing.T) {
+	var downloads, rankings atomic.Int32
+	candidates := []discovery.Candidate{{Ref: recording, Score: 1, Suitable: true}}
+	f := setup(t, func(ctx context.Context, ref discovery.Ref, path string) error {
+		downloads.Add(1)
+		if ref != recording {
+			t.Error("explicit source was not honored")
+		}
+		return writeAudio(ctx, ref, path)
+	}, metadata{}, candidates)
+	f.s.Close()
+	f.s = nil
+	f.deps.Discovery = discovery.New(metadata{}, sources{candidates}, discovery.WithRanking(unavailableRanker{&rankings}, discovery.SelectionPolicy{MinimumScore: .9, MinimumMargin: .03}))
+	f.start(t)
+	r := request("ranking-outage")
+	r.Items[0].SourceRef = discovery.Ref{}
+	j, err := f.s.Create(context.Background(), "alice", r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wait(t, f.s, "alice", j.ID, ingest.NeedsSelection)
+	if downloads.Load() != 0 || rankings.Load() != 1 {
+		t.Fatal("outage did not pause automatic import")
+	}
+	if _, err := f.s.Retry(context.Background(), "alice", j.ID, []ingest.Override{{Index: 0, SourceRef: recording}}); err != nil {
+		t.Fatal(err)
+	}
+	wait(t, f.s, "alice", j.ID, ingest.Completed)
+	if downloads.Load() != 1 || rankings.Load() != 1 {
+		t.Fatal("explicit retry contacted ranking provider")
+	}
+}
 func TestCancelStopsWorkAndKeepsCompletedItems(t *testing.T) {
 	started := make(chan struct{})
 	stopped := make(chan struct{})

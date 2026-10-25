@@ -14,7 +14,7 @@ func TestSelectRequiresAStrongUnambiguousRecording(t *testing.T) {
 		{[]Candidate{{Ref: source, Score: .99, Suitable: true}, {Ref: source, Score: .98, Suitable: true}}, false},
 		{[]Candidate{{Ref: source, Score: .99, Suitable: true}, {Ref: source, Score: .7, Suitable: false}}, true},
 	} {
-		_, ok := Select(test.candidates)
+		_, ok := New(nil, nil).Select(test.candidates)
 		if ok != test.want {
 			t.Fatal(test, ok)
 		}

@@ -2,6 +2,7 @@ package youtube
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -79,5 +80,24 @@ func TestCancellationStopsTheDownloaderProcess(t *testing.T) {
 	_, err := c.run(ctx, "ignored")
 	if err == nil || time.Since(start) > time.Second {
 		t.Fatal(err, time.Since(start))
+	}
+}
+
+func TestCandidatesPreserveAllProviderMetadataForRanking(t *testing.T) {
+	c := fakeCommand(t, `printf '%s' '{"entries":[{"id":"BaW_jenozKc","title":"Song Artist","uploader":"Artist","duration":180,"artist":"Artist","album":"Album","channel_id":"channel-id","channel_is_verified":true,"description":"Provided to YouTube","unknown_future_field":{"nested":true}}]}'`)
+	results, err := c.Candidates(context.Background(), discovery.Track{Title: "Song", Artist: "Artist", Duration: 180})
+	if err != nil || len(results) != 1 {
+		t.Fatal(results, err)
+	}
+	var evidence map[string]any
+	if err := json.Unmarshal(results[0].Evidence, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	if evidence["artist"] != "Artist" || evidence["album"] != "Album" || evidence["channel_id"] != "channel-id" || evidence["channel_is_verified"] != true || evidence["unknown_future_field"] == nil {
+		t.Fatal("provider evidence dropped", evidence)
+	}
+	public, err := json.Marshal(results[0])
+	if err != nil || strings.Contains(string(public), "unknown_future_field") || strings.Contains(string(public), "channel_id") {
+		t.Fatal("internal evidence leaked into API", err)
 	}
 }

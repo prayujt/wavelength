@@ -18,6 +18,12 @@ type Config struct {
 	PublicURL string   `env:"WAVELENGTH_PUBLIC_URL"`
 	OIDC      OIDC     `envPrefix:"WAVELENGTH_OIDC_"`
 	Subsonic  Subsonic `envPrefix:"WAVELENGTH_SUBSONIC_"`
+	Jev       Jev      `envPrefix:"WAVELENGTH_JEV_"`
+}
+
+type Jev struct {
+	APIKey string `env:"API_KEY"`
+	Model  string `env:"MODEL" envDefault:"jev-1.14.0"`
 }
 
 type OIDC struct {
