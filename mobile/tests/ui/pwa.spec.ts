@@ -1,5 +1,8 @@
-import { test, expect, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, chromium, type BrowserContext, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createPreviewFetch } from '../../src/preview/store';
 
 test.describe.configure({ mode: 'serial' });
@@ -395,4 +398,82 @@ test('switching accounts isolates downloads; explicit offline sign-out clears lo
   await expect(
     page.getByRole('button', { name: 'Find your wavelength', exact: true }),
   ).toBeVisible();
+});
+
+test('a legacy redirected shell survives an update and full browser shutdown offline', async ({
+  request,
+}) => {
+  const profile = await mkdtemp(join(tmpdir(), 'wavelength-pwa-upgrade-'));
+  let browser: BrowserContext | undefined;
+  try {
+    await request.post(origin + '/__test/legacy');
+    browser = await chromium.launchPersistentContext(profile, { headless: true });
+    let page = await browser.newPage();
+    await page.goto(origin + '/app/');
+    await page.waitForFunction(() => !!navigator.serviceWorker.controller);
+    const legacyKey = await page.evaluate(async () => {
+      const key = (await caches.keys()).find((key) => key.startsWith('wavelength-app-shell-'))!;
+      if (!(await (await caches.open(key)).match('/app/index.html'))?.redirected)
+        throw new Error('The fixture must reproduce the redirected legacy response');
+      await (
+        await caches.open('wavelength-device-music-v1')
+      ).put('/app/_local/upgrade-probe', new Response('saved music'));
+      const database = await new Promise<IDBDatabase>((resolve) => {
+        const open = indexedDB.open('wavelength-device-v1');
+        open.onsuccess = () => resolve(open.result);
+      });
+      await new Promise<void>((resolve) => {
+        const transaction = database.transaction('state', 'readwrite');
+        transaction.objectStore('state').put('saved session', 'upgrade-probe');
+        transaction.oncomplete = () => resolve();
+      });
+      database.close();
+      return key;
+    });
+    await request.post(origin + '/__test/update');
+    await page.evaluate(async () => {
+      await (await navigator.serviceWorker.getRegistration('/app/'))!.update();
+    });
+    await expect
+      .poll(() =>
+        page.evaluate(
+          async () => (await navigator.serviceWorker.getRegistration())?.waiting?.state,
+        ),
+      )
+      .toBe('installed');
+    expect(
+      await page.evaluate(async (key) => {
+        return (await (await caches.open(key)).match('/app/index.html'))?.redirected;
+      }, legacyKey),
+    ).toBe(false);
+    await browser.close();
+    browser = await chromium.launchPersistentContext(profile, { headless: true });
+    await browser.setOffline(true);
+    page = await browser.newPage();
+    await page.goto(origin + '/app/');
+    await expect(
+      page.getByRole('button', { name: 'Find your wavelength', exact: true }),
+    ).toBeVisible();
+    expect(
+      await page.evaluate(async () => {
+        const music = await (
+          await caches.open('wavelength-device-music-v1')
+        ).match('/app/_local/upgrade-probe');
+        const database = await new Promise<IDBDatabase>((resolve) => {
+          const open = indexedDB.open('wavelength-device-v1');
+          open.onsuccess = () => resolve(open.result);
+        });
+        const session = await new Promise<string>((resolve) => {
+          const read = database.transaction('state').objectStore('state').get('upgrade-probe');
+          read.onsuccess = () => resolve(read.result);
+        });
+        database.close();
+        return { music: await music?.text(), session };
+      }),
+    ).toEqual({ music: 'saved music', session: 'saved session' });
+  } finally {
+    await browser?.close();
+    await request.post(origin + '/__test/update');
+    await rm(profile, { recursive: true, force: true });
+  }
 });

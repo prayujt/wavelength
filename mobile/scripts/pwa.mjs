@@ -29,23 +29,51 @@ const assets = files.map((file) =>
 const worker = `// Generated from the actual Expo export. Music/account databases are never touched.
 const CACHE = ${JSON.stringify(cache)};
 const ASSETS = ${JSON.stringify(assets)};
+async function repairLegacyShells() {
+  for (const key of await caches.keys()) {
+    if (!key.startsWith('wavelength-app-shell-') || key === CACHE) continue;
+    const cache = await caches.open(key);
+    const response = await cache.match('/app/index.html');
+    if (!response?.redirected || response.status !== 200) continue;
+    const url = new URL(response.url);
+    if (url.origin !== self.location.origin || url.pathname !== '/app/' || url.search) continue;
+    // The first release cached Go's index.html redirect. Normalize the response
+    // metadata, preserving the old HTML and its matching assets. Chrome can
+    // resume that worker after a full shutdown even with an update waiting.
+    const headers = new Headers(response.headers);
+    headers.delete('content-encoding');
+    headers.delete('content-length');
+    await cache.put('/app/index.html', new Response(await response.arrayBuffer(), {
+      status: 200, statusText: response.statusText, headers,
+    }));
+  }
+}
 self.addEventListener('install', event => {
   event.waitUntil((async () => {
-    try { await (await caches.open(CACHE)).addAll(ASSETS); }
+    try {
+      await (await caches.open(CACHE)).addAll(ASSETS);
+      await repairLegacyShells();
+    }
     catch (error) { await caches.delete(CACHE); throw error; }
   })());
 });
 // No skipWaiting: a new release waits until old windows close. It cannot interrupt music.
-self.addEventListener('activate', event => event.waitUntil((async () => {
+self.addEventListener('activate', event => event.waitUntil(self.clients.claim()));
+let pruned = false;
+async function pruneShells() {
+  if (pruned) return;
+  pruned = true;
   const shells = (await caches.keys()).filter(key => key.startsWith('wavelength-app-shell-') && key !== CACHE);
   // Keep the previous shell as well; never enumerate/delete music or account data.
   for (const key of shells.slice(0, -1)) await caches.delete(key);
-  await self.clients.claim();
-})()));
+}
 self.addEventListener('fetch', event => {
   const request = event.request, url = new URL(request.url);
   if (request.method !== 'GET' || url.origin !== self.location.origin || !url.pathname.startsWith('/app/')) return;
   if (request.mode === 'navigate') {
+    // Prune only after activation succeeded and this worker serves a navigation.
+    // An interrupted activation must leave the old worker's assets available.
+    event.waitUntil(pruneShells());
     // Never persist OAuth codes, queries or callback responses. Only the clean shell.
     event.respondWith(caches.open(CACHE).then(cache => cache.match('/app/')).then(response => response || fetch(request)));
     return;

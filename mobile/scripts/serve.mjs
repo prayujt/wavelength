@@ -19,6 +19,7 @@ const mime = {
   '.webmanifest': 'application/manifest+json',
 };
 let workerRevision = 0;
+let legacyWorker = false;
 const server = createServer(async (request, response) => {
   try {
     const path = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
@@ -28,8 +29,9 @@ const server = createServer(async (request, response) => {
       response.writeHead(301, { Location: './' }).end();
       return;
     }
-    if (path === '/__test/update' && request.method === 'POST') {
+    if (['/__test/update', '/__test/legacy'].includes(path) && request.method === 'POST') {
       workerRevision++;
+      legacyWorker = path === '/__test/legacy';
       response.writeHead(204).end();
       return;
     }
@@ -51,15 +53,21 @@ const server = createServer(async (request, response) => {
       }
     }
     let data = await readFile(file);
-    if (path === '/app/sw.js' && workerRevision)
-      data = Buffer.from(
-        data
-          .toString()
-          .replace(
-            /wavelength-app-shell-([a-f0-9]+)/,
-            `wavelength-app-shell-$1-test-${workerRevision}`,
-          ),
-      );
+    if (path === '/app/sw.js' && workerRevision) {
+      let worker = data
+        .toString()
+        .replace(
+          /wavelength-app-shell-([a-f0-9]+)/,
+          `wavelength-app-shell-$1-test-${workerRevision}`,
+        );
+      if (legacyWorker)
+        worker = worker
+          .replace('"/app/",', '"/app/index.html",')
+          .replace("cache.match('/app/')).then", "cache.match('/app/index.html')).then")
+          .replace('await repairLegacyShells();', '')
+          .replace('event.waitUntil(pruneShells());', '');
+      data = Buffer.from(worker);
+    }
     const headers = {
       'Content-Type': mime[extname(file)] || 'application/octet-stream',
       'Cache-Control': 'no-store',
