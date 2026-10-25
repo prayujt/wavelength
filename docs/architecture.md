@@ -13,7 +13,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `discovery` | External metadata, provider references and conservative source selection |
 | `ingest` | Durable acquisition jobs, media preparation and explicit publication |
 | `realtime` | Bounded in-process delivery of committed changes to connected clients |
-| `providers/itunes`, `providers/youtube` | Bounded external API and yt-dlp implementations |
+| `providers/itunes`, `providers/youtube`, `providers/jev` | Bounded metadata, yt-dlp and optional Jev ranking implementations |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
@@ -95,7 +95,8 @@ generated files with expiry and process cancellation.
 
 External programs are optional for original playback; FFmpeg powers conversion
 and audio HLS. Ingestion probes only newly downloaded audio; video indexing is absent.
-Discovery and listening history stay local.
+Personal playlists and listening history stay local. Optional Jev ranking sends
+only public music metadata to TypeSafe.
 
 ## Adding a capability or transport
 

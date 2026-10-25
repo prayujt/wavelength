@@ -218,7 +218,7 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			}
 			return s.itemFailure(ctx, j, n, "audio sources could not be resolved", err)
 		}
-		chosen, ok := discovery.Select(candidates)
+		chosen, ok := s.deps.Discovery.Select(candidates)
 		if !ok {
 			return s.changeItem(ctx, j.ID, n, func(i *Item) {
 				i.State = NeedsSelection

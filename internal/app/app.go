@@ -14,6 +14,7 @@ import (
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/providers/itunes"
+	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
@@ -57,7 +58,11 @@ func Run(ctx context.Context, c config.Config) error {
 	if lib != nil {
 		data := userdata.New(database.StateStore{DB: db}, lib)
 		source := youtube.New()
-		discovery := discovery.New(itunes.New(), source)
+		var ranking []discovery.Option
+		if c.Jev.APIKey != "" {
+			ranking = append(ranking, discovery.WithRanking(jev.New(c.Jev.APIKey, c.Jev.Model), jev.Policy()))
+		}
+		discovery := discovery.New(itunes.New(), source, ranking...)
 		rootID, rootPath := lib.SourceRoot()
 		imports, err := ingest.New(ctx, ingest.Root{ID: rootID, Path: rootPath}, filepath.Join(c.DataDir, "ingest"), ingest.Dependencies{Store: database.IngestStore{DB: db}, Discovery: discovery, Downloader: source, Media: ingest.NewAudioMedia(), Playlists: data})
 		if err != nil {

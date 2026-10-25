@@ -17,7 +17,8 @@ Spotify imports are outside this capability. Saved audio can be replaced explici
    for partial and complete library badges; matching a few search hits never proves
    that an entire album is saved.
 3. Find candidate recordings for a track. Results expose uploader, duration, match
-   score, suitability, and a reason. A score is a heuristic, not audio fingerprinting.
+   score, suitability, and a reason. Scores rank metadata evidence, not audio quality
+   or fingerprint identity.
 4. Submit selected tracks or one release. Explicit YouTube source references bypass
    automatic selection. Without one, only strong, unambiguous matches are accepted.
 5. Subscribe to `RealtimeService.Subscribe` before loading the job snapshot, or poll the returned job. Completed items contain local track IDs for existing
@@ -32,6 +33,46 @@ Individual-song imports resolve the album artist from the song's exact iTunes
 collection, keeping guest performers as track artists. If the collection credit
 cannot be resolved, metadata resolution fails before downloading so the import
 can be retried. Search results may leave the album artist unset until resolution.
+
+## Recording ranking
+
+Without `WAVELENGTH_JEV_API_KEY`, ranking uses the existing title-word overlap (45%),
+artist-word overlap (30%), and duration similarity (25%). Automatic selection requires
+a suitable result scoring at least 0.85 with a 0.05 lead over other suitable results.
+
+Set the backend environment variable `WAVELENGTH_JEV_API_KEY` to enable
+[TypeSafe Jev](https://docs.typesafe.ai/api/system-one). The browser and MCP clients
+never receive this key. No RPC, MCP tool, or request/response fields change.
+`WAVELENGTH_JEV_MODEL` defaults to the pinned `jev-1.14.0`; changing the model may
+change its judgments and should be evaluated before relying on automatic selection.
+
+One request evaluates all candidates. It includes the complete resolved iTunes track
+(title, performers, album, album artist, genre, date, duration, track/disc numbers,
+artwork URL and provider reference), each candidate's canonical YouTube URL, title,
+uploader and duration, and **every field** yt-dlp returned for that search entry.
+That includes artist/album, description, channel ID/verification, thumbnails and other
+provider metadata when available. Flat YouTube search does not guarantee those fields;
+missing evidence stays missing. Wavelength does not fetch or listen to candidate audio
+to rank it. Only public music metadata is sent, not users, playlists, or OAuth credentials.
+
+Jev answers two questions per candidate: a Noul probability of the same complete
+recording/version, and a source-evidence rubric from 0 to 4 that favors corroborated
+artist, label or auto-generated releases over uncertain fan uploads. The returned
+rank is `0.8 * recording_probability + 0.2 * source_rubric / 4`. It is a composite
+rank, **not a calibrated percentage of correctness**. Existing title/artist, duration
+and alternate-version checks still apply; Jev cannot override their rejection.
+Suitability also requires recording probability >= 0.95. Automatic selection requires
+rank >= 0.90 and a 0.03 margin over every other suitable candidate. These are conservative
+initial policy values, covered by fixtures rather than a measured music benchmark.
+
+Requests have an eight-second deadline, at most two concurrent calls, and bounded
+input/output. Successful results are cached in memory for ten minutes (up to 256
+track/candidate/model/question combinations). Credentials and upstream error bodies
+are not logged. A timeout, rate limit, invalid answer or oversized input preserves
+candidate choices with score zero, suitability false and a manual-selection reason.
+Automatic imports then pause at `needs_selection`; they never silently fall back to
+heuristic automatic downloading while Jev is enabled. Retrying with an explicit
+`source_ref` bypasses ranking as before. Completed imports and playback are unaffected.
 
 ## Replacing saved audio
 

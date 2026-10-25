@@ -96,7 +96,7 @@ func registerAcquisition(s *mcp.Server, a Acquisition) {
 		release, err := a.Discovery.Release(ctx, in.Ref)
 		return object{"release": release}, err
 	})
-	addAcquisition(s, "find_audio_sources", "Find ranked recordings for a metadata reference. Scores describe title/artist/duration matching, not audio verification. Select a source explicitly when automatic matching is ambiguous.", false, true, func(ctx context.Context, in sourcesInput) (object, error) {
+	addAcquisition(s, "find_audio_sources", "Find ranked recordings for a metadata reference. Scores rank metadata matches and, when enabled, source evidence; they do not verify the audio. Select a source explicitly when automatic matching is ambiguous.", false, true, func(ctx context.Context, in sourcesInput) (object, error) {
 		candidates, err := a.Discovery.FindSources(ctx, in.Ref)
 		return object{"candidates": candidates}, err
 	})

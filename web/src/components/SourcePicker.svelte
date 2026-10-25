@@ -73,7 +73,7 @@
           disabled={busy || !candidate.ref}
           onclick={() => candidate.ref && choose(candidate)}
           ><span class="source-score" class:suitable={candidate.suitable}
-            >{Math.round(candidate.score * 100)}<small>match</small></span
+            >{Math.round(candidate.score * 100)}<small>rank</small></span
           ><span
             ><strong>{candidate.title}</strong><small
               >{candidate.uploader} · {duration(
@@ -97,7 +97,8 @@
       </div>{/each}
   </div>
   <p class="small-text muted">
-    Match scores compare the title, artist, and duration. They are a guide for
-    choosing a recording.
+    Scores rank recording matches using metadata and, when enabled, source
+    evidence. They do not measure audio quality or guarantee the right
+    recording.
   </p>
 </Modal>

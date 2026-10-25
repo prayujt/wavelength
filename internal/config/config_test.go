@@ -24,7 +24,7 @@ func TestLoad(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.Addr != "127.0.0.1:8080" || c.DataDir != "./data" || c.Subsonic.Enabled() {
+	if c.Addr != "127.0.0.1:8080" || c.DataDir != "./data" || c.Subsonic.Enabled() || c.Jev.APIKey != "" || c.Jev.Model != "jev-1.14.0" {
 		t.Fatalf("unexpected defaults: %#v", c)
 	}
 	t.Setenv("WAVELENGTH_MUSIC_DIR", "/music")
@@ -35,6 +35,16 @@ func TestLoad(t *testing.T) {
 	}
 	if c.Subsonic.User != "admin" || c.Subsonic.Addr != "127.0.0.1:8081" {
 		t.Fatal("nested configuration was not decoded")
+	}
+}
+
+func TestJevEnvironment(t *testing.T) {
+	cleanEnvironment(t)
+	t.Setenv("WAVELENGTH_JEV_API_KEY", "test-api-key")
+	t.Setenv("WAVELENGTH_JEV_MODEL", "jev-test-version")
+	c, err := Load()
+	if err != nil || c.Jev.APIKey != "test-api-key" || c.Jev.Model != "jev-test-version" {
+		t.Fatal("Jev backend environment was not decoded")
 	}
 }
 
