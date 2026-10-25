@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file wavelength/v1/realtime.proto.
  */
 export const file_wavelength_v1_realtime: GenFile = /*@__PURE__*/
-  fileDesc("Chx3YXZlbGVuZ3RoL3YxL3JlYWx0aW1lLnByb3RvEg13YXZlbGVuZ3RoLnYxIhIKEFN1YnNjcmliZVJlcXVlc3QiDQoLU3RyZWFtUmVhZHkiEQoPU3RyZWFtSGVhcnRiZWF0IjwKDUxpYnJhcnlVcGRhdGUSKwoFdHJhY2sYASABKAsyHC53YXZlbGVuZ3RoLnYxLkltcG9ydGVkVHJhY2si6QEKDVJlYWx0aW1lRXZlbnQSKwoFcmVhZHkYASABKAsyGi53YXZlbGVuZ3RoLnYxLlN0cmVhbVJlYWR5SAASMgoOaW1wb3J0X3VwZGF0ZWQYAiABKAsyGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYkgAEjcKD2xpYnJhcnlfdXBkYXRlZBgDIAEoCzIcLndhdmVsZW5ndGgudjEuTGlicmFyeVVwZGF0ZUgAEjMKCWhlYXJ0YmVhdBgEIAEoCzIeLndhdmVsZW5ndGgudjEuU3RyZWFtSGVhcnRiZWF0SABCCQoHcGF5bG9hZDJfCg9SZWFsdGltZVNlcnZpY2USTAoJU3Vic2NyaWJlEh8ud2F2ZWxlbmd0aC52MS5TdWJzY3JpYmVSZXF1ZXN0Ghwud2F2ZWxlbmd0aC52MS5SZWFsdGltZUV2ZW50MAFCPlo8Z2l0aHViLmNvbS9wcmF5dWp0L3dhdmVsZW5ndGgvZ2VuL3dhdmVsZW5ndGgvdjE7d2F2ZWxlbmd0aHYxYgZwcm90bzM", [file_wavelength_v1_ingestion]);
+  fileDesc("Chx3YXZlbGVuZ3RoL3YxL3JlYWx0aW1lLnByb3RvEg13YXZlbGVuZ3RoLnYxIhIKEFN1YnNjcmliZVJlcXVlc3QiDQoLU3RyZWFtUmVhZHkiEQoPU3RyZWFtSGVhcnRiZWF0IlYKDUxpYnJhcnlVcGRhdGUSKwoFdHJhY2sYASABKAsyHC53YXZlbGVuZ3RoLnYxLkltcG9ydGVkVHJhY2sSGAoQZGVsZXRlZF90cmFja19pZBgCIAEoCSLpAQoNUmVhbHRpbWVFdmVudBIrCgVyZWFkeRgBIAEoCzIaLndhdmVsZW5ndGgudjEuU3RyZWFtUmVhZHlIABIyCg5pbXBvcnRfdXBkYXRlZBgCIAEoCzIYLndhdmVsZW5ndGgudjEuSW1wb3J0Sm9iSAASNwoPbGlicmFyeV91cGRhdGVkGAMgASgLMhwud2F2ZWxlbmd0aC52MS5MaWJyYXJ5VXBkYXRlSAASMwoJaGVhcnRiZWF0GAQgASgLMh4ud2F2ZWxlbmd0aC52MS5TdHJlYW1IZWFydGJlYXRIAEIJCgdwYXlsb2FkMl8KD1JlYWx0aW1lU2VydmljZRJMCglTdWJzY3JpYmUSHy53YXZlbGVuZ3RoLnYxLlN1YnNjcmliZVJlcXVlc3QaHC53YXZlbGVuZ3RoLnYxLlJlYWx0aW1lRXZlbnQwAUI+WjxnaXRodWIuY29tL3ByYXl1anQvd2F2ZWxlbmd0aC9nZW4vd2F2ZWxlbmd0aC92MTt3YXZlbGVuZ3RodjFiBnByb3RvMw", [file_wavelength_v1_ingestion]);
 
 /**
  * @generated from message wavelength.v1.SubscribeRequest
@@ -61,6 +61,13 @@ export type LibraryUpdate = Message<"wavelength.v1.LibraryUpdate"> & {
    * @generated from field: wavelength.v1.ImportedTrack track = 1;
    */
   track?: ImportedTrack | undefined;
+
+  /**
+   * Removed from the shared library; discard local queue and discovery caches.
+   *
+   * @generated from field: string deleted_track_id = 2;
+   */
+  deletedTrackId: string;
 };
 
 /**

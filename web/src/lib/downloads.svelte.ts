@@ -22,6 +22,7 @@ export class DownloadSelection {
   private requestId = '';
   private importVersion = 0;
   private lookupGeneration = 0;
+  private deletedIDs = new Set<string>();
   private lookedUp = new Set<string>();
   private downloadRequests = new Map<string, string>();
   duration = $derived(
@@ -76,6 +77,14 @@ export class DownloadSelection {
     this.reviewing = false;
   }
 
+  forgetTrack(id: string) {
+    this.deletedIDs.add(id);
+    this.imported = Object.fromEntries(
+      Object.entries(this.imported).filter(([, localID]) => localID !== id),
+    );
+    this.importVersion++;
+    this.invalidateLookups();
+  }
   invalidateLookups() {
     this.lookedUp.clear();
     this.lookupGeneration++;
@@ -190,7 +199,8 @@ export class DownloadSelection {
     this.importVersion++;
     const imported = { ...this.imported };
     for (const match of matches)
-      imported[refKey(match.metadataRef)] = match.trackId;
+      if (!this.deletedIDs.has(match.trackId))
+        imported[refKey(match.metadataRef)] = match.trackId;
     this.imported = imported;
     const remaining = this.tracks.filter((track) => !this.localID(track));
     if (remaining.length !== this.tracks.length) {

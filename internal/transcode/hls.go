@@ -51,9 +51,35 @@ func (s *Service) expire(id string) {
 	}
 }
 
+// PurgeTrack cancels encoders and deletes every cached HLS session for a removed
+// catalog track. Already-open HTTP responses cannot be recalled.
+func (s *Service) PurgeTrack(id string) {
+	s.mu.Lock()
+	var removed []*hlsJob
+	for key, job := range s.jobs {
+		if job.key.track == id {
+			delete(s.jobs, key)
+			job.timer.Stop()
+			removed = append(removed, job)
+		}
+	}
+	s.mu.Unlock()
+	for _, job := range removed {
+		job.cancel()
+		<-job.done
+		_ = os.RemoveAll(job.dir)
+	}
+}
+
 func (s *Service) HLS(ctx context.Context, owner, id string, options HLSOptions) (Playlist, error) {
 	if options.BitRate < 16 || options.BitRate > 100000 {
 		return Playlist{}, ErrInvalid
+	}
+	s.mu.Lock()
+	closed := s.closed
+	s.mu.Unlock()
+	if closed {
+		return Playlist{}, context.Canceled
 	}
 	track, err := s.lib.Get(ctx, id)
 	if err != nil {

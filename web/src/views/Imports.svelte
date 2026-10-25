@@ -61,6 +61,7 @@
     needs_selection: 'Choose a recording to continue',
     cancelled: 'Cancelled',
     failed: 'Download failed',
+    deleted: 'Deleted from library',
   };
   onMount(() => {
     void load();

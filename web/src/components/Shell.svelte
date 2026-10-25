@@ -111,7 +111,9 @@
     }
   }
   onMount(() => {
-    const stopRealtime = realtime.start(basket);
+    const stopRealtime = realtime.start(basket, (id) =>
+      player.discardTrack(id),
+    );
     if (matchMedia('(max-width: 760px)').matches) sidebar = false;
     const sync = () => {
       address = window.location.hash;
@@ -266,6 +268,7 @@
             {realtime}
           />{:else if route.page === 'links'}<Shares
           />{:else if route.page === 'playlists'}<Playlists
+            {realtime}
             {player}
             add={(track) => (adding = track)}
           />{:else}<div class="empty-state">

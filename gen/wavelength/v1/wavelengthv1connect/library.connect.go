@@ -40,6 +40,9 @@ const (
 	LibraryServiceListTracksProcedure = "/wavelength.v1.LibraryService/ListTracks"
 	// LibraryServiceGetTrackProcedure is the fully-qualified name of the LibraryService's GetTrack RPC.
 	LibraryServiceGetTrackProcedure = "/wavelength.v1.LibraryService/GetTrack"
+	// LibraryServiceDeleteTrackProcedure is the fully-qualified name of the LibraryService's
+	// DeleteTrack RPC.
+	LibraryServiceDeleteTrackProcedure = "/wavelength.v1.LibraryService/DeleteTrack"
 	// LibraryServiceListArtistsProcedure is the fully-qualified name of the LibraryService's
 	// ListArtists RPC.
 	LibraryServiceListArtistsProcedure = "/wavelength.v1.LibraryService/ListArtists"
@@ -108,6 +111,9 @@ const (
 type LibraryServiceClient interface {
 	ListTracks(context.Context, *connect.Request[v1.ListTracksRequest]) (*connect.Response[v1.ListTracksResponse], error)
 	GetTrack(context.Context, *connect.Request[v1.GetTrackRequest]) (*connect.Response[v1.GetTrackResponse], error)
+	// Permanently deletes a shared local track, its files and collection references.
+	// Requires a named user and wavelength:write + wavelength:ingest.
+	DeleteTrack(context.Context, *connect.Request[v1.DeleteTrackRequest]) (*connect.Response[v1.EmptyResponse], error)
 	ListArtists(context.Context, *connect.Request[v1.ListArtistsRequest]) (*connect.Response[v1.ListArtistsResponse], error)
 	GetArtist(context.Context, *connect.Request[v1.GetArtistRequest]) (*connect.Response[v1.GetArtistResponse], error)
 	ListAlbums(context.Context, *connect.Request[v1.ListAlbumsRequest]) (*connect.Response[v1.ListAlbumsResponse], error)
@@ -141,6 +147,12 @@ func NewLibraryServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+LibraryServiceGetTrackProcedure,
 			connect.WithSchema(libraryServiceMethods.ByName("GetTrack")),
+			connect.WithClientOptions(opts...),
+		),
+		deleteTrack: connect.NewClient[v1.DeleteTrackRequest, v1.EmptyResponse](
+			httpClient,
+			baseURL+LibraryServiceDeleteTrackProcedure,
+			connect.WithSchema(libraryServiceMethods.ByName("DeleteTrack")),
 			connect.WithClientOptions(opts...),
 		),
 		listArtists: connect.NewClient[v1.ListArtistsRequest, v1.ListArtistsResponse](
@@ -192,6 +204,7 @@ func NewLibraryServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 type libraryServiceClient struct {
 	listTracks      *connect.Client[v1.ListTracksRequest, v1.ListTracksResponse]
 	getTrack        *connect.Client[v1.GetTrackRequest, v1.GetTrackResponse]
+	deleteTrack     *connect.Client[v1.DeleteTrackRequest, v1.EmptyResponse]
 	listArtists     *connect.Client[v1.ListArtistsRequest, v1.ListArtistsResponse]
 	getArtist       *connect.Client[v1.GetArtistRequest, v1.GetArtistResponse]
 	listAlbums      *connect.Client[v1.ListAlbumsRequest, v1.ListAlbumsResponse]
@@ -209,6 +222,11 @@ func (c *libraryServiceClient) ListTracks(ctx context.Context, req *connect.Requ
 // GetTrack calls wavelength.v1.LibraryService.GetTrack.
 func (c *libraryServiceClient) GetTrack(ctx context.Context, req *connect.Request[v1.GetTrackRequest]) (*connect.Response[v1.GetTrackResponse], error) {
 	return c.getTrack.CallUnary(ctx, req)
+}
+
+// DeleteTrack calls wavelength.v1.LibraryService.DeleteTrack.
+func (c *libraryServiceClient) DeleteTrack(ctx context.Context, req *connect.Request[v1.DeleteTrackRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return c.deleteTrack.CallUnary(ctx, req)
 }
 
 // ListArtists calls wavelength.v1.LibraryService.ListArtists.
@@ -250,6 +268,9 @@ func (c *libraryServiceClient) StreamAudio(ctx context.Context, req *connect.Req
 type LibraryServiceHandler interface {
 	ListTracks(context.Context, *connect.Request[v1.ListTracksRequest]) (*connect.Response[v1.ListTracksResponse], error)
 	GetTrack(context.Context, *connect.Request[v1.GetTrackRequest]) (*connect.Response[v1.GetTrackResponse], error)
+	// Permanently deletes a shared local track, its files and collection references.
+	// Requires a named user and wavelength:write + wavelength:ingest.
+	DeleteTrack(context.Context, *connect.Request[v1.DeleteTrackRequest]) (*connect.Response[v1.EmptyResponse], error)
 	ListArtists(context.Context, *connect.Request[v1.ListArtistsRequest]) (*connect.Response[v1.ListArtistsResponse], error)
 	GetArtist(context.Context, *connect.Request[v1.GetArtistRequest]) (*connect.Response[v1.GetArtistResponse], error)
 	ListAlbums(context.Context, *connect.Request[v1.ListAlbumsRequest]) (*connect.Response[v1.ListAlbumsResponse], error)
@@ -279,6 +300,12 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 		LibraryServiceGetTrackProcedure,
 		svc.GetTrack,
 		connect.WithSchema(libraryServiceMethods.ByName("GetTrack")),
+		connect.WithHandlerOptions(opts...),
+	)
+	libraryServiceDeleteTrackHandler := connect.NewUnaryHandler(
+		LibraryServiceDeleteTrackProcedure,
+		svc.DeleteTrack,
+		connect.WithSchema(libraryServiceMethods.ByName("DeleteTrack")),
 		connect.WithHandlerOptions(opts...),
 	)
 	libraryServiceListArtistsHandler := connect.NewUnaryHandler(
@@ -329,6 +356,8 @@ func NewLibraryServiceHandler(svc LibraryServiceHandler, opts ...connect.Handler
 			libraryServiceListTracksHandler.ServeHTTP(w, r)
 		case LibraryServiceGetTrackProcedure:
 			libraryServiceGetTrackHandler.ServeHTTP(w, r)
+		case LibraryServiceDeleteTrackProcedure:
+			libraryServiceDeleteTrackHandler.ServeHTTP(w, r)
 		case LibraryServiceListArtistsProcedure:
 			libraryServiceListArtistsHandler.ServeHTTP(w, r)
 		case LibraryServiceGetArtistProcedure:
@@ -358,6 +387,10 @@ func (UnimplementedLibraryServiceHandler) ListTracks(context.Context, *connect.R
 
 func (UnimplementedLibraryServiceHandler) GetTrack(context.Context, *connect.Request[v1.GetTrackRequest]) (*connect.Response[v1.GetTrackResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.GetTrack is not implemented"))
+}
+
+func (UnimplementedLibraryServiceHandler) DeleteTrack(context.Context, *connect.Request[v1.DeleteTrackRequest]) (*connect.Response[v1.EmptyResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.LibraryService.DeleteTrack is not implemented"))
 }
 
 func (UnimplementedLibraryServiceHandler) ListArtists(context.Context, *connect.Request[v1.ListArtistsRequest]) (*connect.Response[v1.ListArtistsResponse], error) {

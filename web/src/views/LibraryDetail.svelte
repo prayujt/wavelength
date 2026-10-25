@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Code, ConnectError } from '@connectrpc/connect';
   import { onMount, untrack } from 'svelte';
   import { ArrowLeft, Play } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
@@ -57,6 +58,12 @@
         tracks = result.tracks;
       }
     } catch (cause) {
+      if (ConnectError.from(cause).code === Code.NotFound) {
+        artist = undefined;
+        album = undefined;
+        albums = [];
+        tracks = [];
+      }
       if (!controller.signal.aborted) error = errorMessage(cause);
     } finally {
       loading = false;

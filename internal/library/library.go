@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -52,10 +53,12 @@ type Store interface {
 }
 
 type Library struct {
-	store  Store
-	root   *os.Root
-	rootID string
-	path   string
+	deleteMu sync.Mutex
+	deleted  []func(string)
+	store    Store
+	root     *os.Root
+	rootID   string
+	path     string
 }
 
 func Open(path string, store Store) (*Library, error) {

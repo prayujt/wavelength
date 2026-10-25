@@ -23,7 +23,7 @@ export class RealtimeState {
     return update;
   }
 
-  start(basket: DownloadSelection) {
+  start(basket: DownloadSelection, deleted: (id: string) => void = () => {}) {
     const controller = new AbortController();
     const run = async () => {
       let delay = 1000;
@@ -46,6 +46,13 @@ export class RealtimeState {
             } else if (event.payload.case === 'libraryUpdated') {
               const match = event.payload.value.track;
               if (match) basket.markImported([match]);
+              const removed = event.payload.value.deletedTrackId;
+              if (removed) {
+                basket.forgetTrack(removed);
+                deleted(removed);
+                this.imports = {};
+                this.resetVersion++;
+              }
               this.libraryVersion++;
             }
           }

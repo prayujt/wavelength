@@ -1,6 +1,12 @@
 <script lang="ts">
   import { create } from '@bufbuild/protobuf';
-  import { Download, Ellipsis, RefreshCw, Share2 } from '@lucide/svelte';
+  import {
+    Download,
+    Ellipsis,
+    RefreshCw,
+    Share2,
+    Trash2,
+  } from '@lucide/svelte';
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import {
     ExternalTrackSchema,
@@ -10,8 +16,10 @@
   import { api } from '../lib/session.svelte';
   import { go } from '../lib/navigation';
   import { errorMessage } from '../lib/api';
+  import Modal from './Modal.svelte';
   import AccessLinkDialog from './AccessLinkDialog.svelte';
   let sharing = $state(false);
+  let deleting = $state(false);
   import SourcePicker from './SourcePicker.svelte';
   import Notice from './Notice.svelte';
   let {
@@ -25,6 +33,19 @@
   let busy = $state(false);
   let error = $state('');
   let requestId = '';
+  async function deleteTrack() {
+    if (busy) return;
+    busy = true;
+    error = '';
+    try {
+      await api.library.deleteTrack({ id, confirm: true });
+      deleting = false;
+    } catch (cause) {
+      error = errorMessage(cause);
+    } finally {
+      busy = false;
+    }
+  }
   async function replace() {
     open = false;
     busy = true;
@@ -102,6 +123,13 @@
             sharing = true;
           }}><Share2 size={14} /> Share song</button
         ><button onclick={replace}><RefreshCw size={14} /> Replace audio</button
+        ><button
+          class="danger"
+          onclick={() => {
+            open = false;
+            error = '';
+            deleting = true;
+          }}><Trash2 size={14} /> Delete from library</button
         >{:else if downloadOptions}<button
           onclick={() => {
             open = false;
@@ -109,7 +137,10 @@
           }}><Download size={14} /> Download options</button
         >{/if}
     </div>{/if}
-  {#if !choosing}<Notice message={error} dismiss={() => (error = '')} />{/if}
+  {#if !choosing && !deleting}<Notice
+      message={error}
+      dismiss={() => (error = '')}
+    />{/if}
 </div>
 {#if choosing}<SourcePicker
     track={choosing}
@@ -127,3 +158,28 @@
     trackIds={[id]}
     close={() => (sharing = false)}
   />{/if}
+
+{#if deleting}<Modal
+    label="Delete song from library"
+    close={() => {
+      if (!busy) deleting = false;
+    }}
+  >
+    <h2>Delete “{title}”?</h2>
+    <p>
+      This permanently deletes the local audio and lyrics for every listener,
+      removes the song from playlists and queues, and revokes links containing
+      it. You can download it again later.
+    </p>
+    <Notice message={error} />
+    <div class="dialog-actions">
+      <button
+        class="button secondary"
+        disabled={busy}
+        onclick={() => (deleting = false)}>Cancel</button
+      >
+      <button class="button danger" disabled={busy} onclick={deleteTrack}
+        >{busy ? 'Deleting…' : 'Delete song and files'}</button
+      >
+    </div>
+  </Modal>{/if}

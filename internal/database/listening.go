@@ -35,6 +35,9 @@ func (s ListeningStore) Create(ctx context.Context, session listening.Session) (
 		return listening.Session{}, err
 	}
 	defer tx.Rollback()
+	if err = rejectDeletedTracks(ctx, tx, []string{session.Track.ID}); err != nil {
+		return listening.Session{}, err
+	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO listening_sessions(owner,root_id,id,track_id,artist_id,album_id,origin,started_at,session_json) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,root_id,id) DO NOTHING`, session.Owner, session.RootID, session.ID, session.Track.ID, session.ArtistID, session.AlbumID, session.Origin, session.StartedAt.UnixMilli(), string(body))
 	if err != nil {
 		return listening.Session{}, err

@@ -8,6 +8,9 @@ import "google/protobuf/timestamp.proto";
 service LibraryService {
   rpc ListTracks(ListTracksRequest) returns (ListTracksResponse);
   rpc GetTrack(GetTrackRequest) returns (GetTrackResponse);
+  // Permanently deletes a shared local track, its files and collection references.
+  // Requires a named user and wavelength:write + wavelength:ingest.
+  rpc DeleteTrack(DeleteTrackRequest) returns (EmptyResponse);
   rpc ListArtists(ListArtistsRequest) returns (ListArtistsResponse);
   rpc GetArtist(GetArtistRequest) returns (GetArtistResponse);
   rpc ListAlbums(ListAlbumsRequest) returns (ListAlbumsResponse);
@@ -111,6 +114,8 @@ message Album {
 }
 message ListTracksRequest { string query = 1; int32 limit = 2; int32 offset = 3; }
 message ListTracksResponse { repeated Track tracks = 1; int32 total = 2; }
+// Explicit confirmation acknowledges permanent deletion for every listener.
+message DeleteTrackRequest { string id = 1; bool confirm = 2; }
 message GetTrackRequest { string id = 1; }
 message GetTrackResponse { Track track = 1; }
 message ListArtistsRequest { string query = 1; int32 limit = 2; int32 offset = 3; }

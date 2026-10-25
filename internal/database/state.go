@@ -51,6 +51,9 @@ func (s StateStore) Update(ctx context.Context, scope, key string, update func(j
 	if err != nil {
 		return err
 	}
+	if err = rejectDeletedState(ctx, tx, scope, key, value); err != nil {
+		return err
+	}
 	if value == nil {
 		_, err = tx.ExecContext(ctx, "DELETE FROM app_state WHERE scope=? AND key=?", scope, key)
 	} else {

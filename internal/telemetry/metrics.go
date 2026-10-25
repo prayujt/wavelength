@@ -185,7 +185,7 @@ func (c *queueCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, state := range []string{"queued", "running", "completed", "failed", "partial", "cancelled", "needs_selection"} {
 		ch <- prometheus.MustNewConstMetric(c.jobs, prometheus.GaugeValue, snapshot.Jobs[state], state)
 	}
-	for _, state := range []string{"queued", "resolving", "downloading", "tagging", "publishing", "completed", "failed", "cancelled", "needs_selection"} {
+	for _, state := range []string{"queued", "resolving", "downloading", "tagging", "publishing", "completed", "deleted", "failed", "cancelled", "needs_selection"} {
 		ch <- prometheus.MustNewConstMetric(c.items, prometheus.GaugeValue, snapshot.Items[state], state)
 	}
 }

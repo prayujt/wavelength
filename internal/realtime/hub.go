@@ -20,6 +20,10 @@ type TrackPublished struct {
 
 func (TrackPublished) change() {}
 
+type TrackDeleted struct{ TrackID string }
+
+func (TrackDeleted) change() {}
+
 type Event struct {
 	// An empty owner addresses the shared library, never private job state.
 	Owner  string

@@ -91,6 +91,25 @@ The Subsonic scan endpoints report an idle state and the stored track count;
 `startScan` performs no filesystem work. A fresh database starts empty even if the
 music directory contains files. New music enters through explicit ingestion jobs.
 
+Saved song menus offer **Delete from library** with permanent-deletion confirmation.
+Native clients use `LibraryService.DeleteTrack({id, confirm:true})`; MCP clients use
+`delete_track` with the same fields. This affects every listener and requires a
+named user plus `wavelength:write` and `wavelength:ingest` for delegated credentials.
+The audio and same-stem `.lrc`/`.txt` lyrics are removed; conventional shared cover
+files are removed only after the last catalog track in their directory is deleted.
+Empty parent directories are pruned without deleting unknown files or the music root.
+Playlists, queues, bookmarks, history, now-playing state, provenance and links
+containing the track are cleaned in one catalog transaction. Active HLS sessions
+for that track are cancelled and their temporary segments removed. Historical download
+receipts remain, with deleted items marked `deleted` and their local IDs cleared.
+
+An unfinished import using the track must finish or be cancelled and cleaned first.
+Repeated deletion is safe. A durable receipt resumes interrupted file removal at
+startup and retries pending cleanup every 30 seconds; this visits recorded paths
+only, without a library scan. A file-cleanup failure returns an unavailable error
+and can also be retried with the same track ID. The realtime stream notifies
+connected clients to refresh library views and discard deleted queue entries.
+
 SQLite also holds playlists, bookmarks, playback queues, and [detailed listening history](docs/listening.md),
 including time listened, completion/skips, and artist/album filters through RPC and MCP.
 Back up the data directory as well as your music collection.

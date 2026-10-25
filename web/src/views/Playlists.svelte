@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import {
     ArrowLeft,
     ListMusic,
@@ -9,6 +9,7 @@
     Trash2,
   } from '@lucide/svelte';
   import type { Playlist, Track } from '../gen/wavelength/v1/library_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
@@ -17,8 +18,15 @@
   import Notice from '../components/Notice.svelte';
   import Modal from '../components/Modal.svelte';
   import TrackList from '../components/TrackList.svelte';
-  let { player, add }: { player: PlayerState; add: (track: Track) => void } =
-    $props();
+  let {
+    player,
+    add,
+    realtime,
+  }: {
+    player: PlayerState;
+    add: (track: Track) => void;
+    realtime: RealtimeState;
+  } = $props();
   let playlists = $state<Playlist[]>([]);
   let selected = $state<Playlist>();
   let entries = $state<{ track: Track; index: number }[]>([]);
@@ -42,6 +50,14 @@
       ++request;
       controller.abort();
     };
+  });
+  $effect(() => {
+    if (realtime.resetVersion)
+      untrack(() => {
+        if (!controller) return;
+        if (selected) void open(selected.id);
+        else void load();
+      });
   });
   async function load(nextOffset = offset) {
     loading = true;

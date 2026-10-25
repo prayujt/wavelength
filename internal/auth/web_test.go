@@ -18,6 +18,7 @@ import (
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/realtime"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -87,6 +88,7 @@ func TestWebBrowser(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		lib.ObserveDeletions(func(id string) { service.Events().Publish(realtime.Event{Change: realtime.TrackDeleted{TrackID: id}}) })
 		return transportmcp.Features{Discovery: d, Ingest: service}
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -98,5 +100,8 @@ func TestWebBrowser(t *testing.T) {
 		t.Fatalf("web browser checks: %v\n%s", err, output)
 	} else {
 		t.Log(string(output))
+	}
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Fatal("browser deletion did not remove the source audio", err)
 	}
 }

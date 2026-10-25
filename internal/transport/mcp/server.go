@@ -56,6 +56,19 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 		}
 		return object{"user": object{"id": u.ID, "name": u.Name, "email": u.Email}}, nil
 	})
+	add(s, "delete_track", "Permanently delete a local shared-library track and its audio/lyrics, remove it from every listener's playlists and queues, and revoke links containing it. Requires explicit confirm=true and wavelength:write plus wavelength:ingest. This cannot be undone; use only when the user requests deletion.", true, true, func(ctx context.Context, in struct {
+		ID      string `json:"id" jsonschema:"Local track ID to permanently delete"`
+		Confirm bool   `json:"confirm" jsonschema:"Must be true to confirm permanent shared-library and file deletion"`
+	}) (object, error) {
+		if err := auth.RequireScope(ctx, auth.ScopeIngest); err != nil {
+			return nil, err
+		}
+		if !in.Confirm {
+			return nil, library.ErrInvalid
+		}
+		err := lib.Delete(ctx, in.ID)
+		return object{"deleted": err == nil}, err
+	})
 	add(s, "list_tracks", "Browse or search tracks already in the local library.", false, false, func(ctx context.Context, in browseInput) (object, error) {
 		limit, offset, err := pagination(in.Limit, in.Offset)
 		if err != nil {
@@ -190,6 +203,12 @@ func toolError(err error) *mcp.CallToolResult {
 	switch {
 	case errors.As(err, &denied):
 		message = denied.Message
+	case errors.Is(err, library.ErrBusy):
+		message = library.ErrBusy.Error()
+	case errors.Is(err, library.ErrCleanupPending):
+		message = library.ErrCleanupPending.Error()
+	case errors.Is(err, library.ErrInvalid):
+		message = "Provide a local track ID and confirm=true for permanent deletion."
 	case errors.Is(err, userdata.ErrForbidden):
 		message = "You do not have permission to access or change this collection."
 	case errors.Is(err, listening.ErrConflict):
