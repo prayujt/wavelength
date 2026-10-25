@@ -137,6 +137,29 @@ func wait(t *testing.T, s *ingest.Service, owner, id, state string) ingest.Job {
 	t.Fatalf("wanted %s, got %+v", state, j)
 	return j
 }
+
+// A terminal receipt becomes visible before the worker drops its active slot.
+// Retry's busy response during that short teardown is part of its API contract.
+func retryTerminal(t *testing.T, service *ingest.Service, owner, id string, overrides []ingest.Override) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	for {
+		_, err := service.Retry(ctx, owner, id, overrides)
+		if err == nil {
+			return
+		}
+		if !errors.Is(err, ingest.ErrConflict) {
+			t.Fatal(err)
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("terminal import never released its active worker", err)
+		case <-time.After(5 * time.Millisecond):
+		}
+	}
+}
+
 func create(t *testing.T, s *ingest.Service, owner string, r ingest.Request) ingest.Job {
 	t.Helper()
 	j, err := s.Create(context.Background(), owner, r)
@@ -207,9 +230,7 @@ func TestAmbiguousMatchRequiresSelectionAndRetry(t *testing.T) {
 	if j.Items[0].TrackID != "" {
 		t.Fatal(j)
 	}
-	if _, err := f.s.Retry(context.Background(), "alice", j.ID, []ingest.Override{{Index: 0, SourceRef: recording}}); err != nil {
-		t.Fatal(err)
-	}
+	retryTerminal(t, f.s, "alice", j.ID, []ingest.Override{{Index: 0, SourceRef: recording}})
 	wait(t, f.s, "alice", j.ID, ingest.Completed)
 }
 
@@ -244,9 +265,7 @@ func TestRankingOutagePausesAndExplicitRetryBypassesRanking(t *testing.T) {
 	if downloads.Load() != 0 || rankings.Load() != 1 {
 		t.Fatal("outage did not pause automatic import")
 	}
-	if _, err := f.s.Retry(context.Background(), "alice", j.ID, []ingest.Override{{Index: 0, SourceRef: recording}}); err != nil {
-		t.Fatal(err)
-	}
+	retryTerminal(t, f.s, "alice", j.ID, []ingest.Override{{Index: 0, SourceRef: recording}})
 	wait(t, f.s, "alice", j.ID, ingest.Completed)
 	if downloads.Load() != 1 || rankings.Load() != 1 {
 		t.Fatal("explicit retry contacted ranking provider")
