@@ -30,6 +30,17 @@ func (metadata) Track(_ context.Context, r discovery.Ref) (discovery.Track, erro
 func (m metadata) Release(context.Context, discovery.Ref) (discovery.Release, error) {
 	return discovery.Release{Ref: metadataRef, Tracks: m.release}, nil
 }
+func (m metadata) Releases(ctx context.Context, refs []discovery.Ref) ([]discovery.Release, error) {
+	out := []discovery.Release{}
+	for _, ref := range refs {
+		release, err := m.Release(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, release)
+	}
+	return out, nil
+}
 func (metadata) Artist(context.Context, discovery.Ref) (discovery.Artist, error) {
 	return discovery.Artist{}, nil
 }
@@ -460,4 +471,130 @@ func TestRestartCleansCancellationRecordedBeforeShutdown(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal("cancellation cleanup was not recovered")
+}
+
+func TestReplacementPreservesIdentityAndSurvivesFailedDownload(t *testing.T) {
+	ctx := context.Background()
+	replacement := discovery.Ref{Provider: "youtube", ID: "abcdefghijk"}
+	f := setup(t, func(_ context.Context, ref discovery.Ref, path string) error {
+		if ref.ID == "failure_123" {
+			return errors.New("unavailable")
+		}
+		return os.WriteFile(path, []byte("audio from "+ref.ID), 0600)
+	}, metadata{}, nil)
+	first := create(t, f.s, "alice", request("original"))
+	first = wait(t, f.s, "alice", first.ID, ingest.Completed)
+	old, err := f.lib.Get(ctx, first.Items[0].TrackID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	playlist, err := f.data.CreatePlaylist(ctx, "alice", "Keep me", []string{old.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	origins, err := f.s.Origins(ctx, []string{old.ID})
+	if err != nil || origins[metadataRef] != old.ID {
+		t.Fatal(origins, err)
+	}
+	replace := request("replace")
+	replace.Items[0].ReplaceTrackID = old.ID
+	replace.Items[0].SourceRef = replacement
+	job := create(t, f.s, "alice", replace)
+	job = wait(t, f.s, "alice", job.ID, ingest.Completed)
+	saved, err := f.lib.Get(ctx, old.ID)
+	if err != nil || saved.ID != old.ID || saved.Path == old.Path || saved.Title != old.Title || saved.AlbumIdentity() != old.AlbumIdentity() || !saved.CreatedAt.Equal(old.CreatedAt) || job.Items[0].Reused {
+		t.Fatal(saved, old, job, err)
+	}
+	body, err := os.ReadFile(filepath.Join(f.root.Path, saved.Path))
+	if err != nil || string(body) != "audio from "+replacement.ID {
+		t.Fatal(string(body), err)
+	}
+	if _, err := os.Stat(filepath.Join(f.root.Path, old.Path)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("superseded asset retained", err)
+	}
+	retained, err := f.data.Playlist(ctx, "alice", playlist.ID)
+	if err != nil || len(retained.IDs) != 1 || retained.IDs[0] != old.ID {
+		t.Fatal(retained, err)
+	}
+	page, err := f.lib.List(ctx, library.Query{})
+	if err != nil || page.Total != 1 {
+		t.Fatal(page, err)
+	}
+	replay := create(t, f.s, "alice", replace)
+	if replay.ID != job.ID {
+		t.Fatal("replacement was not idempotent")
+	}
+	invalid := replace
+	invalid.RequestID = "mismatched"
+	invalid.Items = append([]ingest.Selection(nil), replace.Items...)
+	invalid.Items[0].ReplaceTrackID = "another-track"
+	if _, err = f.s.Create(ctx, "alice", invalid); !errors.Is(err, ingest.ErrConflict) {
+		t.Fatal(err)
+	}
+	fail := replace
+	fail.RequestID = "failed"
+	fail.Items = append([]ingest.Selection(nil), replace.Items...)
+	fail.Items[0].SourceRef = discovery.Ref{Provider: "youtube", ID: "failure_123"}
+	failed := create(t, f.s, "alice", fail)
+	wait(t, f.s, "alice", failed.ID, ingest.Failed)
+	current, err := f.lib.Get(ctx, old.ID)
+	if err != nil || current.Path != saved.Path {
+		t.Fatal("failed replacement changed saved asset", current, err)
+	}
+	body, err = os.ReadFile(filepath.Join(f.root.Path, current.Path))
+	if err != nil || string(body) != "audio from "+replacement.ID {
+		t.Fatal(string(body), err)
+	}
+}
+
+func TestCancelledReplacementCleansNewAssetWithoutRemovingOriginal(t *testing.T) {
+	f := setup(t, writeAudio, metadata{}, nil)
+	first := create(t, f.s, "alice", request("original"))
+	first = wait(t, f.s, "alice", first.ID, ingest.Completed)
+	original, err := f.lib.Get(context.Background(), first.Items[0].TrackID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.s.Close()
+	blocker := interruptedPublication{Store: f.store, reached: make(chan struct{})}
+	f.deps.Store = blocker
+	f.start(t)
+	replace := request("cancel-replace")
+	replace.Items[0].ReplaceTrackID = original.ID
+	replace.Items[0].SourceRef = discovery.Ref{Provider: "youtube", ID: "abcdefghijk"}
+	job := create(t, f.s, "alice", replace)
+	select {
+	case <-blocker.reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("replacement never reached publication")
+	}
+	job, err = f.s.Cancel(context.Background(), "alice", job.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.s.Close()
+	f.deps.Store = f.store
+	f.start(t)
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		current, _ := f.s.Get(context.Background(), "alice", job.ID)
+		if current.Cleaned {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	current, err := f.s.Get(context.Background(), "alice", job.ID)
+	if err != nil || !current.Cleaned {
+		t.Fatal(current, err)
+	}
+	kept, err := f.lib.Get(context.Background(), original.ID)
+	if err != nil || kept.Path != original.Path {
+		t.Fatal(kept, err)
+	}
+	if _, err := os.Stat(filepath.Join(f.root.Path, original.Path)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(f.root.Path, current.Items[0].Prepared.Track.Path)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("uncommitted replacement asset retained", err)
+	}
 }

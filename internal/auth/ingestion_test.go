@@ -32,15 +32,33 @@ var audioRef = discovery.Ref{Provider: "youtube", ID: "BaW_jenozKc"}
 type ingestMetadata struct{}
 
 func (ingestMetadata) Track(_ context.Context, ref discovery.Ref) (discovery.Track, error) {
+	if ref.ID == "456" {
+		return discovery.Track{Ref: ref, Title: "Streamed Tone", Artist: "Streamed Artist", Album: "Streamed Album", AlbumArtist: "Streamed Artist", Duration: .25}, nil
+	}
 	return discovery.Track{Ref: ref, Title: "Imported Tone", Artist: "Imported Artist", Album: "Imported Album", AlbumArtist: "Imported Artist", Duration: .25}, nil
 }
-func (m ingestMetadata) Search(ctx context.Context, _ string, _ int) (discovery.Results, error) {
-	track, _ := m.Track(ctx, externalRef)
+func (m ingestMetadata) Search(ctx context.Context, query string, _ int) (discovery.Results, error) {
+	ref := externalRef
+	if query == "Streamed Artist" {
+		ref = discovery.Ref{Provider: "itunes", ID: "456"}
+	}
+	track, _ := m.Track(ctx, ref)
 	return discovery.Results{Tracks: []discovery.Track{track}, Releases: []discovery.Release{}, Artists: []discovery.Artist{}}, nil
 }
 func (m ingestMetadata) Release(ctx context.Context, ref discovery.Ref) (discovery.Release, error) {
 	track, _ := m.Track(ctx, externalRef)
 	return discovery.Release{Ref: ref, Title: "Imported Album", Artist: "Imported Artist", Tracks: []discovery.Track{track}}, nil
+}
+func (m ingestMetadata) Releases(ctx context.Context, refs []discovery.Ref) ([]discovery.Release, error) {
+	out := []discovery.Release{}
+	for _, ref := range refs {
+		release, err := m.Release(ctx, ref)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, release)
+	}
+	return out, nil
 }
 func (ingestMetadata) Artist(_ context.Context, ref discovery.Ref) (discovery.Artist, error) {
 	return discovery.Artist{Ref: ref, Name: "Imported Artist", Releases: []discovery.Release{}}, nil
@@ -183,10 +201,18 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 		if err != nil || len(result.Msg.Tracks) != 1 {
 			t.Fatal(result, err)
 		}
+		albums, err := d.GetReleases(context.Background(), rpcRequest(readonly.Access, &pb.GetMusicReleasesRequest{Refs: []*pb.ProviderRef{{Provider: "itunes", Id: "789"}}}))
+		if err != nil || len(albums.Msg.Releases) != 1 || albums.Msg.Releases[0].Tracks[0].Ref.Id != externalRef.ID {
+			t.Fatal("batch release lookup differs across protocols", albums, err)
+		}
 		imports := wavelengthv1connect.NewIngestionServiceClient(tls.Client(), tls.URL, options...)
 		matches, err := imports.LookupImports(context.Background(), rpcRequest(readonly.Access, &pb.LookupImportsRequest{MetadataRefs: []*pb.ProviderRef{{Provider: "itunes", Id: "123"}, {Provider: "itunes", Id: "789"}}}))
 		if err != nil || len(matches.Msg.Tracks) != 1 || matches.Msg.Tracks[0].TrackId != job.Items[0].TrackId {
 			t.Fatal("exact import lookup differs across protocols", matches, err)
+		}
+		origins, err := imports.LookupImports(context.Background(), rpcRequest(readonly.Access, &pb.LookupImportsRequest{TrackIds: []string{job.Items[0].TrackId}}))
+		if err != nil || len(origins.Msg.Tracks) != 1 || origins.Msg.Tracks[0].MetadataRef.Id != externalRef.ID {
+			t.Fatal("saved track provenance differs across protocols", origins, err)
 		}
 		resultJob, err := imports.GetImport(context.Background(), rpcRequest(alice.Access, &pb.GetImportRequest{Id: id}))
 		if err != nil || resultJob.Msg.Items[0].TrackId != job.Items[0].TrackId {
@@ -227,6 +253,30 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	saved := tool(t, mcpAlice, "get_playlist", map[string]any{"id": playlist["id"]}, false)["playlist"].(map[string]any)
 	if saved["track_ids"].([]any)[0] != job.Items[0].TrackId {
 		t.Fatal(saved)
+	}
+	oldPlayback := requestBody(t, s.Client(), "GET", s.URL+"/media/tracks/"+job.Items[0].TrackId, "", nil, map[string]string{"Authorization": "Bearer " + alice.Access})
+	oldTag := oldPlayback.Header.Get("ETag")
+	oldPlayback.Body.Close()
+	replace := &pb.CreateImportRequest{RequestId: "replace-audio", Items: []*pb.ImportSelection{{MetadataRef: &pb.ProviderRef{Provider: "itunes", Id: externalRef.ID}, SourceRef: &pb.ProviderRef{Provider: "youtube", Id: audioRef.ID}, ReplaceTrackId: job.Items[0].TrackId}}}
+	if _, err = client.CreateImport(context.Background(), rpcRequest(readonly.Access, replace)); connect.CodeOf(err) != connect.CodePermissionDenied {
+		t.Fatal("read-only listener could replace audio", err)
+	}
+	replacing, err := client.CreateImport(context.Background(), rpcRequest(alice.Access, replace))
+	if err != nil {
+		t.Fatal(err)
+	}
+	replaced := waitImport(t, client, alice.Access, replacing.Msg.Id)
+	if replaced.Items[0].TrackId != job.Items[0].TrackId || replaced.Items[0].Reused {
+		t.Fatal("replacement did not retain its saved identity", replaced)
+	}
+	newPlayback := requestBody(t, s.Client(), "GET", s.URL+"/media/tracks/"+job.Items[0].TrackId, "", nil, map[string]string{"Authorization": "Bearer " + alice.Access, "If-None-Match": oldTag})
+	defer newPlayback.Body.Close()
+	if newPlayback.StatusCode != http.StatusOK || newPlayback.Header.Get("ETag") == oldTag {
+		t.Fatal("replaced audio reused a stale HTTP validator", newPlayback.StatusCode, newPlayback.Header)
+	}
+	provenance := tool(t, mcpRead, "lookup_imports", map[string]any{"track_ids": []string{job.Items[0].TrackId}}, false)["tracks"].([]any)
+	if len(provenance) != 1 || provenance[0].(map[string]any)["metadata_ref"].(map[string]any)["id"] != externalRef.ID {
+		t.Fatal(provenance)
 	}
 
 }

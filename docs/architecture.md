@@ -12,6 +12,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `library` | Persisted catalog grouping, path IDs and confined source access |
 | `discovery` | External metadata, provider references and conservative source selection |
 | `ingest` | Durable acquisition jobs, media preparation and explicit publication |
+| `realtime` | Bounded in-process delivery of committed changes to connected clients |
 | `providers/itunes`, `providers/youtube`, `providers/jev` | Bounded metadata, yt-dlp and optional Jev ranking implementations |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
@@ -71,6 +72,14 @@ are read on demand through the same confined library operations as the legacy
 adapter. `GetLyrics` / `get_lyrics` do not fetch lyrics from external services.
 Import lookup maps exact provider provenance to catalog IDs, independent of job
 ownership, because completed tracks belong to the shared library.
+
+`RealtimeService.Subscribe` sends a protobuf `oneof` of ready, import-update,
+library-publication, and heartbeat messages over Connect/gRPC server streaming.
+Job snapshots go only to their owner; publication messages describe the shared
+catalog. The hub never blocks ingestion on a slow reader. A disconnected or slow
+client reconnects and reads fresh snapshots after ready; notifications are not
+a durable event log. SQLite remains authoritative. The web app shares one
+subscription across pages and removes its former download polling loop.
 
 Playlists, bookmarks, queues and listening history retain their record scopes and
 JSON layouts. Listening counts use the historical `annotations/<user>` scope, but

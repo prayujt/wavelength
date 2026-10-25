@@ -2,6 +2,8 @@
 package media
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"net/http"
 
 	"github.com/prayujt/wavelength/internal/library"
@@ -20,6 +22,8 @@ func Stream(w http.ResponseWriter, r *http.Request, lib *library.Library, id str
 	}
 	w.Header().Set("Content-Type", track.ContentType)
 	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "private, no-cache")
+	w.Header().Set("ETag", fmt.Sprintf("\"%x\"", sha256.Sum256([]byte(fmt.Sprint(track.Path, info.Size(), info.ModTime().UnixNano())))))
 	http.ServeContent(w, r, track.Path, info.ModTime(), file)
 	return nil
 }

@@ -18,7 +18,8 @@ type metadataRefInput struct {
 	Ref discovery.Ref `json:"ref"`
 }
 type lookupInput struct {
-	Refs []discovery.Ref `json:"metadata_refs"`
+	Refs []discovery.Ref `json:"metadata_refs,omitempty"`
+	IDs  []string        `json:"track_ids,omitempty"`
 }
 type sourcesInput struct {
 	Ref discovery.Ref `json:"metadata_ref"`
@@ -44,7 +45,7 @@ func job(j ingest.Job) object {
 	return object{"id": j.ID, "state": j.State, "error": j.Error, "items": items, "release_ref": j.Request.ReleaseRef, "playlist_id": j.Request.PlaylistID, "created_at": j.CreatedAt.Format(time.RFC3339Nano), "updated_at": j.UpdatedAt.Format(time.RFC3339Nano)}
 }
 func addAcquisition[In any](s *mcp.Server, name, description string, mutate, external bool, run func(context.Context, In) (object, error)) {
-	destructive := name == "cancel_import"
+	destructive := name == "cancel_import" || name == "import_music"
 	mcp.AddTool(s, &mcp.Tool{Name: name, Description: description, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: !mutate, DestructiveHint: &destructive, OpenWorldHint: &external}}, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (*mcp.CallToolResult, object, error) {
 		if _, err := auth.PersonalID(ctx, false); err != nil {
 			return toolError(err), nil, nil
@@ -62,8 +63,18 @@ func addAcquisition[In any](s *mcp.Server, name, description string, mutate, ext
 	})
 }
 func registerAcquisition(s *mcp.Server, a Acquisition) {
-	addAcquisition(s, "lookup_imports", "Find which exact metadata references are already in the shared library. Returns local track IDs for playback; never downloads or contacts a provider.", false, false, func(ctx context.Context, in lookupInput) (object, error) {
+	addAcquisition(s, "lookup_imports", "Find exact metadata references already in the shared library, or resolve saved track_ids to their original metadata references. Returns local track IDs for playback; never downloads or contacts a provider.", false, false, func(ctx context.Context, in lookupInput) (object, error) {
 		found, err := a.Ingest.Lookup(ctx, in.Refs)
+		if err != nil {
+			return nil, err
+		}
+		origins, err := a.Ingest.Origins(ctx, in.IDs)
+		if err != nil {
+			return nil, err
+		}
+		for ref, id := range origins {
+			found[ref] = id
+		}
 		tracks := []object{}
 		for ref, id := range found {
 			tracks = append(tracks, object{"metadata_ref": ref, "track_id": id})
@@ -85,11 +96,11 @@ func registerAcquisition(s *mcp.Server, a Acquisition) {
 		release, err := a.Discovery.Release(ctx, in.Ref)
 		return object{"release": release}, err
 	})
-	addAcquisition(s, "find_audio_sources", "Find ranked recordings for a metadata reference. Scores describe title/artist/duration matching, not audio verification. Select a source explicitly when automatic matching is ambiguous.", false, true, func(ctx context.Context, in sourcesInput) (object, error) {
+	addAcquisition(s, "find_audio_sources", "Find ranked recordings for a metadata reference. Scores rank metadata matches and, when enabled, source evidence; they do not verify the audio. Select a source explicitly when automatic matching is ambiguous.", false, true, func(ctx context.Context, in sourcesInput) (object, error) {
 		candidates, err := a.Discovery.FindSources(ctx, in.Ref)
 		return object{"candidates": candidates}, err
 	})
-	addAcquisition(s, "import_music", "Queue music acquisition into the shared library. Supply a request_id and either items or release_ref. Omit source_ref for conservative automatic matching. An optional owned playlist is updated in order once all tracks succeed. Requires wavelength:ingest, plus wavelength:write for a playlist.", true, true, func(ctx context.Context, in ingest.Request) (object, error) {
+	addAcquisition(s, "import_music", "Queue music acquisition into the shared library. Supply a request_id and either items or release_ref. Omit source_ref for conservative automatic matching. An optional owned playlist is updated in order once all tracks succeed. To replace saved audio, supply one item with replace_track_id matching its metadata_ref and an explicit source_ref; identity and playlist references are preserved. Requires wavelength:ingest, plus wavelength:write for a playlist.", true, true, func(ctx context.Context, in ingest.Request) (object, error) {
 		if in.PlaylistID != "" {
 			if err := auth.RequireScope(ctx, auth.ScopeWrite); err != nil {
 				return nil, err

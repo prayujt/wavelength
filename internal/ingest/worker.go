@@ -7,7 +7,10 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
+
+	"github.com/prayujt/wavelength/internal/discovery"
 )
 
 func (s *Service) run() {
@@ -41,7 +44,7 @@ func (s *Service) process(id string) error {
 	s.activeCancel = cancel
 	s.activeMu.Unlock()
 	defer func() { cancel(); s.activeMu.Lock(); s.activeID = ""; s.activeCancel = nil; s.activeMu.Unlock() }()
-	j, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	j, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return ErrCancelled
 		}
@@ -65,7 +68,7 @@ func (s *Service) process(id string) error {
 			}
 			return s.failJob(ctx, id, "release metadata could not be resolved", lookupErr)
 		}
-		j, err = s.deps.Store.Update(ctx, id, func(j *Job) error {
+		j, err = s.updateJob(ctx, id, func(j *Job) error {
 			if j.State == Cancelled {
 				return ErrCancelled
 			}
@@ -119,7 +122,7 @@ func (s *Service) process(id string) error {
 }
 func (s *Service) failJob(ctx context.Context, id, message string, cause error) error {
 	slog.Warn("import failed", "import", id, "error", cause)
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return nil
 		}
@@ -130,7 +133,7 @@ func (s *Service) failJob(ctx context.Context, id, message string, cause error) 
 	return err
 }
 func (s *Service) changeItem(ctx context.Context, id string, index int, change func(*Item)) error {
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return ErrCancelled
 		}
@@ -160,16 +163,32 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			}
 		}
 	}
+	previousPath := ""
 	if existing, err := s.deps.Store.Lookup(ctx, s.root.ID, item.MetadataRef); err == nil {
-		file, err := s.files.Open(existing.Path)
-		if err != nil {
-			return s.itemFailure(ctx, j, n, "existing catalog track has no readable source file", err)
+		if item.ReplaceTrackID != "" {
+			if existing.ID != item.ReplaceTrackID {
+				return s.itemFailure(ctx, j, n, "saved track no longer matches this replacement", ErrConflict)
+			}
+			previousPath = existing.Path
+			if item.Metadata == nil {
+				item.Metadata = &discovery.Track{Ref: item.MetadataRef, Title: existing.Title, Artist: existing.Artist, Album: existing.Album, AlbumArtist: existing.AlbumArtist, Genre: existing.Genre, ReleaseDate: strconv.Itoa(existing.Year), TrackNumber: existing.TrackNumber, DiscNumber: existing.DiscNumber, Duration: existing.Duration}
+				if err := s.changeItem(ctx, j.ID, n, func(i *Item) { i.Metadata = item.Metadata }); err != nil {
+					return err
+				}
+			}
+		} else {
+			file, err := s.files.Open(existing.Path)
+			if err != nil {
+				return s.itemFailure(ctx, j, n, "existing catalog track has no readable source file", err)
+			}
+			file.Close()
+			_, err = s.publish(ctx, j, n, Prepared{})
+			return err
 		}
-		file.Close()
-		_, err = s.deps.Store.Publish(ctx, s.root, j.ID, n, Prepared{})
-		return err
 	} else if !errors.Is(err, ErrNotFound) {
 		return err
+	} else if item.ReplaceTrackID != "" {
+		return s.itemFailure(ctx, j, n, "saved track no longer exists", err)
 	}
 	if item.Metadata == nil {
 		if err := s.changeItem(ctx, j.ID, n, func(i *Item) { i.State = "resolving" }); err != nil {
@@ -241,21 +260,48 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			}
 			return s.itemFailure(ctx, j, n, "audio validation or tagging failed", err)
 		}
+		if previousPath != "" {
+			previous, err := s.files.Open(previousPath)
+			if err == nil {
+				err = preserveMediaTags(path, previous)
+				previous.Close()
+			}
+			if err != nil && !errors.Is(err, os.ErrNotExist) {
+				return s.itemFailure(ctx, j, n, "saved artwork and lyrics could not be preserved", err)
+			}
+			file, err := os.OpenFile(path, os.O_RDWR, 0)
+			if err != nil {
+				return s.itemFailure(ctx, j, n, "replacement could not be read", err)
+			}
+			info, err := file.Stat()
+			if err == nil {
+				err = file.Sync()
+			}
+			file.Close()
+			if err != nil {
+				return s.itemFailure(ctx, j, n, "replacement could not be saved", err)
+			}
+			t.Size, t.ModifiedAt = info.Size(), info.ModTime().UTC()
+		}
 		if item.Automatic && !durationMatches(t.Duration, item.Metadata.Duration) {
 			return s.itemFailure(ctx, j, n, "downloaded duration differs from the automatic source match", ErrInvalid)
 		}
-		t.ID = rand.Text()
+		assetID := rand.Text()
+		t.ID = assetID
+		if item.ReplaceTrackID != "" {
+			t.ID = item.ReplaceTrackID
+		}
 		artist := t.AlbumArtist
 		if artist == "" {
 			artist = t.Artist
 		}
-		t.Path = filepath.Join(component(artist, "Unknown Artist"), component(t.Album, "Unknown Album"), t.ID+".mp3")
+		t.Path = filepath.Join(component(artist, "Unknown Artist"), component(t.Album, "Unknown Album"), assetID+".mp3")
 		t.CreatedAt = time.Now().UTC()
 		checksum, err := checksum(path)
 		if err != nil {
 			return s.itemFailure(ctx, j, n, "prepared audio could not be read", err)
 		}
-		item.Prepared = &Prepared{Track: t, SHA256: checksum}
+		item.Prepared = &Prepared{Track: t, SHA256: checksum, PreviousPath: previousPath}
 		if err = s.changeItem(ctx, j.ID, n, func(i *Item) { i.Prepared = item.Prepared; i.Warnings = warnings; i.State = "publishing" }); err != nil {
 			return err
 		}
@@ -263,12 +309,15 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 	if err := s.publishFile(ctx, j.ID, n, *item.Prepared); err != nil {
 		return s.itemFailure(ctx, j, n, "prepared audio could not be published", err)
 	}
-	t, err := s.deps.Store.Publish(ctx, s.root, j.ID, n, *item.Prepared)
+	t, err := s.publish(ctx, j, n, *item.Prepared)
 	if err != nil {
 		return err
 	}
 	if t.ID != item.Prepared.Track.ID {
 		_ = s.files.Remove(item.Prepared.Track.Path)
+	}
+	if item.Prepared.PreviousPath != "" && t.Path == item.Prepared.Track.Path && t.Path != item.Prepared.PreviousPath {
+		_ = s.files.Remove(item.Prepared.PreviousPath)
 	}
 	_ = os.RemoveAll(filepath.Dir(s.stagePath(j.ID, n)))
 	return nil
@@ -278,7 +327,7 @@ func (s *Service) finish(ctx context.Context, id string) error {
 	defer s.control.Unlock()
 	// The worker owns the ID; read the current record inside Update after any cancellation.
 	var final Job
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error { final = *j; return nil })
+	_, err := s.updateJob(ctx, id, func(j *Job) error { final = *j; return nil })
 	if err != nil {
 		return err
 	}
@@ -294,6 +343,9 @@ func (s *Service) finish(ctx context.Context, id string) error {
 			}
 		}
 		if i.State == Completed {
+			if i.Prepared != nil && i.Prepared.PreviousPath != "" && i.Prepared.PreviousPath != i.Prepared.Track.Path {
+				_ = s.files.Remove(i.Prepared.PreviousPath)
+			}
 			_ = os.RemoveAll(filepath.Dir(s.stagePath(final.ID, n)))
 			complete++
 			ids = append(ids, i.TrackID)
@@ -322,7 +374,7 @@ func (s *Service) finish(ctx context.Context, id string) error {
 			slog.Warn("import playlist failed", "import", id, "error", err)
 		}
 	}
-	_, err = s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err = s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return nil
 		}

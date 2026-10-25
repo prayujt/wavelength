@@ -1,6 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { Download, SlidersHorizontal, X } from '@lucide/svelte';
+  import {
+    ChevronDown,
+    Download,
+    ListMusic,
+    SlidersHorizontal,
+    X,
+  } from '@lucide/svelte';
   import type { Playlist } from '../gen/wavelength/v1/library_pb';
   import type {
     ExternalTrack,
@@ -126,16 +132,19 @@
   </div>
   <div class="review-options">
     <label
-      >Add to playlist<select
-        aria-label="Download playlist"
-        value={basket.playlistId}
-        disabled={busy || loading}
-        onchange={(event) => basket.playlist(event.currentTarget.value)}
-        ><option value="">Library only</option
-        >{#each playlists as playlist}<option value={playlist.id}
-            >{playlist.name}</option
-          >{/each}</select
-      ></label
+      >Add to playlist
+      <div class="playlist-select">
+        <ListMusic size={15} /><select
+          aria-label="Download playlist"
+          value={basket.playlistId}
+          disabled={busy || loading}
+          onchange={(event) => basket.playlist(event.currentTarget.value)}
+          ><option value="">Library only</option
+          >{#each playlists as playlist}<option value={playlist.id}
+              >{playlist.name}</option
+            >{/each}</select
+        ><ChevronDown size={14} />
+      </div></label
     >{#if playlists.length < playlistTotal}<button
         class="text-button muted"
         disabled={busy || loading}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import {
     ArrowDownToLine,
     ArrowUpRight,
@@ -7,11 +7,13 @@
     CornerDownLeft,
     Disc3,
     Music2,
+    Play,
     Search,
     UserRound,
   } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
   import type { SearchMusicResponse } from '../gen/wavelength/v1/ingestion_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { DownloadSelection } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
@@ -19,12 +21,20 @@
   import { go, link } from '../lib/navigation';
   import Cover from './Cover.svelte';
   import Modal from './Modal.svelte';
+  import LibraryStatus from './LibraryStatus.svelte';
   let {
     player,
     basket,
+    realtime,
+    openDiscover,
     close,
-  }: { player: PlayerState; basket: DownloadSelection; close: () => void } =
-    $props();
+  }: {
+    player: PlayerState;
+    basket: DownloadSelection;
+    realtime: RealtimeState;
+    openDiscover: (query: string) => void;
+    close: () => void;
+  } = $props();
   let query = $state('');
   let tracks = $state<Track[]>([]);
   let albums = $state<Album[]>([]);
@@ -35,7 +45,11 @@
   let localError = $state('');
   let externalError = $state('');
   let active = $state(0);
+  let checkingAlbums = $state(false);
   let input: HTMLInputElement;
+  const saved = $derived(
+    external?.tracks.filter((track) => basket.localID(track)).length || 0,
+  );
   const id = $props.id();
   const pages = [
     { name: 'Your library', page: 'library' },
@@ -52,6 +66,10 @@
     artwork?: string;
     kind: 'song' | 'artist' | 'album' | 'page';
     saved?: boolean;
+    savedCount?: number;
+    total?: number;
+    quick?: () => void | Promise<void>;
+    quickAction?: string;
     run: () => void | Promise<void>;
   };
   const results = $derived.by<Result[]>(() => {
@@ -76,6 +94,7 @@
         artwork: track.artworkPath,
         kind: 'song',
         saved: true,
+        quickAction: 'Play',
         run: () => player.play([track]),
       });
     for (const album of albums)
@@ -87,6 +106,11 @@
         action: 'Open album',
         artwork: album.artworkPath,
         kind: 'album',
+        quickAction: 'Play',
+        quick: async () => {
+          const found = await api.library.getAlbum({ id: album.id });
+          await player.play(found.tracks);
+        },
         run: () => go(`album/${encodeURIComponent(album.id)}`),
       });
     for (const artist of artists)
@@ -107,7 +131,8 @@
         group: 'Discover',
         title: track.title,
         detail: `${track.artist} · ${track.album}`,
-        action: localID ? 'Play' : 'Review download',
+        action: localID ? 'Play' : 'Download',
+        quickAction: localID ? 'Play' : 'Download',
         artwork: track.artworkUrl,
         kind: 'song',
         saved: !!localID,
@@ -116,13 +141,17 @@
             const found = await api.library.getTrack({ id: localID });
             if (found.track) await player.play([found.track]);
           } else {
-            basket.add([track]);
-            basket.reviewing = true;
+            await basket.download([track]);
           }
         },
       });
     }
-    for (const album of external?.releases || [])
+    for (const album of external?.releases || []) {
+      const release = basket.release(album);
+      const savedCount =
+        release?.tracks.filter((track) => basket.localID(track)).length || 0;
+      const full =
+        !!release?.tracks.length && savedCount === release.tracks.length;
       rows.push({
         key: `release-${album.ref?.id}`,
         group: 'Discover',
@@ -131,28 +160,62 @@
         action: 'Browse album',
         artwork: album.artworkUrl,
         kind: 'album',
+        saved: full,
+        savedCount,
+        total: release?.tracks.length,
+        quickAction: full ? 'Play' : 'Download',
+        quick:
+          !checkingAlbums && release
+            ? async () => {
+                if (full) {
+                  const tracks = await Promise.all(
+                    release.tracks.map((track) =>
+                      api.library.getTrack({ id: basket.localID(track) }),
+                    ),
+                  );
+                  await player.play(
+                    tracks.flatMap((result) =>
+                      result.track ? [result.track] : [],
+                    ),
+                  );
+                } else await basket.download(release.tracks);
+              }
+            : undefined,
         run: () => {
           window.location.hash = link('discover/release', {
+            q: query.trim(),
             provider: album.ref?.provider || '',
             id: album.ref?.id || '',
           });
         },
       });
+    }
     for (const artist of external?.artists || [])
       rows.push({
         key: `external-artist-${artist.ref?.id}`,
         group: 'Discover',
+        artwork: artist.artworkUrl,
         title: artist.name,
         detail: 'Artist',
         action: 'Browse albums',
         kind: 'artist',
         run: () => {
           window.location.hash = link('discover/artist', {
+            q: query.trim(),
             provider: artist.ref?.provider || '',
             id: artist.ref?.id || '',
           });
         },
       });
+    rows.push({
+      key: 'discover-search',
+      group: 'Search',
+      title: 'Search in Discover',
+      detail: `Full results for “${query.trim()}”`,
+      action: 'Open Discover',
+      kind: 'page',
+      run: () => openDiscover(query.trim()),
+    });
     return rows;
   });
   onMount(() => {
@@ -201,7 +264,14 @@
         .search({ query: text, limit: 5 }, { signal: controller.signal })
         .then(async (found) => {
           await basket.lookup(found.tracks, controller.signal);
-          if (!controller.signal.aborted) external = found;
+          if (controller.signal.aborted) return;
+          external = found;
+          checkingAlbums = true;
+          try {
+            await basket.lookupReleases(found.releases, controller.signal);
+          } finally {
+            if (!controller.signal.aborted) checkingAlbums = false;
+          }
         })
         .catch((cause) => {
           if (!controller.signal.aborted) externalError = errorMessage(cause);
@@ -215,6 +285,20 @@
       clearTimeout(localTimer);
       clearTimeout(externalTimer);
     };
+  });
+  $effect(() => {
+    if (realtime.resetVersion)
+      untrack(() => {
+        if (external)
+          void basket
+            .lookup([
+              ...external.tracks,
+              ...external.releases.flatMap(
+                (album) => basket.release(album)?.tracks || [],
+              ),
+            ])
+            .catch((cause) => (externalError = errorMessage(cause)));
+      });
   });
   async function choose(result: Result) {
     close();
@@ -274,34 +358,56 @@
                 ? 'Ready to play'
                 : ''}</span
           >
-        </div>{/if}<button
-        role="option"
-        id={`${id}-${index}`}
-        tabindex="-1"
-        aria-selected={active === index}
-        class:active={active === index}
-        onpointermove={() => (active = index)}
-        onpointerdown={(event) => event.preventDefault()}
-        onclick={() => choose(result)}
-        >{#if result.kind === 'song' || result.artwork}<Cover
-            name={result.title}
-            artwork={result.artwork}
-            small
-          />{:else if result.kind === 'artist'}<UserRound
-            size={18}
-          />{:else if result.kind === 'album'}<Disc3
-            size={18}
-          />{:else}<ArrowUpRight size={18} />{/if}<span
-          class="command-result-label"
-          ><strong>{result.title}</strong><small>{result.detail}</small></span
-        ><span class="command-result-action"
-          >{#if result.saved}<span class="library-badge"
-              ><Check size={11} /> In library</span
-            >{:else if result.kind === 'song'}<span class="muted"
-              ><ArrowDownToLine size={12} /> Not downloaded</span
-            >{/if}<span>{result.action}</span></span
-        >{#if index === active}<CornerDownLeft size={13} />{/if}</button
-      >{/each}
+        </div>{/if}
+      <div class="command-row">
+        <button
+          role="option"
+          id={`${id}-${index}`}
+          tabindex="-1"
+          aria-selected={active === index}
+          class:active={active === index}
+          onpointermove={() => (active = index)}
+          onpointerdown={(event) => event.preventDefault()}
+          onclick={() => choose(result)}
+          >{#if result.kind === 'song' || result.artwork}<Cover
+              name={result.title}
+              artwork={result.artwork}
+              small
+            />{:else if result.kind === 'artist'}<UserRound
+              size={18}
+            />{:else if result.kind === 'album'}<Disc3
+              size={18}
+            />{:else}<ArrowUpRight size={18} />{/if}<span
+            class="command-result-label"
+            ><strong>{result.title}</strong><small>{result.detail}</small></span
+          ><span class="command-result-action"
+            >{#if result.total}<LibraryStatus
+                saved={result.savedCount || 0}
+                total={result.total}
+                checking={checkingAlbums}
+              />{:else if result.saved}<span class="library-badge"
+                ><Check size={11} /> In library</span
+              >{:else if result.kind === 'song'}<span class="muted"
+                ><ArrowDownToLine size={12} /> Not downloaded</span
+              >{/if}<span>{result.action}</span></span
+          >{#if index === active}<CornerDownLeft size={13} />{/if}</button
+        >{#if result.quick || (result.quickAction && result.kind === 'song')}<button
+            class="icon-button command-quick"
+            aria-label={`${result.quickAction} ${result.title}`}
+            title={result.quickAction}
+            onclick={async () => {
+              try {
+                await (result.quick || result.run)();
+              } catch (cause) {
+                externalError = errorMessage(cause);
+              }
+            }}
+            >{#if result.quickAction === 'Play'}<Play
+                size={16}
+                fill="currentColor"
+              />{:else}<ArrowDownToLine size={16} />{/if}</button
+          >{/if}
+      </div>{/each}
     {#if localLoading}<p class="command-message" role="status">
         Searching your library…
       </p>{/if}{#if externalLoading}<p class="command-message" role="status">
@@ -321,6 +427,11 @@
   <div class="command-footer">
     <span><kbd>↑</kbd><kbd>↓</kbd> Navigate</span><span
       ><kbd>↵</kbd> Select</span
-    ><span>Library + Discover</span>
+    ><span
+      >{#if external?.tracks.length}<LibraryStatus
+          {saved}
+          total={external.tracks.length}
+        />{:else}Library + Discover{/if}</span
+    >
   </div>
 </Modal>

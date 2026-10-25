@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strconv"
 
 	"connectrpc.com/connect"
 	pb "github.com/prayujt/wavelength/gen/wavelength/v1"
@@ -18,7 +19,7 @@ func (s *service) GetPlaybackInfo(ctx context.Context, r *connect.Request[pb.Get
 	if err != nil {
 		return nil, failure(err)
 	}
-	return connect.NewResponse(&pb.GetPlaybackInfoResponse{Track: track(t), HttpPath: "/media/tracks/" + t.ID, SupportsRanges: true}), nil
+	return connect.NewResponse(&pb.GetPlaybackInfoResponse{Track: track(t), HttpPath: "/media/tracks/" + t.ID + "?v=" + strconv.FormatInt(t.ModifiedAt.UnixNano(), 36), SupportsRanges: true}), nil
 }
 func (s *service) GetLyrics(ctx context.Context, r *connect.Request[pb.GetLyricsRequest]) (*connect.Response[pb.GetLyricsResponse], error) {
 	if r.Msg.Id == "" {

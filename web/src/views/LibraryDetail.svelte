@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { ArrowLeft, Play } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
@@ -15,10 +16,12 @@
     id,
     player,
     add,
+    realtime,
   }: {
     kind: 'artist' | 'album';
     id: string;
     player: PlayerState;
+    realtime: RealtimeState;
     add: (track: Track) => void;
   } = $props();
   let artist = $state<Artist>();
@@ -27,34 +30,37 @@
   let tracks = $state<Track[]>([]);
   let loading = $state(true);
   let error = $state('');
+  const controller = new AbortController();
   onMount(() => {
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        if (kind === 'artist') {
-          const result = await api.library.getArtist(
-            { id },
-            { signal: controller.signal },
-          );
-          artist = result.artist;
-          albums = result.albums;
-        } else {
-          const result = await api.library.getAlbum(
-            { id },
-            { signal: controller.signal },
-          );
-          album = result.album;
-          tracks = result.tracks;
-        }
-      } catch (cause) {
-        if (!controller.signal.aborted) error = errorMessage(cause);
-      } finally {
-        loading = false;
-      }
-    };
     void load();
     return () => controller.abort();
   });
+  $effect(() => {
+    if (realtime.libraryVersion) untrack(() => void load());
+  });
+  async function load() {
+    try {
+      if (kind === 'artist') {
+        const result = await api.library.getArtist(
+          { id },
+          { signal: controller.signal },
+        );
+        artist = result.artist;
+        albums = result.albums;
+      } else {
+        const result = await api.library.getAlbum(
+          { id },
+          { signal: controller.signal },
+        );
+        album = result.album;
+        tracks = result.tracks;
+      }
+    } catch (cause) {
+      if (!controller.signal.aborted) error = errorMessage(cause);
+    } finally {
+      loading = false;
+    }
+  }
 </script>
 
 <a
