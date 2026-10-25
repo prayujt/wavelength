@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
@@ -21,6 +22,13 @@ type Client struct {
 	http    *http.Client
 	base    string
 	limiter *rate.Limiter
+	mu      sync.Mutex
+	artists map[int64]cachedAlbumArtist
+}
+
+type cachedAlbumArtist struct {
+	name    string
+	expires time.Time
 }
 
 func New() *Client {
@@ -47,7 +55,7 @@ func ref(id int64) discovery.Ref {
 	return discovery.Ref{Provider: "itunes", ID: strconv.FormatInt(id, 10)}
 }
 func track(e entry) discovery.Track {
-	return discovery.Track{Ref: ref(e.TrackID), Title: e.Title, Artist: e.Artist, Album: e.Album, AlbumArtist: e.Artist, ReleaseDate: e.Date, TrackNumber: e.Number, DiscNumber: e.Disc, Duration: float64(e.Millis) / 1000, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Genre: e.Genre}
+	return discovery.Track{Ref: ref(e.TrackID), Title: e.Title, Artist: e.Artist, Album: e.Album, ReleaseDate: e.Date, TrackNumber: e.Number, DiscNumber: e.Disc, Duration: float64(e.Millis) / 1000, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Genre: e.Genre}
 }
 func release(e entry) discovery.Release {
 	return discovery.Release{Ref: ref(e.AlbumID), Title: e.Album, Artist: e.Artist, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Tracks: []discovery.Track{}}
@@ -128,11 +136,50 @@ func (c *Client) Track(ctx context.Context, r discovery.Ref) (discovery.Track, e
 	}
 	for _, e := range entries {
 		if e.Kind == "track" && ref(e.TrackID) == r {
-			return track(e), nil
+			artist, err := c.albumArtist(ctx, e.AlbumID)
+			if err != nil {
+				return discovery.Track{}, err
+			}
+			t := track(e)
+			t.AlbumArtist = artist
+			return t, nil
 		}
 	}
 	return discovery.Track{}, discovery.ErrNotFound
 }
+
+// Resolve the exact collection rather than treating a guest performer as the
+// album artist. Reuse successful lookups across individually selected songs.
+func (c *Client) albumArtist(ctx context.Context, id int64) (string, error) {
+	if id <= 0 {
+		return "", fmt.Errorf("%w: track has no collection", discovery.ErrUnavailable)
+	}
+	c.mu.Lock()
+	cached, ok := c.artists[id]
+	c.mu.Unlock()
+	if ok && time.Now().Before(cached.expires) {
+		return cached.name, nil
+	}
+	entries, err := c.get(ctx, "/lookup", url.Values{"id": {strconv.FormatInt(id, 10)}, "entity": {"album"}})
+	if err != nil {
+		return "", err
+	}
+	for _, e := range entries {
+		if e.Kind != "collection" || e.AlbumID != id || strings.TrimSpace(e.Artist) == "" {
+			continue
+		}
+		c.mu.Lock()
+		// Bound this per-client cache; collection credits are refreshed hourly.
+		if c.artists == nil || len(c.artists) >= 256 {
+			c.artists = make(map[int64]cachedAlbumArtist)
+		}
+		c.artists[id] = cachedAlbumArtist{name: e.Artist, expires: time.Now().Add(time.Hour)}
+		c.mu.Unlock()
+		return e.Artist, nil
+	}
+	return "", fmt.Errorf("%w: collection artist is missing", discovery.ErrUnavailable)
+}
+
 func (c *Client) Release(ctx context.Context, r discovery.Ref) (discovery.Release, error) {
 	entries, err := c.get(ctx, "/lookup", url.Values{"id": {r.ID}, "entity": {"song"}, "limit": {"200"}})
 	if err != nil {
