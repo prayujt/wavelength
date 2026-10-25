@@ -2,13 +2,28 @@
   import { LocateFixed, X } from '@lucide/svelte';
   import { tick, untrack } from 'svelte';
   import { Code, ConnectError } from '@connectrpc/connect';
-  import type { PlayerState } from '../lib/player.svelte';
+  import type { Track } from '../gen/wavelength/v1/library_pb';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
   import { parseLyrics, type LyricLine } from '../lib/lyrics';
   import Notice from './Notice.svelte';
   import Cover from './Cover.svelte';
-  let { player, close }: { player: PlayerState; close: () => void } = $props();
+  let {
+    player,
+    close,
+    embedded = false,
+    loadLyrics = async (id, signal) =>
+      (await api.library.getLyrics({ id }, { signal })).lyrics,
+  }: {
+    player: {
+      track?: Pick<Track, 'id' | 'title' | 'artist' | 'album' | 'artworkPath'>;
+      position: number;
+      seek(position: number): void;
+    };
+    close: () => void;
+    embedded?: boolean;
+    loadLyrics?: (id: string, signal: AbortSignal) => Promise<string>;
+  } = $props();
   let lines = $state<LyricLine[]>([]);
   let loading = $state(false);
   let error = $state('');
@@ -35,12 +50,11 @@
     if (!id) return;
     const controller = new AbortController();
     loading = true;
-    api.library
-      .getLyrics({ id }, { signal: controller.signal })
-      .then((result) => {
+    loadLyrics(id, controller.signal)
+      .then((lyrics) => {
         if (!controller.signal.aborted) {
-          missing = !result.lyrics.trim();
-          lines = missing ? [] : parseLyrics(result.lyrics);
+          missing = !lyrics.trim();
+          lines = missing ? [] : parseLyrics(lyrics);
         }
       })
       .catch((cause) => {
@@ -85,7 +99,7 @@
   });
 </script>
 
-<aside class="lyrics-panel" aria-label="Lyrics">
+<aside class="lyrics-panel" class:embedded aria-label="Lyrics">
   <header class="lyrics-heading">
     <Cover
       name={player.track?.album || 'Lyrics'}

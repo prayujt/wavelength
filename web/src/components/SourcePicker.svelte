@@ -8,6 +8,7 @@
   import { api } from '../lib/session.svelte';
   import { duration } from '../lib/format';
   import { errorMessage } from '../lib/api';
+  import SongCredits from './SongCredits.svelte';
   import Notice from './Notice.svelte';
   import Modal from './Modal.svelte';
   let {
@@ -50,7 +51,9 @@
         {action === 'Replace audio' ? 'Replace audio' : 'Choose a recording'}
       </p>
       <h2 id="source-title">{track.title}</h2>
-      <p class="muted">{track.artist} · {duration(track.durationSeconds)}</p>
+      <p class="muted">
+        <SongCredits {track} /> · {duration(track.durationSeconds)}
+      </p>
     </div>
     <button
       class="icon-button"

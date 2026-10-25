@@ -36,6 +36,7 @@ message ExternalTrack {
   string title = 2; string artist = 3; string album = 4; string album_artist = 5;
   string genre = 6; string release_date = 7; int32 track_number = 8;
   int32 disc_number = 9; double duration_seconds = 10; string artwork_url = 11;
+  ProviderRef artist_ref = 12; ProviderRef release_ref = 13;
 }
 message MusicRelease {
   ProviderRef ref = 1; string title = 2; string artist = 3;

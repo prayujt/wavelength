@@ -23,7 +23,7 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 		result := []entry{}
 		switch {
 		case r.URL.Path == "/search" && q.Get("entity") == "song":
-			result = []entry{{Kind: "track", TrackID: 123, ArtistID: 789, Artist: "Artist", Title: "Song", Millis: 180000, Artwork: "https://example.test/100x100bb.jpg"}}
+			result = []entry{{Kind: "track", TrackID: 123, ArtistID: 789, AlbumID: 456, Artist: "Artist", Title: "Song", Millis: 180000, Artwork: "https://example.test/100x100bb.jpg"}}
 		case r.URL.Path == "/search" && q.Get("entity") == "album":
 			result = []entry{{Kind: "collection", AlbumID: 456, Album: "Album", Artist: "Album artist"}}
 		case r.URL.Path == "/search":
@@ -40,6 +40,9 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 	results, err := c.Search(context.Background(), "Artist", 5)
 	if err != nil || len(results.Tracks) != 1 || len(results.Releases) != 1 || len(results.Artists) != 2 {
 		t.Fatal(results, err)
+	}
+	if results.Tracks[0].ArtistRef != ref(789) || results.Tracks[0].ReleaseRef != ref(456) {
+		t.Fatal("song navigation lost provider identities", results.Tracks[0])
 	}
 	if results.Artists[0].ArtworkURL != "https://example.test/600x600bb.jpg" || results.Artists[1].ArtworkURL != "" {
 		t.Fatal("artist artwork must match provider identity", results.Artists)

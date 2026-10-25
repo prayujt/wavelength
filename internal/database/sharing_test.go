@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
@@ -36,7 +35,7 @@ func TestMediaGrantsSurviveRestartAndStayBoundToTheirLibrary(t *testing.T) {
 		t.Fatal(err)
 	}
 	links := sharing.New(database.GrantStore{DB: db}, lib, "https://music.example")
-	share, err := links.CreateShare(ctx, "alice", "Saved songs", []string{page.Tracks[0].ID}, time.Time{})
+	share, err := links.CreateShare(ctx, "alice", sharing.ShareRequest{Name: "Saved songs", TrackIDs: []string{page.Tracks[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

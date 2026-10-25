@@ -52,6 +52,18 @@ func Register(mux *http.ServeMux, lib *library.Library, links *access.Service) {
 		}
 		return media.Artwork(w, r, lib, t.ID)
 	})
+	handle("GET /s/{token}/lyrics/{id}", func(w http.ResponseWriter, r *http.Request) error {
+		t, err := links.ShareTrack(r.Context(), r.PathValue("token"), r.PathValue("id"))
+		if err != nil {
+			return err
+		}
+		lyrics, err := lib.Lyrics(r.Context(), t.ID)
+		if err != nil {
+			return err
+		}
+		w.Header().Set("Content-Type", "application/json")
+		return json.NewEncoder(w).Encode(map[string]string{"lyrics": lyrics})
+	})
 	handle("POST /s/{token}/play/{id}", func(w http.ResponseWriter, r *http.Request) error {
 		// No browser session is consumed here. The share token alone authorizes this operation.
 		link, err := links.PlaybackFromShare(r.Context(), r.PathValue("token"), r.PathValue("id"))

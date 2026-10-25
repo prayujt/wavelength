@@ -236,6 +236,8 @@ type ExternalTrack struct {
 	DiscNumber      int32                  `protobuf:"varint,9,opt,name=disc_number,json=discNumber,proto3" json:"disc_number,omitempty"`
 	DurationSeconds float64                `protobuf:"fixed64,10,opt,name=duration_seconds,json=durationSeconds,proto3" json:"duration_seconds,omitempty"`
 	ArtworkUrl      string                 `protobuf:"bytes,11,opt,name=artwork_url,json=artworkUrl,proto3" json:"artwork_url,omitempty"`
+	ArtistRef       *ProviderRef           `protobuf:"bytes,12,opt,name=artist_ref,json=artistRef,proto3" json:"artist_ref,omitempty"`
+	ReleaseRef      *ProviderRef           `protobuf:"bytes,13,opt,name=release_ref,json=releaseRef,proto3" json:"release_ref,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -345,6 +347,20 @@ func (x *ExternalTrack) GetArtworkUrl() string {
 		return x.ArtworkUrl
 	}
 	return ""
+}
+
+func (x *ExternalTrack) GetArtistRef() *ProviderRef {
+	if x != nil {
+		return x.ArtistRef
+	}
+	return nil
+}
+
+func (x *ExternalTrack) GetReleaseRef() *ProviderRef {
+	if x != nil {
+		return x.ReleaseRef
+	}
+	return nil
 }
 
 type MusicRelease struct {
@@ -1719,7 +1735,7 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\fmetadata_ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\vmetadataRef\x12\x19\n" +
 	"\btrack_id\x18\x02 \x01(\tR\atrackId\"M\n" +
 	"\x15LookupImportsResponse\x124\n" +
-	"\x06tracks\x18\x01 \x03(\v2\x1c.wavelength.v1.ImportedTrackR\x06tracks\"\xed\x02\n" +
+	"\x06tracks\x18\x01 \x03(\v2\x1c.wavelength.v1.ImportedTrackR\x06tracks\"\xe5\x03\n" +
 	"\rExternalTrack\x12,\n" +
 	"\x03ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\x03ref\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -1734,7 +1750,11 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\x10duration_seconds\x18\n" +
 	" \x01(\x01R\x0fdurationSeconds\x12\x1f\n" +
 	"\vartwork_url\x18\v \x01(\tR\n" +
-	"artworkUrl\"\xfc\x01\n" +
+	"artworkUrl\x129\n" +
+	"\n" +
+	"artist_ref\x18\f \x01(\v2\x1a.wavelength.v1.ProviderRefR\tartistRef\x12;\n" +
+	"\vrelease_ref\x18\r \x01(\v2\x1a.wavelength.v1.ProviderRefR\n" +
+	"releaseRef\"\xfc\x01\n" +
 	"\fMusicRelease\x12,\n" +
 	"\x03ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\x03ref\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -1904,64 +1924,66 @@ var file_wavelength_v1_ingestion_proto_depIdxs = []int32{
 	0,  // 1: wavelength.v1.ImportedTrack.metadata_ref:type_name -> wavelength.v1.ProviderRef
 	2,  // 2: wavelength.v1.LookupImportsResponse.tracks:type_name -> wavelength.v1.ImportedTrack
 	0,  // 3: wavelength.v1.ExternalTrack.ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 4: wavelength.v1.MusicRelease.ref:type_name -> wavelength.v1.ProviderRef
-	4,  // 5: wavelength.v1.MusicRelease.tracks:type_name -> wavelength.v1.ExternalTrack
-	0,  // 6: wavelength.v1.MusicRelease.artist_ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 7: wavelength.v1.MusicArtist.ref:type_name -> wavelength.v1.ProviderRef
-	5,  // 8: wavelength.v1.MusicArtist.releases:type_name -> wavelength.v1.MusicRelease
-	0,  // 9: wavelength.v1.SourceCandidate.ref:type_name -> wavelength.v1.ProviderRef
-	4,  // 10: wavelength.v1.SearchMusicResponse.tracks:type_name -> wavelength.v1.ExternalTrack
-	5,  // 11: wavelength.v1.SearchMusicResponse.releases:type_name -> wavelength.v1.MusicRelease
-	6,  // 12: wavelength.v1.SearchMusicResponse.artists:type_name -> wavelength.v1.MusicArtist
-	0,  // 13: wavelength.v1.GetMusicArtistRequest.ref:type_name -> wavelength.v1.ProviderRef
-	6,  // 14: wavelength.v1.GetMusicArtistResponse.artist:type_name -> wavelength.v1.MusicArtist
-	0,  // 15: wavelength.v1.GetMusicReleaseRequest.ref:type_name -> wavelength.v1.ProviderRef
-	5,  // 16: wavelength.v1.GetMusicReleaseResponse.release:type_name -> wavelength.v1.MusicRelease
-	0,  // 17: wavelength.v1.GetMusicReleasesRequest.refs:type_name -> wavelength.v1.ProviderRef
-	5,  // 18: wavelength.v1.GetMusicReleasesResponse.releases:type_name -> wavelength.v1.MusicRelease
-	0,  // 19: wavelength.v1.FindSourcesRequest.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	7,  // 20: wavelength.v1.FindSourcesResponse.candidates:type_name -> wavelength.v1.SourceCandidate
-	0,  // 21: wavelength.v1.ImportSelection.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 22: wavelength.v1.ImportSelection.source_ref:type_name -> wavelength.v1.ProviderRef
-	18, // 23: wavelength.v1.CreateImportRequest.items:type_name -> wavelength.v1.ImportSelection
-	0,  // 24: wavelength.v1.CreateImportRequest.release_ref:type_name -> wavelength.v1.ProviderRef
-	27, // 25: wavelength.v1.ListImportsResponse.imports:type_name -> wavelength.v1.ImportJob
-	0,  // 26: wavelength.v1.SourceOverride.source_ref:type_name -> wavelength.v1.ProviderRef
-	24, // 27: wavelength.v1.RetryImportRequest.overrides:type_name -> wavelength.v1.SourceOverride
-	0,  // 28: wavelength.v1.ImportItem.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 29: wavelength.v1.ImportItem.source_ref:type_name -> wavelength.v1.ProviderRef
-	4,  // 30: wavelength.v1.ImportItem.metadata:type_name -> wavelength.v1.ExternalTrack
-	26, // 31: wavelength.v1.ImportJob.items:type_name -> wavelength.v1.ImportItem
-	28, // 32: wavelength.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
-	28, // 33: wavelength.v1.ImportJob.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 34: wavelength.v1.ImportJob.release_ref:type_name -> wavelength.v1.ProviderRef
-	8,  // 35: wavelength.v1.DiscoveryService.Search:input_type -> wavelength.v1.SearchMusicRequest
-	10, // 36: wavelength.v1.DiscoveryService.GetArtist:input_type -> wavelength.v1.GetMusicArtistRequest
-	12, // 37: wavelength.v1.DiscoveryService.GetRelease:input_type -> wavelength.v1.GetMusicReleaseRequest
-	14, // 38: wavelength.v1.DiscoveryService.GetReleases:input_type -> wavelength.v1.GetMusicReleasesRequest
-	16, // 39: wavelength.v1.DiscoveryService.FindSources:input_type -> wavelength.v1.FindSourcesRequest
-	1,  // 40: wavelength.v1.IngestionService.LookupImports:input_type -> wavelength.v1.LookupImportsRequest
-	19, // 41: wavelength.v1.IngestionService.CreateImport:input_type -> wavelength.v1.CreateImportRequest
-	20, // 42: wavelength.v1.IngestionService.GetImport:input_type -> wavelength.v1.GetImportRequest
-	21, // 43: wavelength.v1.IngestionService.ListImports:input_type -> wavelength.v1.ListImportsRequest
-	23, // 44: wavelength.v1.IngestionService.CancelImport:input_type -> wavelength.v1.CancelImportRequest
-	25, // 45: wavelength.v1.IngestionService.RetryImport:input_type -> wavelength.v1.RetryImportRequest
-	9,  // 46: wavelength.v1.DiscoveryService.Search:output_type -> wavelength.v1.SearchMusicResponse
-	11, // 47: wavelength.v1.DiscoveryService.GetArtist:output_type -> wavelength.v1.GetMusicArtistResponse
-	13, // 48: wavelength.v1.DiscoveryService.GetRelease:output_type -> wavelength.v1.GetMusicReleaseResponse
-	15, // 49: wavelength.v1.DiscoveryService.GetReleases:output_type -> wavelength.v1.GetMusicReleasesResponse
-	17, // 50: wavelength.v1.DiscoveryService.FindSources:output_type -> wavelength.v1.FindSourcesResponse
-	3,  // 51: wavelength.v1.IngestionService.LookupImports:output_type -> wavelength.v1.LookupImportsResponse
-	27, // 52: wavelength.v1.IngestionService.CreateImport:output_type -> wavelength.v1.ImportJob
-	27, // 53: wavelength.v1.IngestionService.GetImport:output_type -> wavelength.v1.ImportJob
-	22, // 54: wavelength.v1.IngestionService.ListImports:output_type -> wavelength.v1.ListImportsResponse
-	27, // 55: wavelength.v1.IngestionService.CancelImport:output_type -> wavelength.v1.ImportJob
-	27, // 56: wavelength.v1.IngestionService.RetryImport:output_type -> wavelength.v1.ImportJob
-	46, // [46:57] is the sub-list for method output_type
-	35, // [35:46] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	0,  // 4: wavelength.v1.ExternalTrack.artist_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 5: wavelength.v1.ExternalTrack.release_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 6: wavelength.v1.MusicRelease.ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 7: wavelength.v1.MusicRelease.tracks:type_name -> wavelength.v1.ExternalTrack
+	0,  // 8: wavelength.v1.MusicRelease.artist_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 9: wavelength.v1.MusicArtist.ref:type_name -> wavelength.v1.ProviderRef
+	5,  // 10: wavelength.v1.MusicArtist.releases:type_name -> wavelength.v1.MusicRelease
+	0,  // 11: wavelength.v1.SourceCandidate.ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 12: wavelength.v1.SearchMusicResponse.tracks:type_name -> wavelength.v1.ExternalTrack
+	5,  // 13: wavelength.v1.SearchMusicResponse.releases:type_name -> wavelength.v1.MusicRelease
+	6,  // 14: wavelength.v1.SearchMusicResponse.artists:type_name -> wavelength.v1.MusicArtist
+	0,  // 15: wavelength.v1.GetMusicArtistRequest.ref:type_name -> wavelength.v1.ProviderRef
+	6,  // 16: wavelength.v1.GetMusicArtistResponse.artist:type_name -> wavelength.v1.MusicArtist
+	0,  // 17: wavelength.v1.GetMusicReleaseRequest.ref:type_name -> wavelength.v1.ProviderRef
+	5,  // 18: wavelength.v1.GetMusicReleaseResponse.release:type_name -> wavelength.v1.MusicRelease
+	0,  // 19: wavelength.v1.GetMusicReleasesRequest.refs:type_name -> wavelength.v1.ProviderRef
+	5,  // 20: wavelength.v1.GetMusicReleasesResponse.releases:type_name -> wavelength.v1.MusicRelease
+	0,  // 21: wavelength.v1.FindSourcesRequest.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	7,  // 22: wavelength.v1.FindSourcesResponse.candidates:type_name -> wavelength.v1.SourceCandidate
+	0,  // 23: wavelength.v1.ImportSelection.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 24: wavelength.v1.ImportSelection.source_ref:type_name -> wavelength.v1.ProviderRef
+	18, // 25: wavelength.v1.CreateImportRequest.items:type_name -> wavelength.v1.ImportSelection
+	0,  // 26: wavelength.v1.CreateImportRequest.release_ref:type_name -> wavelength.v1.ProviderRef
+	27, // 27: wavelength.v1.ListImportsResponse.imports:type_name -> wavelength.v1.ImportJob
+	0,  // 28: wavelength.v1.SourceOverride.source_ref:type_name -> wavelength.v1.ProviderRef
+	24, // 29: wavelength.v1.RetryImportRequest.overrides:type_name -> wavelength.v1.SourceOverride
+	0,  // 30: wavelength.v1.ImportItem.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 31: wavelength.v1.ImportItem.source_ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 32: wavelength.v1.ImportItem.metadata:type_name -> wavelength.v1.ExternalTrack
+	26, // 33: wavelength.v1.ImportJob.items:type_name -> wavelength.v1.ImportItem
+	28, // 34: wavelength.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
+	28, // 35: wavelength.v1.ImportJob.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 36: wavelength.v1.ImportJob.release_ref:type_name -> wavelength.v1.ProviderRef
+	8,  // 37: wavelength.v1.DiscoveryService.Search:input_type -> wavelength.v1.SearchMusicRequest
+	10, // 38: wavelength.v1.DiscoveryService.GetArtist:input_type -> wavelength.v1.GetMusicArtistRequest
+	12, // 39: wavelength.v1.DiscoveryService.GetRelease:input_type -> wavelength.v1.GetMusicReleaseRequest
+	14, // 40: wavelength.v1.DiscoveryService.GetReleases:input_type -> wavelength.v1.GetMusicReleasesRequest
+	16, // 41: wavelength.v1.DiscoveryService.FindSources:input_type -> wavelength.v1.FindSourcesRequest
+	1,  // 42: wavelength.v1.IngestionService.LookupImports:input_type -> wavelength.v1.LookupImportsRequest
+	19, // 43: wavelength.v1.IngestionService.CreateImport:input_type -> wavelength.v1.CreateImportRequest
+	20, // 44: wavelength.v1.IngestionService.GetImport:input_type -> wavelength.v1.GetImportRequest
+	21, // 45: wavelength.v1.IngestionService.ListImports:input_type -> wavelength.v1.ListImportsRequest
+	23, // 46: wavelength.v1.IngestionService.CancelImport:input_type -> wavelength.v1.CancelImportRequest
+	25, // 47: wavelength.v1.IngestionService.RetryImport:input_type -> wavelength.v1.RetryImportRequest
+	9,  // 48: wavelength.v1.DiscoveryService.Search:output_type -> wavelength.v1.SearchMusicResponse
+	11, // 49: wavelength.v1.DiscoveryService.GetArtist:output_type -> wavelength.v1.GetMusicArtistResponse
+	13, // 50: wavelength.v1.DiscoveryService.GetRelease:output_type -> wavelength.v1.GetMusicReleaseResponse
+	15, // 51: wavelength.v1.DiscoveryService.GetReleases:output_type -> wavelength.v1.GetMusicReleasesResponse
+	17, // 52: wavelength.v1.DiscoveryService.FindSources:output_type -> wavelength.v1.FindSourcesResponse
+	3,  // 53: wavelength.v1.IngestionService.LookupImports:output_type -> wavelength.v1.LookupImportsResponse
+	27, // 54: wavelength.v1.IngestionService.CreateImport:output_type -> wavelength.v1.ImportJob
+	27, // 55: wavelength.v1.IngestionService.GetImport:output_type -> wavelength.v1.ImportJob
+	22, // 56: wavelength.v1.IngestionService.ListImports:output_type -> wavelength.v1.ListImportsResponse
+	27, // 57: wavelength.v1.IngestionService.CancelImport:output_type -> wavelength.v1.ImportJob
+	27, // 58: wavelength.v1.IngestionService.RetryImport:output_type -> wavelength.v1.ImportJob
+	48, // [48:59] is the sub-list for method output_type
+	37, // [37:48] is the sub-list for method input_type
+	37, // [37:37] is the sub-list for extension type_name
+	37, // [37:37] is the sub-list for extension extendee
+	0,  // [0:37] is the sub-list for field type_name
 }
 
 func init() { file_wavelength_v1_ingestion_proto_init() }

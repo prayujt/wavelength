@@ -7,6 +7,7 @@
   import { go } from '../lib/navigation';
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
+  import SongCredits from './SongCredits.svelte';
   import Cover from './Cover.svelte';
   import Notice from './Notice.svelte';
   import TrackMenu from './TrackMenu.svelte';
@@ -77,8 +78,7 @@
         >
       </div>
       <div class="track-info">
-        <strong>{track.title}</strong><span>{track.artist} · {track.album}</span
-        >
+        <strong>{track.title}</strong><SongCredits {track} />
       </div>
       <span class="track-duration muted">{duration(track.durationSeconds)}</span
       >

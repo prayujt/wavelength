@@ -936,36 +936,6 @@ label {
   border-top: 1px solid var(--border);
   padding-top: 18px;
 }
-.review-options select {
-  width: 100%;
-}
-.playlist-select {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-.playlist-select select {
-  appearance: none;
-  min-height: 40px;
-  padding: 0 38px;
-  border-radius: 7px;
-  background: var(--surface);
-  font-size: 12px;
-  cursor: pointer;
-  transition: border-color 140ms ease;
-}
-.playlist-select select:hover:not(:disabled) {
-  border-color: var(--nav-line);
-}
-.playlist-select > svg {
-  position: absolute;
-  left: 12px;
-  pointer-events: none;
-}
-.playlist-select > svg:last-child {
-  left: auto;
-  right: 12px;
-}
 .review-options p {
   margin-top: 13px;
 }
@@ -2120,4 +2090,116 @@ label {
 }
 .shared-audio p {
   margin: 0 0 0.75rem;
+}
+
+.modal label + .dropdown-trigger {
+  margin-top: 7px;
+}
+.dropdown-trigger {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 11px;
+  text-align: left;
+  color: var(--text);
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+.dropdown-trigger:hover:not(:disabled),
+.dropdown-trigger[aria-expanded='true'] {
+  border-color: var(--nav-line);
+  background: var(--hover);
+}
+.dropdown-trigger > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dropdown-trigger > svg {
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.dropdown-options {
+  position: fixed;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  border: 1px solid var(--nav-line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+.dropdown-options [role='option'] {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+.dropdown-options [role='option'].active {
+  background: var(--hover);
+}
+.dropdown-options [aria-selected='true'] > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.track-list .track-row {
+  grid-template-columns: 28px minmax(130px, 1.5fr) minmax(90px, 1fr) 48px calc(
+      var(--action-count) * 28px
+    );
+}
+.track-list .row-actions {
+  width: 100%;
+}
+.song-credits {
+  color: var(--muted);
+  font-size: 11px;
+}
+.song-credits a:hover,
+a.album-column:hover {
+  color: var(--text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.song-credits .mobile-album {
+  display: none;
+}
+@media (max-width: 760px) {
+  .track-list .track-row {
+    grid-template-columns: 20px minmax(0, 1fr) 36px calc(
+        var(--action-count) * 27px
+      );
+  }
+  .song-credits .mobile-album {
+    display: inline;
+  }
+}
+
+.shared-audio-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.shared-audio-heading p {
+  margin: 0;
+}
+.lyrics-panel.embedded {
+  position: static;
+  width: 100%;
+  height: min(440px, 60dvh);
+  margin-top: 16px;
+  box-shadow: none;
+}
+.shared-player:has(.shared-lyrics) .shared-audio {
+  position: static;
 }

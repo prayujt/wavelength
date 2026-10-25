@@ -25,14 +25,15 @@ var (
 const (
 	Share              = "share"
 	Playback           = "playback"
-	DefaultPlaybackTTL = time.Hour
+	DefaultPlaybackTTL = 3 * time.Hour
+	DefaultShareTTL    = 30 * 24 * time.Hour
 	MaxPlaybackTTL     = 24 * time.Hour
 )
 
 type Grant struct {
 	ID, TokenHash, Owner, RootID, Kind, Name, ParentID string
 	TrackIDs                                           []string
-	CreatedAt, ExpiresAt, RevokedAt                    time.Time
+	CreatedAt, ExpiresAt                               time.Time
 }
 
 type Store interface {
@@ -40,7 +41,7 @@ type Store interface {
 	Get(context.Context, string) (Grant, error)
 	ByTokenHash(context.Context, string) (Grant, error)
 	List(context.Context, string, string, string, int, int) ([]Grant, error)
-	Revoke(context.Context, string, string, string, time.Time) error
+	Revoke(context.Context, string, string, string) error
 }
 
 type Service struct {
@@ -60,9 +61,22 @@ type Link struct {
 	URL   string
 }
 
+type ShareRequest struct {
+	Name      string
+	TrackIDs  []string
+	ExpiresAt time.Time
+	NoExpiry  bool
+}
+
 // CreateShare captures an ordered snapshot; later playlist edits do not widen access.
-func (s *Service) CreateShare(ctx context.Context, owner, name string, ids []string, expires time.Time) (Link, error) {
-	name = strings.TrimSpace(name)
+func (s *Service) CreateShare(ctx context.Context, owner string, request ShareRequest) (Link, error) {
+	name, ids, expires := strings.TrimSpace(request.Name), request.TrackIDs, request.ExpiresAt
+	if request.NoExpiry && !expires.IsZero() {
+		return Link{}, ErrInvalid
+	}
+	if expires.IsZero() && !request.NoExpiry {
+		expires = s.now().Add(DefaultShareTTL)
+	}
 	if owner == "" || len(name) > 255 || len(ids) == 0 || len(ids) > 1000 || !expires.IsZero() && !expires.After(s.now()) {
 		return Link{}, ErrInvalid
 	}
@@ -121,7 +135,7 @@ func (s *Service) create(ctx context.Context, g Grant, extension string) (Link, 
 }
 func hash(token string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(token))) }
 func (s *Service) active(g Grant) bool {
-	return g.RootID == s.rootID && g.RevokedAt.IsZero() && (g.ExpiresAt.IsZero() || s.now().Before(g.ExpiresAt))
+	return g.RootID == s.rootID && (g.ExpiresAt.IsZero() || s.now().Before(g.ExpiresAt))
 }
 func (s *Service) resolve(ctx context.Context, token, kind string) (Grant, error) {
 	if len(token) != 43 {
@@ -187,5 +201,5 @@ func (s *Service) Revoke(ctx context.Context, owner, id string) error {
 	if owner == "" || id == "" {
 		return ErrInvalid
 	}
-	return s.store.Revoke(ctx, id, owner, s.rootID, s.now().UTC())
+	return s.store.Revoke(ctx, id, owner, s.rootID)
 }

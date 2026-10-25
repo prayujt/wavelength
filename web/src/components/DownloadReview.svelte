@@ -1,12 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import {
-    ChevronDown,
-    Download,
-    ListMusic,
-    SlidersHorizontal,
-    X,
-  } from '@lucide/svelte';
+  import { Download, SlidersHorizontal, X } from '@lucide/svelte';
   import type { Playlist } from '../gen/wavelength/v1/library_pb';
   import type {
     ExternalTrack,
@@ -16,7 +10,9 @@
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
+  import SongCredits from './SongCredits.svelte';
   import Cover from './Cover.svelte';
+  import Dropdown from './Dropdown.svelte';
   import Modal from './Modal.svelte';
   import Notice from './Notice.svelte';
   import SourcePicker from './SourcePicker.svelte';
@@ -106,9 +102,7 @@
           small
         />
         <div class="track-info">
-          <strong>{track.title}</strong><span
-            >{track.artist} · {track.album}</span
-          ><span
+          <strong>{track.title}</strong><SongCredits {track} /><span
             >{basket.sources[refKey(track.ref)]?.title ||
               'Automatic matching'}</span
           ><button
@@ -135,21 +129,22 @@
       </div>{/each}
   </div>
   <div class="review-options">
-    <label
-      >Add to playlist
-      <div class="playlist-select">
-        <ListMusic size={15} /><select
-          aria-label="Download playlist"
-          value={basket.playlistId}
-          disabled={busy || loading}
-          onchange={(event) => basket.playlist(event.currentTarget.value)}
-          ><option value="">Library only</option
-          >{#each playlists as playlist}<option value={playlist.id}
-              >{playlist.name}</option
-            >{/each}</select
-        ><ChevronDown size={14} />
-      </div></label
-    >{#if playlists.length < playlistTotal}<button
+    <label for="download-playlist">Add to playlist</label>
+    <Dropdown
+      id="download-playlist"
+      label="Download playlist"
+      value={basket.playlistId}
+      disabled={busy || loading}
+      onchange={(value) => basket.playlist(value)}
+      options={[
+        { value: '', label: 'Library only' },
+        ...playlists.map((playlist) => ({
+          value: playlist.id,
+          label: playlist.name,
+        })),
+      ]}
+    />
+    {#if playlists.length < playlistTotal}<button
         class="text-button muted"
         disabled={busy || loading}
         onclick={loadPlaylists}>Load more playlists</button

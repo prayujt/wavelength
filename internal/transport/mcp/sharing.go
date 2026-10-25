@@ -11,12 +11,13 @@ import (
 
 type playbackLinkInput struct {
 	TrackID   string `json:"track_id" jsonschema:"Local library track ID"`
-	ExpiresIn int    `json:"expires_in_seconds,omitempty" jsonschema:"Lifetime from 60 to 86400 seconds; defaults to 3600"`
+	ExpiresIn int    `json:"expires_in_seconds,omitempty" jsonschema:"Lifetime from 60 to 86400 seconds; defaults to 10800"`
 }
 type shareInput struct {
+	NoExpiry  bool     `json:"no_expiry,omitempty" jsonschema:"Explicitly create a share with no expiry; cannot be combined with expires_at"`
 	Name      string   `json:"name,omitempty"`
 	TrackIDs  []string `json:"track_ids" jsonschema:"Ordered local track IDs; snapshots an album or playlist when all its IDs are supplied"`
-	ExpiresAt string   `json:"expires_at,omitempty" jsonschema:"Optional RFC3339 expiry; omit for no expiry"`
+	ExpiresAt string   `json:"expires_at,omitempty" jsonschema:"Optional RFC3339 expiry; defaults to 30 days"`
 }
 type accessListInput struct {
 	Kind   string `json:"kind,omitempty" jsonschema:"share (default) or playback"`
@@ -29,9 +30,7 @@ func accessRecord(g sharing.Grant) object {
 	if !g.ExpiresAt.IsZero() {
 		out["expires_at"] = g.ExpiresAt
 	}
-	if !g.RevokedAt.IsZero() {
-		out["revoked_at"] = g.RevokedAt
-	}
+
 	return out
 }
 func registerSharing(s *mcp.Server, links *sharing.Service) {
@@ -67,7 +66,7 @@ func registerSharing(s *mcp.Server, links *sharing.Service) {
 				return nil, sharing.ErrInvalid
 			}
 		}
-		link, err := links.CreateShare(ctx, owner, in.Name, in.TrackIDs, expires)
+		link, err := links.CreateShare(ctx, owner, sharing.ShareRequest{Name: in.Name, TrackIDs: in.TrackIDs, ExpiresAt: expires, NoExpiry: in.NoExpiry})
 		return object{"link": accessRecord(link.Grant), "url": link.URL}, err
 	})
 	add(s, "list_access_links", "List your shares or temporary playback grants. Does not reveal bearer tokens or URLs.", false, false, func(ctx context.Context, in accessListInput) (object, error) {

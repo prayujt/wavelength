@@ -106,6 +106,10 @@ func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Ma
 		path, handler := rpc.UserDataHandler(data, manager)
 		mux.Handle(path, handler)
 		if len(features) > 0 {
+			if features[0].Listening != nil {
+				path, handler := rpc.ListeningHandler(features[0].Listening, manager)
+				mux.Handle(path, handler)
+			}
 			if features[0].Links != nil {
 				path, handler := rpc.SharingHandler(features[0].Links, manager)
 				mux.Handle(path, handler)

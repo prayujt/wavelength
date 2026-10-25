@@ -7,6 +7,7 @@
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
   import { link } from '../lib/navigation';
+  import { reveal } from '../lib/motion';
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import TrackList from '../components/TrackList.svelte';
@@ -26,6 +27,12 @@
   } = $props();
   let tab = $state('tracks');
   let query = $state('');
+  let appliedQuery = $state('');
+  let refreshing = false;
+  let initialized = false;
+  let pendingRefresh = false;
+  let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+  let addedIDs = $state(new Set<string>());
   let tracks = $state<Track[]>([]);
   let albums = $state<Album[]>([]);
   let artists = $state<Artist[]>([]);
@@ -41,21 +48,50 @@
     void load();
     return () => {
       ++request;
+      clearTimeout(refreshTimer);
       controller.abort();
     };
   });
   $effect(() => {
-    if (realtime.libraryVersion) untrack(() => void load(offset));
+    if (realtime.libraryVersion) untrack(scheduleRefresh);
   });
-  async function load(nextOffset = 0) {
+  function scheduleRefresh() {
+    pendingRefresh = true;
+    if (
+      refreshTimer ||
+      refreshing ||
+      loading ||
+      !initialized ||
+      controller.signal.aborted
+    )
+      return;
+    refreshTimer = setTimeout(async () => {
+      refreshTimer = undefined;
+      if (loading || controller.signal.aborted) return;
+      refreshing = true;
+      pendingRefresh = false;
+      await load(offset, true);
+      refreshing = false;
+      if (pendingRefresh) scheduleRefresh();
+    }, 150);
+  }
+  async function load(nextOffset = 0, background = false) {
     const generation = ++request;
-    loading = true;
+    if (!background) {
+      loading = true;
+      appliedQuery = query;
+      addedIDs = new Set();
+    }
     error = '';
     try {
-      const input = { query, offset: nextOffset, limit: pageSize };
+      const input = {
+        query: appliedQuery,
+        offset: nextOffset,
+        limit: pageSize,
+      };
       const options = { signal: controller.signal };
       const focused =
-        initialTrackID && !query
+        initialTrackID && !appliedQuery
           ? await api.library.getTrack({ id: initialTrackID }, options)
           : undefined;
       const result = focused
@@ -69,6 +105,22 @@
             ? await api.library.listAlbums(input, options)
             : await api.library.listArtists(input, options);
       if (generation !== request) return;
+      const previous = new Set(
+        [...tracks, ...albums, ...artists].map((item) => item.id),
+      );
+      const incoming =
+        'tracks' in result
+          ? result.tracks
+          : 'albums' in result
+            ? result.albums
+            : result.artists;
+      addedIDs = background
+        ? new Set(
+            incoming
+              .filter((item) => !previous.has(item.id))
+              .map((item) => item.id),
+          )
+        : new Set();
       tracks = 'tracks' in result ? result.tracks : [];
       albums = 'albums' in result ? result.albums : [];
       artists = 'artists' in result ? result.artists : [];
@@ -78,7 +130,11 @@
       if (generation === request && !controller.signal.aborted)
         error = errorMessage(cause);
     } finally {
-      if (generation === request) loading = false;
+      if (generation === request) {
+        loading = false;
+        initialized = true;
+      }
+      if (pendingRefresh && !refreshing) scheduleRefresh();
     }
   }
 </script>
@@ -121,19 +177,20 @@
   </div>
 {:else if !error && !total}<div class="empty-state">
     <Library size={27} />
-    <h2>{query ? 'No results' : 'No music yet'}</h2>
+    <h2>{appliedQuery ? 'No results' : 'No music yet'}</h2>
     <p>
-      {query
+      {appliedQuery
         ? 'Try another song, artist, or album.'
         : 'Search for music in Discover and download it to your library.'}
     </p>
-    {#if !query}<a class="button primary" href="#discover"
+    {#if !appliedQuery}<a class="button primary" href="#discover"
         >Discover music <ArrowRight size={14} /></a
       >{/if}
   </div>
-{:else if tracks.length}<TrackList {tracks} {player} {add} />
+{:else if tracks.length}<TrackList {tracks} {player} {add} {addedIDs} />
 {:else}<div class="card-grid">
-    {#each albums as album}<a
+    {#each albums as album (album.id)}<a
+        use:reveal={addedIDs.has(album.id)}
         class="music-card"
         href={link(`album/${encodeURIComponent(album.id)}`)}
         ><Cover name={album.name} artwork={album.artworkPath} /><strong
@@ -141,7 +198,8 @@
         ><span
           >{album.artist} · {album.year || `${album.trackCount} songs`}</span
         ></a
-      >{/each}{#each artists as artist}<a
+      >{/each}{#each artists as artist (artist.id)}<a
+        use:reveal={addedIDs.has(artist.id)}
         class="music-card"
         href={link(`artist/${encodeURIComponent(artist.id)}`)}
         ><Cover name={artist.name} artwork={artist.artworkPath} /><strong

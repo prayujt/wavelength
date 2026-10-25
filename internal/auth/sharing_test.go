@@ -69,7 +69,7 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if direct.Msg.Link.Kind != "playback" || direct.Msg.Link.ExpiresAt == nil {
+	if direct.Msg.Link.Kind != "playback" || direct.Msg.Link.ExpiresAt == nil || time.Until(direct.Msg.Link.ExpiresAt.AsTime()) < 3*time.Hour-5*time.Second {
 		t.Fatal(direct.Msg)
 	}
 	assertAudio := func(target string) {
@@ -116,6 +116,10 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 	share := tool(t, mcp, "create_share", map[string]any{"name": "A shared song", "track_ids": []string{id}}, false)
 	sharedURL := share["url"].(string)
 	sharedID := share["link"].(map[string]any)["id"].(string)
+	shareExpiry, err := time.Parse(time.RFC3339Nano, share["link"].(map[string]any)["expires_at"].(string))
+	if err != nil || time.Until(shareExpiry) < 30*24*time.Hour-5*time.Second {
+		t.Fatal("share default is not 30 days", shareExpiry, err)
+	}
 	response := do(t, http.DefaultClient, "GET", sharedURL, nil)
 	if response.StatusCode != 200 || response.Header.Get("Referrer-Policy") != "no-referrer" {
 		t.Fatal(response.StatusCode, response.Header)
@@ -128,6 +132,10 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 	denied := do(t, http.DefaultClient, "POST", sharedURL+"/play/"+other, nil)
 	if denied.StatusCode != 404 {
 		t.Fatal("share widened to unselected audio", denied.StatusCode)
+	}
+	denied = do(t, http.DefaultClient, "GET", sharedURL+"/lyrics/"+other, nil)
+	if denied.StatusCode != 404 {
+		t.Fatal("share exposed unselected lyrics", denied.StatusCode)
 	}
 	denied = do(t, http.DefaultClient, "GET", sharedURL+"/artwork/"+other, nil)
 	if denied.StatusCode != 404 {
@@ -172,8 +180,15 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 			t.Fatal("revocation did not block access", target, result.StatusCode)
 		}
 	}
+	var remaining int
+	if err := db.QueryRow("SELECT count(*) FROM media_grants WHERE id=? OR parent_id=?", sharedID, sharedID).Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatal("revoked share records were retained", remaining, err)
+	}
 	// Explicit revocation and expiry also apply to conditional/range requests.
 	tool(t, mcp, "revoke_access_link", map[string]any{"id": direct.Msg.Link.Id}, false)
+	if err := db.QueryRow("SELECT count(*) FROM media_grants WHERE id=?", direct.Msg.Link.Id).Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatal("revoked playback was retained", remaining, err)
+	}
 	if response := do(t, http.DefaultClient, "GET", direct.Msg.Url, map[string]string{"Range": "bytes=1-", "If-None-Match": "*"}); response.StatusCode != 404 {
 		t.Fatal("revoked link bypassed checks", response.StatusCode)
 	}
@@ -193,6 +208,13 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 	if _, err := rpc.CreateShare(ctx, rpcRequest(alice.Access, &pb.CreateShareRequest{TrackIds: []string{id}, ExpiresAt: timestamppb.New(time.Now().Add(-time.Hour))})); connect.CodeOf(err) != connect.CodeInvalidArgument {
 		t.Fatal("expired share accepted", err)
 	}
+	indefinite, err := rpc.CreateShare(ctx, rpcRequest(alice.Access, &pb.CreateShareRequest{TrackIds: []string{id}, NoExpiry: true}))
+	if err != nil || indefinite.Msg.Link.ExpiresAt != nil {
+		t.Fatal("explicit no-expiry option failed", indefinite, err)
+	}
+	if _, err := rpc.CreateShare(ctx, rpcRequest(alice.Access, &pb.CreateShareRequest{TrackIds: []string{id}, NoExpiry: true, ExpiresAt: timestamppb.New(time.Now().Add(time.Hour))})); connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatal("conflicting expiry accepted", err)
+	}
 	// Parent expiry is checked again after playback has started.
 	timed, err := rpc.CreateShare(ctx, rpcRequest(alice.Access, &pb.CreateShareRequest{TrackIds: []string{id}, ExpiresAt: timestamppb.New(time.Now().Add(time.Hour))}))
 	if err != nil {
@@ -207,5 +229,12 @@ func TestPlaybackAndSharingAcrossRPCMCPAndHTTP(t *testing.T) {
 	}
 	if result := do(t, http.DefaultClient, "GET", derived.URL, nil); result.StatusCode != 404 {
 		t.Fatal("parent expiry not enforced", result.StatusCode)
+	}
+	// Listing performs cleanup and cascades to children, including expired shares.
+	if _, err := rpc.ListAccessLinks(ctx, rpcRequest(alice.Access, &pb.ListAccessLinksRequest{})); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow("SELECT count(*) FROM media_grants WHERE id=? OR parent_id=?", timed.Msg.Link.Id, timed.Msg.Link.Id).Scan(&remaining); err != nil || remaining != 0 {
+		t.Fatal("expired share records were retained", remaining, err)
 	}
 }

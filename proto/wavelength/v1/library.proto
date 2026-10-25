@@ -98,6 +98,9 @@ message Track {
   google.protobuf.Timestamp modified_at = 15;
   // Authenticated image path; returns 404 when no artwork is available.
   string artwork_path = 16;
+  // Catalog identities for direct artist and album navigation.
+  string artist_id = 17;
+  string album_id = 18;
 }
 message Artist { string id = 1; string name = 2; int32 album_count = 3; string artwork_path = 4; }
 message Album {

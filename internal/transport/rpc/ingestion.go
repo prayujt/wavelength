@@ -36,7 +36,7 @@ func refMessage(r discovery.Ref) *pb.ProviderRef {
 	return &pb.ProviderRef{Provider: r.Provider, Id: r.ID}
 }
 func externalTrack(t discovery.Track) *pb.ExternalTrack {
-	return &pb.ExternalTrack{Ref: refMessage(t.Ref), Title: t.Title, Artist: t.Artist, Album: t.Album, AlbumArtist: t.AlbumArtist, Genre: t.Genre, ReleaseDate: t.ReleaseDate, TrackNumber: int32(t.TrackNumber), DiscNumber: int32(t.DiscNumber), DurationSeconds: t.Duration, ArtworkUrl: t.ArtworkURL}
+	return &pb.ExternalTrack{Ref: refMessage(t.Ref), ArtistRef: refMessage(t.ArtistRef), ReleaseRef: refMessage(t.ReleaseRef), Title: t.Title, Artist: t.Artist, Album: t.Album, AlbumArtist: t.AlbumArtist, Genre: t.Genre, ReleaseDate: t.ReleaseDate, TrackNumber: int32(t.TrackNumber), DiscNumber: int32(t.DiscNumber), DurationSeconds: t.Duration, ArtworkUrl: t.ArtworkURL}
 }
 func musicRelease(r discovery.Release) *pb.MusicRelease {
 	out := &pb.MusicRelease{Ref: refMessage(r.Ref), ArtistRef: refMessage(r.ArtistRef), Title: r.Title, Artist: r.Artist, ArtworkUrl: r.ArtworkURL}

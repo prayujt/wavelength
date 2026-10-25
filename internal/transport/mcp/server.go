@@ -12,12 +12,14 @@ import (
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/listening"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
 type Features struct {
+	Listening *listening.Service
 	Links     *sharing.Service
 	Discovery *discovery.Service
 	Ingest    *ingest.Service
@@ -144,6 +146,9 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 		return object{"lyrics": lyrics}, err
 	})
 	registerPersonal(s, data)
+	if len(features) > 0 && features[0].Listening != nil {
+		registerListening(s, features[0].Listening)
+	}
 	if len(features) > 0 && features[0].Links != nil {
 		registerSharing(s, features[0].Links)
 	}
@@ -187,6 +192,8 @@ func toolError(err error) *mcp.CallToolResult {
 		message = denied.Message
 	case errors.Is(err, userdata.ErrForbidden):
 		message = "You do not have permission to access or change this collection."
+	case errors.Is(err, listening.ErrConflict):
+		message = "The listening event conflicts with the existing session."
 	case errors.Is(err, ingest.ErrConflict):
 		message = "The import request conflicts with an existing request or job state."
 	case errors.Is(err, ingest.ErrCapacity):
@@ -195,9 +202,9 @@ func toolError(err error) *mcp.CallToolResult {
 		message = "Playback and sharing links require a configured public URL."
 	case errors.Is(err, discovery.ErrUnavailable):
 		message = "The external music provider is unavailable. Try again later."
-	case errors.Is(err, sharing.ErrInvalid), errors.Is(err, userdata.ErrInvalid), errors.Is(err, ingest.ErrInvalid), errors.Is(err, discovery.ErrInvalid):
+	case errors.Is(err, listening.ErrInvalid), errors.Is(err, sharing.ErrInvalid), errors.Is(err, userdata.ErrInvalid), errors.Is(err, ingest.ErrInvalid), errors.Is(err, discovery.ErrInvalid):
 		message = "Invalid input. Check IDs, limits, positions and timestamps."
-	case errors.Is(err, sharing.ErrNotFound), errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, ingest.ErrNotFound), errors.Is(err, discovery.ErrNotFound):
+	case errors.Is(err, listening.ErrNotFound), errors.Is(err, sharing.ErrNotFound), errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, ingest.ErrNotFound), errors.Is(err, discovery.ErrNotFound):
 		message = "The requested item was not found."
 	case errors.Is(err, context.Canceled):
 		message = "Operation cancelled."

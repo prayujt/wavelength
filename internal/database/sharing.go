@@ -12,7 +12,7 @@ import (
 
 type GrantStore struct{ DB *sql.DB }
 
-const grantColumns = "id,token_hash,owner,root_id,kind,name,track_ids,parent_id,created_at,expires_at,revoked_at"
+const grantColumns = "id,token_hash,owner,root_id,kind,name,track_ids,parent_id,created_at,expires_at"
 
 func millis(t time.Time) int64 {
 	if t.IsZero() {
@@ -29,15 +29,17 @@ func fromMillis(v int64) time.Time {
 func scanGrant(row interface{ Scan(...any) error }) (sharing.Grant, error) {
 	var g sharing.Grant
 	var ids string
-	var created, expires, revoked int64
-	err := row.Scan(&g.ID, &g.TokenHash, &g.Owner, &g.RootID, &g.Kind, &g.Name, &ids, &g.ParentID, &created, &expires, &revoked)
+	var created, expires int64
+	var parent sql.NullString
+	err := row.Scan(&g.ID, &g.TokenHash, &g.Owner, &g.RootID, &g.Kind, &g.Name, &ids, &parent, &created, &expires)
 	if errors.Is(err, sql.ErrNoRows) {
 		return g, sharing.ErrNotFound
 	}
 	if err != nil {
 		return g, err
 	}
-	g.CreatedAt, g.ExpiresAt, g.RevokedAt = fromMillis(created), fromMillis(expires), fromMillis(revoked)
+	g.CreatedAt, g.ExpiresAt = fromMillis(created), fromMillis(expires)
+	g.ParentID = parent.String
 	err = json.Unmarshal([]byte(ids), &g.TrackIDs)
 	return g, err
 }
@@ -51,11 +53,20 @@ func (s GrantStore) Create(ctx context.Context, g sharing.Grant) error {
 		return err
 	}
 	defer tx.Rollback()
-	// Ephemeral playback grants have no history to retain after expiry.
-	if _, err = tx.ExecContext(ctx, "DELETE FROM media_grants WHERE kind='playback' AND expires_at<=?", millis(g.CreatedAt)); err != nil {
+	// Expired grants and their child playback credentials have no history to retain.
+	if _, err = tx.ExecContext(ctx, "DELETE FROM media_grants WHERE expires_at>0 AND expires_at<=?", millis(g.CreatedAt)); err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, "INSERT INTO media_grants ("+grantColumns+") VALUES (?,?,?,?,?,?,?,?,?,?,?)", g.ID, g.TokenHash, g.Owner, g.RootID, g.Kind, g.Name, string(ids), g.ParentID, millis(g.CreatedAt), millis(g.ExpiresAt), millis(g.RevokedAt))
+	if g.ParentID != "" {
+		var count int
+		if err := tx.QueryRowContext(ctx, "SELECT count(*) FROM media_grants WHERE id=? AND owner=? AND root_id=? AND kind='share'", g.ParentID, g.Owner, g.RootID).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			return sharing.ErrNotFound
+		}
+	}
+	_, err = tx.ExecContext(ctx, "INSERT INTO media_grants ("+grantColumns+") VALUES (?,?,?,?,?,?,?,?,?,?)", g.ID, g.TokenHash, g.Owner, g.RootID, g.Kind, g.Name, string(ids), sql.NullString{String: g.ParentID, Valid: g.ParentID != ""}, millis(g.CreatedAt), millis(g.ExpiresAt))
 	if err != nil {
 		return err
 	}
@@ -70,7 +81,10 @@ func (s GrantStore) ByTokenHash(ctx context.Context, hash string) (sharing.Grant
 
 // Derived playback grants are managed through their parent share.
 func (s GrantStore) List(ctx context.Context, owner, root, kind string, limit, offset int) ([]sharing.Grant, error) {
-	rows, err := s.DB.QueryContext(ctx, "SELECT "+grantColumns+" FROM media_grants WHERE owner=? AND root_id=? AND kind=? AND parent_id='' ORDER BY created_at DESC,id LIMIT ? OFFSET ?", owner, root, kind, limit, offset)
+	if _, err := s.DB.ExecContext(ctx, "DELETE FROM media_grants WHERE expires_at>0 AND expires_at<=?", time.Now().UnixMilli()); err != nil {
+		return nil, err
+	}
+	rows, err := s.DB.QueryContext(ctx, "SELECT "+grantColumns+" FROM media_grants WHERE owner=? AND root_id=? AND kind=? AND parent_id IS NULL ORDER BY created_at DESC,id LIMIT ? OFFSET ?", owner, root, kind, limit, offset)
 	if err != nil {
 		return nil, err
 	}
@@ -85,8 +99,8 @@ func (s GrantStore) List(ctx context.Context, owner, root, kind string, limit, o
 	}
 	return out, rows.Err()
 }
-func (s GrantStore) Revoke(ctx context.Context, id, owner, root string, now time.Time) error {
-	result, err := s.DB.ExecContext(ctx, "UPDATE media_grants SET revoked_at=CASE WHEN revoked_at=0 THEN ? ELSE revoked_at END WHERE id=? AND owner=? AND root_id=?", millis(now), id, owner, root)
+func (s GrantStore) Revoke(ctx context.Context, id, owner, root string) error {
+	result, err := s.DB.ExecContext(ctx, "DELETE FROM media_grants WHERE id=? AND owner=? AND root_id=?", id, owner, root)
 	if err != nil {
 		return err
 	}

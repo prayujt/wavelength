@@ -1,24 +1,22 @@
 <script lang="ts">
-  import { untrack } from 'svelte';
   import { timestampFromDate } from '@bufbuild/protobuf/wkt';
   import { Copy, Link, ShieldCheck } from '@lucide/svelte';
   import type { AccessLink } from '../gen/wavelength/v1/sharing_pb';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
+  import Dropdown from './Dropdown.svelte';
   import Modal from './Modal.svelte';
   import Notice from './Notice.svelte';
   let {
     name,
     trackIds,
-    kind = 'share',
     close,
   }: {
     name: string;
     trackIds: string[];
-    kind?: 'share' | 'playback';
     close: () => void;
   } = $props();
-  let expiry = $state(untrack(() => (kind === 'share' ? '0' : '3600')));
+  let expiry = $state('2592000');
   let busy = $state(false);
   let error = $state('');
   let url = $state('');
@@ -29,21 +27,14 @@
     busy = true;
     error = '';
     try {
-      const response =
-        kind === 'share'
-          ? await api.sharing.createShare({
-              name,
-              trackIds,
-              expiresAt: Number(expiry)
-                ? timestampFromDate(
-                    new Date(Date.now() + Number(expiry) * 1000),
-                  )
-                : undefined,
-            })
-          : await api.sharing.createPlaybackLink({
-              trackId: trackIds[0],
-              expiresInSeconds: Number(expiry),
-            });
+      const response = await api.sharing.createShare({
+        name,
+        trackIds,
+        noExpiry: expiry === '0',
+        expiresAt: Number(expiry)
+          ? timestampFromDate(new Date(Date.now() + Number(expiry) * 1000))
+          : undefined,
+      });
       url = response.url;
       created = response.link;
     } catch (cause) {
@@ -77,17 +68,16 @@
 </script>
 
 <Modal
-  label={kind === 'share' ? 'Share music' : 'Create playback link'}
+  label="Share music"
   close={() => {
     if (!busy) close();
   }}
 >
-  <h2>{kind === 'share' ? 'Share music' : 'Playback link'}</h2>
+  <h2>Share music</h2>
   <p class="subtitle">{name}</p>
   <p class="muted">
-    {kind === 'share'
-      ? 'Anyone with this link can open a player and listen to these songs. No account needed.'
-      : 'A direct audio URL for Sonos or another player. Anyone with the link can fetch this song until it expires.'}
+    Anyone with this link can open a player and listen to these songs. No
+    account needed.
   </p>
   {#if revoked}<p role="status"><ShieldCheck size={16} /> Link revoked.</p>
   {:else if url}<label
@@ -111,18 +101,21 @@
         ><Copy size={14} /> {copied ? 'Copied' : 'Copy link'}</button
       >
     </div>
-  {:else}<label
-      >Expires<select bind:value={expiry} disabled={busy}
-        >{#if kind === 'share'}<option value="0">Never</option><option
-            value="86400">In 1 day</option
-          ><option value="604800">In 7 days</option><option value="2592000"
-            >In 30 days</option
-          >{:else}<option value="3600">In 1 hour</option><option value="21600"
-            >In 6 hours</option
-          ><option value="86400">In 24 hours</option>{/if}</select
-      ></label
-    >
-    {#if kind === 'share' && trackIds.length > 1}<p class="muted">
+  {:else}<label for="share-expiry">Expires</label>
+    <Dropdown
+      id="share-expiry"
+      label="Share expiry"
+      value={expiry}
+      onchange={(value) => (expiry = value)}
+      disabled={busy}
+      options={[
+        { value: '86400', label: 'In 1 day' },
+        { value: '604800', label: 'In 7 days' },
+        { value: '2592000', label: 'In 30 days' },
+        { value: '0', label: 'Never' },
+      ]}
+    />
+    {#if trackIds.length > 1}<p class="muted">
         Shares the current {trackIds.length} songs. Later playlist changes won’t change
         this link.
       </p>{/if}

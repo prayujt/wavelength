@@ -24,9 +24,7 @@ func accessLink(g sharing.Grant) *pb.AccessLink {
 	if !g.ExpiresAt.IsZero() {
 		out.ExpiresAt = timestamppb.New(g.ExpiresAt)
 	}
-	if !g.RevokedAt.IsZero() {
-		out.RevokedAt = timestamppb.New(g.RevokedAt)
-	}
+
 	return out
 }
 func (s *sharingService) CreatePlaybackLink(ctx context.Context, r *connect.Request[pb.CreatePlaybackLinkRequest]) (*connect.Response[pb.CreateAccessLinkResponse], error) {
@@ -50,7 +48,7 @@ func (s *sharingService) CreateShare(ctx context.Context, r *connect.Request[pb.
 			}
 			expires = r.Msg.ExpiresAt.AsTime()
 		}
-		link, err := s.links.CreateShare(ctx, owner, r.Msg.Name, r.Msg.TrackIds, expires)
+		link, err := s.links.CreateShare(ctx, owner, sharing.ShareRequest{Name: r.Msg.Name, TrackIDs: r.Msg.TrackIds, ExpiresAt: expires, NoExpiry: r.Msg.NoExpiry})
 		return &pb.CreateAccessLinkResponse{Link: accessLink(link.Grant), Url: link.URL}, err
 	})
 }

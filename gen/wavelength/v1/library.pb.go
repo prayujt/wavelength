@@ -1597,7 +1597,10 @@ type Track struct {
 	CreatedAt       *timestamppb.Timestamp `protobuf:"bytes,14,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	ModifiedAt      *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=modified_at,json=modifiedAt,proto3" json:"modified_at,omitempty"`
 	// Authenticated image path; returns 404 when no artwork is available.
-	ArtworkPath   string `protobuf:"bytes,16,opt,name=artwork_path,json=artworkPath,proto3" json:"artwork_path,omitempty"`
+	ArtworkPath string `protobuf:"bytes,16,opt,name=artwork_path,json=artworkPath,proto3" json:"artwork_path,omitempty"`
+	// Catalog identities for direct artist and album navigation.
+	ArtistId      string `protobuf:"bytes,17,opt,name=artist_id,json=artistId,proto3" json:"artist_id,omitempty"`
+	AlbumId       string `protobuf:"bytes,18,opt,name=album_id,json=albumId,proto3" json:"album_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1740,6 +1743,20 @@ func (x *Track) GetModifiedAt() *timestamppb.Timestamp {
 func (x *Track) GetArtworkPath() string {
 	if x != nil {
 		return x.ArtworkPath
+	}
+	return ""
+}
+
+func (x *Track) GetArtistId() string {
+	if x != nil {
+		return x.ArtistId
+	}
+	return ""
+}
+
+func (x *Track) GetAlbumId() string {
+	if x != nil {
+		return x.AlbumId
 	}
 	return ""
 }
@@ -2968,7 +2985,7 @@ const file_wavelength_v1_library_proto_rawDesc = "" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1b\n" +
 	"\tplayed_at\x18\x02 \x01(\tR\bplayedAt\"L\n" +
 	"\x15GetNowPlayingResponse\x123\n" +
-	"\aentries\x18\x01 \x03(\v2\x19.wavelength.v1.NowPlayingR\aentries\"\x98\x04\n" +
+	"\aentries\x18\x01 \x03(\v2\x19.wavelength.v1.NowPlayingR\aentries\"\xd0\x04\n" +
 	"\x05Track\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -2990,7 +3007,9 @@ const file_wavelength_v1_library_proto_rawDesc = "" +
 	"created_at\x18\x0e \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12;\n" +
 	"\vmodified_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"modifiedAt\x12!\n" +
-	"\fartwork_path\x18\x10 \x01(\tR\vartworkPath\"p\n" +
+	"\fartwork_path\x18\x10 \x01(\tR\vartworkPath\x12\x1b\n" +
+	"\tartist_id\x18\x11 \x01(\tR\bartistId\x12\x19\n" +
+	"\balbum_id\x18\x12 \x01(\tR\aalbumId\"p\n" +
 	"\x06Artist\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1f\n" +

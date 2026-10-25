@@ -13,6 +13,7 @@ import (
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/listening"
 	"github.com/prayujt/wavelength/internal/providers/itunes"
 	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
@@ -91,7 +92,7 @@ func Run(ctx context.Context, c config.Config) error {
 			return fmt.Errorf("initialize ingestion: %w", err)
 		}
 		defer imports.Close()
-		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Features{Discovery: discovery, Ingest: imports, Links: links}))
+		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Features{Discovery: discovery, Ingest: imports, Links: links, Listening: listening.New(database.ListeningStore{DB: db}, lib)}))
 	}
 	servers := []server{{name: "native", http: httpserver.NewWithMetrics(c.Addr, db.PingContext, metrics, options...)}}
 	if c.MetricsAddr != "" {
