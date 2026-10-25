@@ -43,7 +43,12 @@ func (s *Service) publishFile(ctx context.Context, id string, index int, p Prepa
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if err := s.files.MkdirAll(filepath.Dir(p.Track.Path), 0755); err != nil {
+	// Workers can publish different tracks into the same new artist/album at once.
+	// Serialize only directory creation; confined writes and media work stay parallel.
+	s.dirsMu.Lock()
+	dirErr := s.files.MkdirAll(filepath.Dir(p.Track.Path), 0755)
+	s.dirsMu.Unlock()
+	if err := dirErr; err != nil {
 		return err
 	}
 	source, err := os.Open(s.stagePath(id, index))
