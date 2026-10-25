@@ -162,6 +162,15 @@ async function expire(page: Page) {
         grant.expiresAt = 0;
         store.put(JSON.stringify(grant), 'credential:wavelength.oauth.grant.v1');
       };
+      // The first release persisted protobuf runtime metadata in this record.
+      // Keep the old shape here to verify that an update reads it without re-login.
+      const profile = store.get('active-account');
+      profile.onsuccess = () => {
+        if (profile.result) {
+          profile.result.user.$typeName = 'wavelength.v1.User';
+          store.put(profile.result, 'active-account');
+        }
+      };
       transaction.oncomplete = () => resolve();
     });
     database.close();
@@ -205,6 +214,8 @@ test('complete download cold-starts offline with expired credentials, plays and 
   await context.setOffline(true);
   await page.close();
   page = await context.newPage();
+  await page.goto('/app/settings');
+  await expect(page.getByText('Alex Morgan', { exact: true })).toBeVisible();
   await page.goto('/app/on-device');
   await expect(page.getByRole('heading', { name: 'On this device' })).toBeVisible();
   await expect(page.getByText('1 complete songs', { exact: false })).toBeVisible();
