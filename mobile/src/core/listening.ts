@@ -1,9 +1,20 @@
-export type Progress = { listenedMs: bigint; positionMs: bigint; playing: boolean };
+type EventTime = { seconds: bigint; nanos: number };
+const eventTime = (now: number): EventTime => ({
+  seconds: BigInt(Math.floor(now / 1000)),
+  nanos: (now % 1000) * 1000000,
+});
+export type Progress = {
+  listenedMs: bigint;
+  positionMs: bigint;
+  playing: boolean;
+  occurredAt?: EventTime;
+};
 export interface ListeningPort {
   startListeningSession(input: {
     trackId: string;
     origin: string;
     requestId: string;
+    occurredAt?: EventTime;
   }): Promise<unknown>;
   reportListeningProgress(input: Progress & { sessionId: string }): Promise<unknown>;
   finishListeningSession(
@@ -19,6 +30,7 @@ export class ListeningReporter {
     origin: string;
     listened: number;
     started: boolean;
+    at: EventTime;
   };
   private baseline?: { position: number; time: number };
   private writes: Promise<unknown> = Promise.resolve();
@@ -30,7 +42,14 @@ export class ListeningReporter {
   ) {}
 
   start(trackId: string, origin: string) {
-    this.current = { id: this.random(), trackId, origin, listened: 0, started: false };
+    this.current = {
+      id: this.random(),
+      trackId,
+      origin,
+      listened: 0,
+      started: false,
+      at: eventTime(this.now()),
+    };
     this.baseline = undefined;
     this.lastReport = 0;
   }
@@ -46,7 +65,7 @@ export class ListeningReporter {
         this.current.listened += Math.min(delta, elapsed) * 1000;
     }
     this.baseline = { position, time: now };
-    if (this.current && now - this.lastReport >= 15000) this.report(position, playing);
+    if (this.current && now - this.lastReport >= 5000) this.report(position, playing);
   }
   report(position: number, playing: boolean, outcome?: string) {
     const session = this.current;
@@ -56,6 +75,7 @@ export class ListeningReporter {
       sessionId: session.id,
       listenedMs: BigInt(Math.round(session.listened)),
       positionMs: BigInt(Math.round(Math.max(0, position) * 1000)),
+      occurredAt: eventTime(this.now()),
     };
     this.writes = this.writes
       .then(async () => {
@@ -64,6 +84,7 @@ export class ListeningReporter {
             trackId: session.trackId,
             origin: session.origin,
             requestId: session.id,
+            occurredAt: session.at,
           });
           session.started = true;
         }

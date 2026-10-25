@@ -4,9 +4,10 @@ const PENDING_KEY = 'wavelength.oauth.pending.v1';
 export class SessionExpired extends Error {}
 
 export interface Vault {
-  get(key: string): Promise<string | null>;
+  get(key: string, state?: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
-  remove(key: string): Promise<void>;
+  remove(key: string, state?: string): Promise<void>;
+  lock?<T>(run: () => Promise<T>): Promise<T>;
 }
 export interface OAuthCrypto {
   random(): string;
@@ -19,6 +20,7 @@ export type Grant = {
   refreshToken: string;
   expiresAt: number;
   scope: string;
+  accountId?: string;
 };
 type Pending = {
   server: string;
@@ -85,7 +87,14 @@ export class OAuthSession {
 
   async restore(): Promise<Grant | null> {
     const raw = await this.vault.get(GRANT_KEY);
-    if (!raw) return null;
+    if (!raw) {
+      if (this.grant) {
+        this.generation++;
+        this.grant = null;
+        this.changed(null);
+      }
+      return null;
+    }
     try {
       const grant = JSON.parse(raw) as Grant;
       serverURL(grant.server);
@@ -96,6 +105,7 @@ export class OAuthSession {
         !Number.isFinite(grant.expiresAt)
       )
         throw new Error();
+      if (this.grant && this.grant.clientId !== grant.clientId) this.generation++;
       this.grant = grant;
       this.changed(grant);
       return grant;
@@ -110,7 +120,10 @@ export class OAuthSession {
     const timeout = setTimeout(() => controller.abort(), 20000);
     try {
       const form = body instanceof URLSearchParams;
-      const response = await this.request(server + path, {
+      // Browser fetch is a host function: calling it as an OAuthSession method
+      // supplies an invalid receiver (native and Node fetch do not reveal this).
+      const request = this.request;
+      const response = await request(server + path, {
         method: 'POST',
         signal: controller.signal,
         headers: {
@@ -179,17 +192,17 @@ export class OAuthSession {
   }
 
   private async exchange(callback: string): Promise<Grant> {
-    const generation = this.generation;
-    const raw = await this.vault.get(PENDING_KEY);
-    if (!raw) throw new Error('Start a new sign-in from this device.');
-    const pending = JSON.parse(raw) as Pending;
-    if (pending.expiresAt <= this.now()) throw new Error('This sign-in expired. Start a new one.');
     let url: URL;
     try {
       url = new URL(callback.trim());
     } catch {
       throw new Error('Paste the complete return link from your browser.');
     }
+    const generation = this.generation;
+    const raw = await this.vault.get(PENDING_KEY, url.searchParams.get('state') || undefined);
+    if (!raw) throw new Error('Start a new sign-in from this device.');
+    const pending = JSON.parse(raw) as Pending;
+    if (pending.expiresAt <= this.now()) throw new Error('This sign-in expired. Start a new one.');
     const q = url.searchParams;
     if (
       ['state', 'iss'].some((key) => q.getAll(key).length !== 1) ||
@@ -214,10 +227,14 @@ export class OAuthSession {
     )) as TokenResponse;
     if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
     const grant = this.tokenGrant(pending.server, pending.clientId, token);
-    await this.vault.remove(PENDING_KEY);
-    if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
-    this.generation++;
-    await this.save(grant);
+    await this.vault.remove(PENDING_KEY, pending.state);
+    const commit = async () => {
+      if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
+      this.generation++;
+      await this.save(grant);
+    };
+    if (this.vault.lock) await this.vault.lock(commit);
+    else await commit();
     return grant;
   }
 
@@ -242,6 +259,7 @@ export class OAuthSession {
       refreshToken: token.refresh_token || previous!.refreshToken,
       expiresAt: this.now() + token.expires_in * 1000,
       scope: token.scope ?? previous?.scope ?? '',
+      accountId: previous?.accountId,
     };
   }
 
@@ -249,6 +267,18 @@ export class OAuthSession {
     const next = this.credentialWrites.catch(() => {}).then(operation);
     this.credentialWrites = next;
     return next;
+  }
+  async identifyAccount(accountId: string) {
+    if (!this.grant || !accountId) throw new Error('Please sign in again.');
+    const identify = async () => {
+      const raw = this.vault.lock ? await this.vault.get(GRANT_KEY) : null;
+      const current = raw ? (JSON.parse(raw) as Grant) : this.grant;
+      if (!current || (this.vault.lock && !raw) || current.clientId !== this.grant?.clientId)
+        throw new Error('Sign-in changed.');
+      await this.save({ ...current, accountId });
+    };
+    if (this.vault.lock) await this.vault.lock(identify);
+    else await identify();
   }
   private async save(grant: Grant) {
     const generation = this.generation;
@@ -267,22 +297,38 @@ export class OAuthSession {
     if (this.refreshing) return this.refreshing;
     const grant = this.grant,
       generation = this.generation;
-    this.refreshing = (async () => {
+    const refresh = async () => {
+      // Another window may have rotated this family while we waited for the lock.
+      if (this.vault.lock) {
+        const raw = await this.vault.get(GRANT_KEY);
+        if (!raw) throw new SessionExpired('Please sign in again.');
+        const saved = JSON.parse(raw) as Grant;
+        if (saved.server !== grant.server || saved.clientId !== grant.clientId)
+          throw new Error('Sign-in changed in another window.');
+        this.grant = saved;
+        if (
+          saved.expiresAt > this.now() + 60000 &&
+          (!force || saved.accessToken !== grant.accessToken)
+        )
+          return saved.accessToken;
+      }
+      const current = this.grant!;
       const token = (await this.post(
-        grant.server,
+        current.server,
         '/oauth/token',
         new URLSearchParams({
           grant_type: 'refresh_token',
-          client_id: grant.clientId,
-          refresh_token: grant.refreshToken,
-          resource: grant.server + '/mcp',
+          client_id: current.clientId,
+          refresh_token: current.refreshToken,
+          resource: current.server + '/mcp',
         }),
       )) as TokenResponse;
       if (generation !== this.generation) throw new Error('Sign-in changed.');
-      const next = this.tokenGrant(grant.server, grant.clientId, token, grant);
+      const next = this.tokenGrant(current.server, current.clientId, token, current);
       await this.save(next);
       return next.accessToken;
-    })()
+    };
+    this.refreshing = (this.vault.lock ? this.vault.lock(refresh) : refresh())
       .catch(async (error) => {
         if (error instanceof SessionExpired && generation === this.generation) await this.clear();
         throw error;
@@ -294,17 +340,22 @@ export class OAuthSession {
   }
 
   async clear() {
-    this.generation++;
-    this.grant = null;
-    this.changed(null);
-    await this.write(() =>
-      Promise.all([this.vault.remove(GRANT_KEY), this.vault.remove(PENDING_KEY)]),
-    );
+    const clear = async () => {
+      const raw = this.vault.lock ? await this.vault.get(GRANT_KEY) : null;
+      const previous = raw ? (JSON.parse(raw) as Grant) : this.grant;
+      this.generation++;
+      this.grant = null;
+      this.changed(null);
+      await this.write(() =>
+        Promise.all([this.vault.remove(GRANT_KEY), this.vault.remove(PENDING_KEY)]),
+      );
+      return previous;
+    };
+    return this.vault.lock ? this.vault.lock(clear) : clear();
   }
 
   async logout() {
-    const grant = this.grant;
-    await this.clear();
+    const grant = await this.clear();
     if (grant) {
       try {
         await this.post(

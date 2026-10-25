@@ -42,3 +42,41 @@ func TestWebAssetsDoNotReplaceAPIRoutes(t *testing.T) {
 		t.Fatal("HEAD or client security headers missing")
 	}
 }
+
+func TestPWASubpathFallbackAndHeaders(t *testing.T) {
+	assets := fstest.MapFS{
+		"index.html":                           {Data: []byte("website")},
+		"app/index.html":                       {Data: []byte("expo application")},
+		"app/sw.js":                            {Data: []byte("worker")},
+		"app/manifest.webmanifest":             {Data: []byte("{}")},
+		"app/_expo/static/js/web/entry-abc.js": {Data: []byte("script")},
+	}
+	manager, err := auth.New(context.Background(), auth.Config{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := httpserver.New("", func(context.Context) error { return nil }, httpserver.WithWeb(assets), httpserver.WithAuth(manager)).Handler
+	for _, tc := range []struct {
+		path   string
+		status int
+		body   string
+	}{
+		{"/", 200, "website"}, {"/app", 308, ""}, {"/app/", 200, "expo application"},
+		{"/app/library", 200, "expo application"}, {"/app/album/123", 200, "expo application"},
+		{"/app/oauth/callback?code=secret", 200, "expo application"},
+		{"/app/missing.js", 404, ""}, {"/app/_expo/missing", 404, ""},
+		{"/oauth/callback", 404, ""}, {"/app/sw.js", 200, "worker"},
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest("GET", tc.path, nil))
+		if response.Code != tc.status || (tc.body != "" && !strings.Contains(response.Body.String(), tc.body)) {
+			t.Fatal(tc.path, response.Code, response.Body.String())
+		}
+		if strings.Contains(tc.path, "/app/oauth/") && response.Header().Get("Cache-Control") != "private, no-store" {
+			t.Fatal("callback caching", response.Header())
+		}
+		if tc.path == "/app/sw.js" && (response.Header().Get("Cache-Control") != "no-cache" || response.Header().Get("Service-Worker-Allowed") != "/app/") {
+			t.Fatal("worker headers", response.Header())
+		}
+	}
+}

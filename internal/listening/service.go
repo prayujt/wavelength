@@ -25,6 +25,7 @@ type Session struct {
 	StartedAt, UpdatedAt, EndedAt time.Time
 	ListenedMS, PositionMS        int64
 	Playing                       bool
+	CountPlay                     bool
 }
 
 type Query struct {
@@ -42,6 +43,22 @@ type Page struct {
 type Progress struct {
 	ListenedMS, PositionMS int64
 	Playing                bool
+	At                     time.Time
+}
+
+type StartOptions struct {
+	At        time.Time
+	CountPlay bool
+}
+
+func eventTime(at time.Time) (time.Time, error) {
+	if at.IsZero() {
+		return time.Now().UTC(), nil
+	}
+	if at.Before(time.Unix(0, 0)) || at.After(time.Now().Add(5*time.Minute)) {
+		return time.Time{}, ErrInvalid
+	}
+	return at.UTC(), nil
 }
 
 // Update runs its callback in the same transaction that persists the session.
@@ -66,7 +83,7 @@ func validOrigin(v string) bool  { return v == "direct" || v == "queue" || v == 
 func validOutcome(v string) bool { return v == "completed" || v == "skipped" || v == "stopped" }
 
 // Start uses the client's request ID as the session ID, so retries cannot double count a listen.
-func (s *Service) Start(ctx context.Context, owner, trackID, origin, id string) (Session, error) {
+func (s *Service) Start(ctx context.Context, owner, trackID, origin, id string, options ...StartOptions) (Session, error) {
 	if owner == "" || !requestID.MatchString(id) || !validOrigin(origin) {
 		return Session{}, ErrInvalid
 	}
@@ -76,8 +93,15 @@ func (s *Service) Start(ctx context.Context, owner, trackID, origin, id string) 
 	}
 	group := track.AlbumIdentity()
 	track.Path = ""
-	now := time.Now().UTC()
-	session, err := s.store.Create(ctx, Session{ID: id, Owner: owner, RootID: s.root, Track: track, ArtistID: group.ArtistID, AlbumID: group.AlbumID, Origin: origin, StartedAt: now, UpdatedAt: now, Playing: true})
+	var option StartOptions
+	if len(options) > 0 {
+		option = options[0]
+	}
+	now, err := eventTime(option.At)
+	if err != nil {
+		return Session{}, err
+	}
+	session, err := s.store.Create(ctx, Session{ID: id, Owner: owner, RootID: s.root, Track: track, ArtistID: group.ArtistID, AlbumID: group.AlbumID, Origin: origin, StartedAt: now, UpdatedAt: now, Playing: true, CountPlay: option.CountPlay})
 	if err == nil && (session.Track.ID != trackID || session.Origin != origin) {
 		return Session{}, ErrConflict
 	}
@@ -85,12 +109,19 @@ func (s *Service) Start(ctx context.Context, owner, trackID, origin, id string) 
 }
 
 func (s *Service) report(ctx context.Context, owner, id string, p Progress, outcome string) (Session, error) {
+	at, err := eventTime(p.At)
+	if err != nil {
+		return Session{}, err
+	}
 	// Keep counters safely representable by JavaScript clients as well as SQLite.
 	const maxMS = int64(1<<53 - 1)
 	if owner == "" || !requestID.MatchString(id) || p.ListenedMS < 0 || p.PositionMS < 0 || p.ListenedMS > maxMS || p.PositionMS > maxMS {
 		return Session{}, ErrInvalid
 	}
 	return s.store.Update(ctx, owner, s.root, id, func(session *Session) error {
+		if at.Before(session.StartedAt) {
+			return ErrInvalid
+		}
 		if session.Outcome != "" {
 			if outcome != "" && outcome != session.Outcome {
 				return ErrConflict
@@ -105,7 +136,9 @@ func (s *Service) report(ctx context.Context, owner, id string, p Progress, outc
 		} else {
 			session.ListenedMS, session.PositionMS = p.ListenedMS, p.PositionMS
 		}
-		session.UpdatedAt = time.Now().UTC()
+		if at.After(session.UpdatedAt) {
+			session.UpdatedAt = at
+		}
 		session.Playing = p.Playing
 		if outcome != "" {
 			session.Outcome, session.EndedAt, session.Playing = outcome, session.UpdatedAt, false

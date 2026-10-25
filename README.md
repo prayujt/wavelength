@@ -52,6 +52,8 @@ for library browsing, discovery/downloads, playlists, playback, lyrics, sharing,
 bookmarks, and listening history. Its dependencies, generated client, builds,
 and CI are separate from the web/server image.
 
+Install the mobile web app at `/app/` for device downloads and offline listening. It shares the Expo interface with the native app; the ordinary Svelte website stays at `/`. See [installed app behavior](mobile/README.md#installed-web-app).
+
 ## Subsonic clients
 
 Wavelength exposes a separate Subsonic-compatible listener for existing music

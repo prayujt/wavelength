@@ -16,13 +16,21 @@ const mime = {
   '.ttf': 'font/ttf',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
+  '.webmanifest': 'application/manifest+json',
 };
+let workerRevision = 0;
 const server = createServer(async (request, response) => {
   try {
     const path = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
+    if (path === '/__test/update' && request.method === 'POST') {
+      workerRevision++;
+      response.writeHead(204).end();
+      return;
+    }
     const isRelay = ['/mobile-auth.html', '/mobile-auth.js'].includes(path);
-    const base = isRelay ? relay : root;
-    let file = resolve(base, '.' + path);
+    const isApp = path.startsWith('/app/');
+    const base = isRelay ? relay : isApp ? resolve(project, 'pwa-dist') : root;
+    let file = resolve(base, '.' + (isApp ? path.slice(4) : path));
     if (!file.startsWith(base + '/') && file !== base) {
       response.writeHead(403).end();
       return;
@@ -30,19 +38,34 @@ const server = createServer(async (request, response) => {
     try {
       if (!(await stat(file)).isFile()) throw new Error();
     } catch {
-      if (!isRelay && !extname(path)) file = resolve(root, 'index.html');
+      if (!isRelay && !extname(path)) file = resolve(base, 'index.html');
       else {
         response.writeHead(404).end();
         return;
       }
     }
-    const data = await readFile(file),
-      headers = {
-        'Content-Type': mime[extname(file)] || 'application/octet-stream',
-        'Cache-Control': 'no-store',
-        'Referrer-Policy': 'no-referrer',
-        'Accept-Ranges': 'bytes',
-      };
+    let data = await readFile(file);
+    if (path === '/app/sw.js' && workerRevision)
+      data = Buffer.from(
+        data
+          .toString()
+          .replace(
+            /wavelength-app-shell-([a-f0-9]+)/,
+            `wavelength-app-shell-$1-test-${workerRevision}`,
+          ),
+      );
+    const headers = {
+      'Content-Type': mime[extname(file)] || 'application/octet-stream',
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+      'Accept-Ranges': 'bytes',
+      ...(isApp
+        ? {
+            'Content-Security-Policy':
+              "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.mzstatic.com; font-src 'self' data:; media-src 'self' blob:; connect-src 'self'; worker-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+          }
+        : {}),
+    };
     if (request.method === 'HEAD') {
       response.writeHead(200, { ...headers, 'Content-Length': data.length }).end();
       return;

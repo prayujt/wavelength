@@ -212,7 +212,7 @@ export function SettingsScreen() {
               icon={ShieldCheck}
               onPress={async () => {
                 setReconnecting(true);
-                await session.login(session.grant!.server);
+                await session.login(session.account?.server || session.grant!.server);
               }}
             />
             {reconnecting && (

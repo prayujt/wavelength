@@ -9,11 +9,19 @@ import { RealtimeService } from '../gen/wavelength/v1/realtime_pb';
 import type { OAuthSession } from '../core/auth';
 import { createPreviewFetch } from '../preview/store';
 
-export function createAPI(auth: OAuthSession, preview = false, version = auth.version) {
-  const server = auth.grant?.server;
+export function createAPI(
+  auth: OAuthSession,
+  preview = false,
+  version = auth.version,
+  baseUrl = auth.grant?.server,
+  accountId?: string,
+) {
+  const server = baseUrl;
   const authenticate: Interceptor = (next) => async (request) => {
     if (preview) return next(request);
-    if (auth.version !== version || auth.grant?.server !== server)
+    if (accountId && auth.grant?.accountId !== accountId)
+      throw new ConnectError('Reconnect this account to use the server.', Code.Unauthenticated);
+    if ((version >= 0 && auth.version !== version) || auth.grant?.server !== server)
       throw new ConnectError('Sign-in changed.', Code.Unauthenticated);
     request.header.set('Authorization', 'Bearer ' + (await auth.token()));
     try {
@@ -30,7 +38,7 @@ export function createAPI(auth: OAuthSession, preview = false, version = auth.ve
     }
   };
   const options = {
-    baseUrl: preview ? 'https://preview.wavelength.invalid' : auth.grant!.server,
+    baseUrl: preview ? 'https://preview.wavelength.invalid' : baseUrl!,
     useBinaryFormat: false,
     interceptors: [authenticate],
     fetch: preview

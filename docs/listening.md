@@ -22,7 +22,7 @@ completion is inferred. Reporting is best effort, so abrupt tab closure can lose
 the last interval. Failed starts retry on the next report with the same ID.
 
 Each SQLite record contains the track's metadata snapshot, artist and album IDs,
-server timestamps, cumulative listened milliseconds, last position, origin and
+timestamps, cumulative listened milliseconds, last position, origin and
 outcome. Metadata survives subsequent library changes. List queries combine
 supplied filters, ordered newest first with an ID tie breaker; defaults are 100
 rows with a maximum of 500. `since` is inclusive and `until` exclusive, both based
@@ -43,3 +43,20 @@ personal history. External players using direct URLs must report their activity
 through RPC or MCP if they want this detail captured. Legacy scrobbles and the
 existing `RecordPlay`/`get_history` aggregate counts remain available separately;
 they cannot reconstruct duration or skips from old playback.
+
+The installed Expo PWA keeps durable local listening checkpoints and replays them
+after validating the account when connectivity returns. RPC requests accept
+optional `occurred_at` timestamps, preserving the original start/progress/end time
+instead of assigning reconnection time. Omission keeps server-time behavior.
+Timestamps must be valid, nonnegative, no more than five minutes in the future,
+and progress cannot precede its session start.
+
+An RPC start may set `count_play: true` to increment aggregate play history in the
+same SQLite transaction as the first insertion of its request ID. Such clients
+must not also send a counting `RecordPlay`; they may use `now_playing_only` for
+the live indicator. Replaying the same start cannot increment the count twice.
+Existing Svelte, native and MCP callers retain their previous behavior by
+omitting this flag. PWA outboxes are isolated by server and stable account ID;
+auth/network failures remain pending, while unavailable/deleted-track or invalid
+events are retained separately as failed records. Abrupt OS termination can
+still lose the interval since the last durable checkpoint.
