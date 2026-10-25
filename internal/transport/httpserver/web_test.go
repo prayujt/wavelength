@@ -14,7 +14,7 @@ import (
 )
 
 func TestWebAssetsDoNotReplaceAPIRoutes(t *testing.T) {
-	assets := fstest.MapFS{"index.html": {Data: []byte("<h1>Wavelength</h1>")}, "assets/app-123.js": {Data: []byte("console.log('music')")}}
+	assets := fstest.MapFS{"index.html": {Data: []byte("<h1>Wavelength</h1>")}, "assets/app-123.js": {Data: []byte("console.log('music')")}, "mobile-auth.html": {Data: []byte("<h1>Return to Wavelength</h1>")}}
 	manager, err := auth.New(context.Background(), auth.Config{}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -25,6 +25,7 @@ func TestWebAssetsDoNotReplaceAPIRoutes(t *testing.T) {
 		status      int
 	}{
 		{"/", "no-cache", 200}, {"/assets/app-123.js", "public, max-age=31536000, immutable", 200}, {"/missing", "", 404}, {"/readyz", "", 200},
+		{"/mobile-auth.html?code=one-time&state=test", "private, no-store", 200},
 	} {
 		r := httptest.NewRecorder()
 		handler.ServeHTTP(r, httptest.NewRequest("GET", tc.path, nil))

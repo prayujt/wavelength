@@ -44,6 +44,14 @@ serves its static build on the native listener. Local Go builds can serve it wit
 `npm --prefix web run build`. See the [web development guide](web/README.md) for
 the development proxy and browser checks.
 
+## Mobile app
+
+The independent [React Native app](mobile/README.md) lives in `mobile/` and runs
+in Expo Go on iOS and Android. It uses the existing native API and OAuth sign-in
+for library browsing, discovery/downloads, playlists, playback, lyrics, sharing,
+bookmarks, and listening history. Its dependencies, generated client, builds,
+and CI are separate from the web/server image.
+
 ## Subsonic clients
 
 Wavelength exposes a separate Subsonic-compatible listener for existing music

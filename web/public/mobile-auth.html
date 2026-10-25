@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"
+    />
+    <title>Back to Wavelength</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #0a1111;
+        color: #f5f3ea;
+        font:
+          16px/1.6 system-ui,
+          sans-serif;
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        padding: 28px;
+      }
+      main {
+        max-width: 420px;
+        width: 100%;
+      }
+      .mark {
+        font-weight: 600;
+        letter-spacing: -0.6px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 65px;
+      }
+      .wave {
+        color: #c7f3cb;
+        letter-spacing: 2px;
+        font-size: 32px;
+      }
+      .eyebrow {
+        color: #c7f3cb;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 2px;
+      }
+      h1 {
+        font-size: 38px;
+        line-height: 1.15;
+        letter-spacing: -1.6px;
+      }
+      p {
+        color: #99aaa2;
+      }
+      a,
+      button {
+        display: block;
+        width: 100%;
+        text-align: center;
+        border-radius: 30px;
+        border: 0;
+        font: inherit;
+        font-weight: 600;
+        padding: 15px 22px;
+        text-decoration: none;
+        cursor: pointer;
+        background: #c7f3cb;
+        color: #173a26;
+        margin-top: 28px;
+      }
+      button {
+        background: #1d2b28;
+        color: #f5f3ea;
+        margin-top: 12px;
+        font-size: 13px;
+      }
+      .hint {
+        margin-top: 26px;
+        font-size: 12px;
+        line-height: 1.8;
+      }
+      [hidden] {
+        display: none !important;
+      }
+      :focus-visible {
+        outline: 2px solid #c7f3cb;
+        outline-offset: 5px;
+      }
+    </style>
+    <script defer src="/mobile-auth.js"></script>
+  </head>
+  <body>
+    <main>
+      <div class="mark">
+        <span class="wave" aria-hidden="true">ııⅠıⅠı</span>wavelength
+      </div>
+      <div class="eyebrow">RIGHT WHERE YOU BELONG</div>
+      <h1 id="heading">Let’s get back to the music.</h1>
+      <p id="message">
+        Your secure sign-in is ready. Return to the Wavelength app to finish
+        connecting.
+      </p>
+      <a id="return" hidden>Return to Wavelength</a>
+      <button id="copy" hidden>Copy return link instead</button>
+      <p class="hint" id="hint">
+        Keep this page on the device where you started sign-in. If Expo Go
+        cannot return automatically, copy the return link and paste it into the
+        app’s connection options.
+      </p>
+      <p role="status" aria-live="polite" id="status"></p>
+    </main>
+  </body>
+</html>
