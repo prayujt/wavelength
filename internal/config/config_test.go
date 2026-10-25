@@ -50,6 +50,9 @@ func TestJevEnvironment(t *testing.T) {
 
 func TestInvalidConfiguration(t *testing.T) {
 	for _, settings := range []map[string]string{
+		{"WAVELENGTH_INGEST_CONCURRENCY": "0"},
+		{"WAVELENGTH_INGEST_CONCURRENCY": "9"},
+		{"WAVELENGTH_METRICS_ADDR": "not-an-address"},
 		{"WAVELENGTH_ADDR": "0.0.0.0:8080"},
 		{"WAVELENGTH_SUBSONIC_USER": "admin"},
 		{"WAVELENGTH_SUBSONIC_PASSWORD": "secret"},

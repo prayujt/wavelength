@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/telemetry"
 )
 
 const (
@@ -31,12 +32,15 @@ func Policy() discovery.SelectionPolicy {
 }
 
 type Client struct {
+	metrics              *telemetry.Metrics
 	key, model, endpoint string
 	http                 *http.Client
 	slots                chan struct{}
 	mu                   sync.Mutex
 	cache                map[[32]byte]cacheEntry
 }
+
+func (c *Client) SetMetrics(metrics *telemetry.Metrics) { c.metrics = metrics }
 
 func New(key, model string) *Client {
 	if model = strings.TrimSpace(model); model == "" {
@@ -118,11 +122,14 @@ func (c *Client) Rank(ctx context.Context, track discovery.Track, candidates []d
 	}
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
+	waited := time.Now()
 	select {
 	case c.slots <- struct{}{}:
 	case <-ctx.Done():
+		c.metrics.Wait("jev", "api_slot", time.Since(waited))
 		return nil, ctx.Err()
 	}
+	c.metrics.Wait("jev", "api_slot", time.Since(waited))
 	defer func() { <-c.slots }()
 	if ranked, ok := c.cached(key); ok {
 		return ranked, nil
@@ -133,7 +140,13 @@ func (c *Client) Rank(ctx context.Context, track discovery.Track, candidates []d
 	}
 	req.Header.Set("Authorization", "Bearer "+c.key)
 	req.Header.Set("Content-Type", "application/json")
+	started := time.Now()
 	response, err := c.http.Do(req)
+	code := 0
+	if response != nil {
+		code = response.StatusCode
+	}
+	c.metrics.Provider("jev", "rank", code, err, time.Since(started))
 	if err != nil {
 		// Do not include transport errors, upstream bodies, or credentials in logs.
 		if ctx.Err() != nil {
@@ -151,6 +164,10 @@ func (c *Client) Rank(ctx context.Context, track discovery.Track, candidates []d
 	}
 	var result struct {
 		Answers map[string]answer `json:"answers"`
+		Usage   struct {
+			Input  int `json:"input_tokens"`
+			Output int `json:"output_tokens"`
+		} `json:"usage"`
 	}
 	if err := json.Unmarshal(raw, &result); err != nil || len(result.Answers) != len(candidates)*2 {
 		return nil, fmt.Errorf("%w: invalid Jev response", discovery.ErrUnavailable)
@@ -179,6 +196,7 @@ func (c *Client) Rank(ctx context.Context, track discovery.Track, candidates []d
 		}
 	}
 	sort.SliceStable(ranked, func(i, j int) bool { return ranked[i].Score > ranked[j].Score })
+	c.metrics.Tokens(result.Usage.Input, result.Usage.Output)
 	c.remember(key, ranked)
 	return ranked, nil
 }

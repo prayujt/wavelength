@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
@@ -15,18 +16,67 @@ import (
 
 func (s *Service) run() {
 	defer close(s.done)
+	var workers sync.WaitGroup
+	defer workers.Wait()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	for s.ctx.Err() == nil {
-		j, err := s.deps.Store.Next(s.ctx, s.root.ID)
-		if err == nil {
-			err = s.process(j.ID)
+		s.activeMu.Lock()
+		excluded := make([]string, 0, len(s.active))
+		for id := range s.active {
+			excluded = append(excluded, id)
+		}
+		s.activeMu.Unlock()
+		if len(excluded) < s.deps.Concurrency {
+			j, err := s.deps.Store.Next(s.ctx, s.root.ID, excluded...)
 			if err == nil {
+				ctx, cancel := context.WithCancel(s.ctx)
+				s.activeMu.Lock()
+				s.active[j.ID] = cancel
+				s.activeMu.Unlock()
+				workers.Add(1)
+				go func() {
+					defer workers.Done()
+					queued := j.QueuedAt
+					if queued.IsZero() {
+						queued = j.CreatedAt
+					}
+					if j.State != Queued {
+						queued = time.Time{}
+					}
+					done := s.deps.Metrics.Job(queued)
+					err := s.process(ctx, j.ID, queued)
+					result := "error"
+					if err == nil {
+						if fresh, readErr := s.deps.Store.Get(s.ctx, s.root.ID, j.Owner, j.ID); readErr == nil {
+							result = fresh.State
+						}
+					} else if s.ctx.Err() != nil || errors.Is(err, context.Canceled) || errors.Is(err, ErrCancelled) {
+						result = "cancelled"
+					}
+					done(result)
+					cancel()
+					if err != nil && s.ctx.Err() == nil {
+						timer := time.NewTimer(time.Second)
+						select {
+						case <-s.ctx.Done():
+							timer.Stop()
+						case <-timer.C:
+						}
+					}
+					s.activeMu.Lock()
+					delete(s.active, j.ID)
+					s.activeMu.Unlock()
+					if err != nil && !errors.Is(err, ErrCancelled) && s.ctx.Err() == nil {
+						slog.Error("ingestion worker interrupted", "error", err)
+					}
+					s.notify()
+				}()
 				continue
 			}
-		}
-		if err != nil && !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
-			slog.Error("ingestion worker interrupted", "error", err)
+			if !errors.Is(err, ErrNotFound) && s.ctx.Err() == nil {
+				slog.Error("ingestion scheduling failed", "error", err)
+			}
 		}
 		select {
 		case <-s.ctx.Done():
@@ -36,14 +86,8 @@ func (s *Service) run() {
 		}
 	}
 }
-func (s *Service) process(id string) error {
+func (s *Service) process(ctx context.Context, id string, queued time.Time) error {
 	s.control.Lock()
-	ctx, cancel := context.WithCancel(s.ctx)
-	s.activeMu.Lock()
-	s.activeID = id
-	s.activeCancel = cancel
-	s.activeMu.Unlock()
-	defer func() { cancel(); s.activeMu.Lock(); s.activeID = ""; s.activeCancel = nil; s.activeMu.Unlock() }()
 	j, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return ErrCancelled
@@ -84,29 +128,8 @@ func (s *Service) process(id string) error {
 			return err
 		}
 	}
-	for n := range j.Items {
-		if ctx.Err() != nil {
-			break
-		}
-		current, err := s.deps.Store.Get(ctx, s.root.ID, j.Owner, id)
-		if err != nil {
-			return err
-		}
-		if current.State == Cancelled {
-			break
-		}
-		if current.Items[n].State == Completed || current.Items[n].State == Failed || current.Items[n].State == NeedsSelection {
-			continue
-		}
-		if err = s.processItem(ctx, current, n); err != nil {
-			if ctx.Err() != nil {
-				break
-			}
-			if errors.Is(err, ErrCancelled) {
-				break
-			}
-			return err
-		}
+	if err := s.processItems(ctx, j, queued); err != nil && ctx.Err() == nil && !errors.Is(err, ErrCancelled) {
+		return err
 	}
 	if ctx.Err() != nil {
 		if s.ctx.Err() != nil {
@@ -208,6 +231,9 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			return err
 		}
 	}
+	if !item.SourceRef.Empty() && !item.Automatic {
+		s.deps.Metrics.Selection("explicit")
+	}
 	if item.SourceRef.Empty() {
 		lookup, cancel := context.WithTimeout(ctx, 60*time.Second)
 		candidates, err := s.deps.Discovery.Candidates(lookup, *item.Metadata)
@@ -220,11 +246,13 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 		}
 		chosen, ok := s.deps.Discovery.Select(candidates)
 		if !ok {
+			s.deps.Metrics.Selection("manual_required")
 			return s.changeItem(ctx, j.ID, n, func(i *Item) {
 				i.State = NeedsSelection
 				i.Error = "choose a recording with find_audio_sources, then retry this item with its source reference"
 			})
 		}
+		s.deps.Metrics.Selection("automatic")
 		item.SourceRef = chosen
 		item.Automatic = true
 		if err = s.changeItem(ctx, j.ID, n, func(i *Item) { i.SourceRef = chosen; i.Automatic = true }); err != nil {
@@ -306,10 +334,13 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			return err
 		}
 	}
+	donePublish := s.deps.Metrics.Stage("publishing")
 	if err := s.publishFile(ctx, j.ID, n, *item.Prepared); err != nil {
+		donePublish(err)
 		return s.itemFailure(ctx, j, n, "prepared audio could not be published", err)
 	}
 	t, err := s.publish(ctx, j, n, *item.Prepared)
+	donePublish(err)
 	if err != nil {
 		return err
 	}

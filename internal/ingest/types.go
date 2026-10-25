@@ -80,6 +80,7 @@ type Job struct {
 	Expanded    bool      `json:"expanded"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	QueuedAt    time.Time `json:"queued_at,omitzero"`
 }
 
 func (j Job) Terminal() bool { return j.State != Queued && j.State != Running }
@@ -89,12 +90,19 @@ type Store interface {
 	Create(context.Context, Job) (Job, error)
 	Get(context.Context, string, string, string) (Job, error)
 	List(context.Context, string, string, int, int) ([]Job, int, error)
-	Next(context.Context, string) (Job, error)
+	Next(context.Context, string, ...string) (Job, error)
 	Update(context.Context, string, func(*Job) error) (Job, error)
 	Lookup(context.Context, string, discovery.Ref) (library.Track, error)
 	LookupMany(context.Context, string, []discovery.Ref) (map[discovery.Ref]string, error)
 	Origin(context.Context, string, string) (discovery.Ref, error)
 	Publish(context.Context, Root, string, int, Prepared) (library.Track, error)
+}
+
+type QueueStats struct {
+	LibraryTracks, LibraryBytes, LibraryDuration float64
+	OldestQueuedAt                               time.Time
+	Jobs                                         map[string]float64
+	Items                                        map[string]float64
 }
 type Downloader interface {
 	Download(context.Context, discovery.Ref, string) error

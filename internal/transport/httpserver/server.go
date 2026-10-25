@@ -10,6 +10,7 @@ import (
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/telemetry"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/transport/media"
 	"github.com/prayujt/wavelength/internal/transport/rpc"
@@ -22,6 +23,14 @@ type Option func(*http.ServeMux)
 
 // New constructs a server without opening a listener.
 func New(addr string, ping func(context.Context) error, options ...Option) *http.Server {
+	return newServer(addr, ping, nil, options...)
+}
+
+func NewWithMetrics(addr string, ping func(context.Context) error, metrics *telemetry.Metrics, options ...Option) *http.Server {
+	return newServer(addr, ping, metrics, options...)
+}
+
+func newServer(addr string, ping func(context.Context) error, metrics *telemetry.Metrics, options ...Option) *http.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) { respond(w, http.StatusOK, "ok") })
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, r *http.Request) {
@@ -37,8 +46,12 @@ func New(addr string, ping func(context.Context) error, options ...Option) *http
 		option(mux)
 	}
 	requests, cancelRequests := context.WithCancel(context.Background())
+	var handler http.Handler = mux
+	if metrics != nil {
+		handler = metrics.HTTP("native", handler)
+	}
 	server := &http.Server{
-		Addr: addr, Handler: h2c.NewHandler(mux, &http2.Server{}),
+		Addr: addr, Handler: h2c.NewHandler(handler, &http2.Server{}),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
 		BaseContext: func(net.Listener) context.Context { return requests },
 	}

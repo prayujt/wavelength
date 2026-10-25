@@ -12,6 +12,7 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | `library` | Persisted catalog grouping, path IDs and confined source access |
 | `discovery` | External metadata, provider references and conservative source selection |
 | `ingest` | Durable acquisition jobs, media preparation and explicit publication |
+| `telemetry` | Per-instance Prometheus registry, bounded metrics and operational snapshots |
 | `realtime` | Bounded in-process delivery of committed changes to connected clients |
 | `providers/itunes`, `providers/youtube`, `providers/jev` | Bounded metadata, yt-dlp and optional Jev ranking implementations |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
@@ -107,8 +108,9 @@ records after preparing source files. Its SQLite queue and provenance table pres
 job state and deduplicate provider identities across users. Publication records the
 track and item receipt in one transaction, while a persisted prepared-file checksum
 recovers the filesystem/SQLite boundary after a crash. Recovery visits recorded
-jobs only; it never reconciles a directory. One worker owns the queue in the single
-application process. Artist/album folders remain useful to legacy folder browsers,
+jobs only; it never reconciles a directory. A bounded scheduler owns jobs in the single
+application process. A global item limit applies across jobs and within albums;
+identical metadata references serialize before rechecking the catalog. Artist/album folders remain useful to legacy folder browsers,
 but metadata and identity come from the catalog. The MCP
 transport calls the same library/userdata feature services as native RPCs, with its
 own schemas and response mapping. It does not tunnel through a legacy or native

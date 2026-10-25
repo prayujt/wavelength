@@ -187,6 +187,8 @@ Configuration is read from environment variables at startup.
 | `WAVELENGTH_OIDC_CLIENT_SECRET` | OIDC client secret, if required by your provider. |
 | `WAVELENGTH_JEV_API_KEY` | Optional backend-only TypeSafe API key; enables Jev recording ranking. Unset preserves heuristic ranking. |
 | `WAVELENGTH_JEV_MODEL` | Jev model; pinned to `jev-1.14.0` by default. |
+| `WAVELENGTH_INGEST_CONCURRENCY` | Concurrent acquisition items across jobs and within albums; `2`, allowed range `1`–`8`. |
+| `WAVELENGTH_METRICS_ADDR` | Separate Prometheus listener, such as `127.0.0.1:9090`; unset disables the listener. Keep it private. |
 
 ## Build and develop
 

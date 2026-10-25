@@ -16,6 +16,7 @@ import (
 	"github.com/prayujt/wavelength/internal/providers/itunes"
 	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
+	"github.com/prayujt/wavelength/internal/telemetry"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -30,6 +31,12 @@ func Run(ctx context.Context, c config.Config) error {
 		return fmt.Errorf("open database: %w", err)
 	}
 	defer db.Close()
+	concurrency := c.IngestConcurrency
+	if concurrency == 0 {
+		concurrency = 2
+	}
+	metrics := telemetry.New(concurrency)
+	metrics.Database(db)
 	var lib *library.Library
 	if dir := c.MusicDir; dir != "" {
 		lib, err = library.Open(dir, database.Catalog{DB: db})
@@ -57,21 +64,36 @@ func Run(ctx context.Context, c config.Config) error {
 	}
 	if lib != nil {
 		data := userdata.New(database.StateStore{DB: db}, lib)
-		source := youtube.New()
+		source := youtube.NewWithConcurrency(concurrency + 1)
+		source.SetMetrics(metrics)
 		var ranking []discovery.Option
 		if c.Jev.APIKey != "" {
-			ranking = append(ranking, discovery.WithRanking(jev.New(c.Jev.APIKey, c.Jev.Model), jev.Policy()))
+			client := jev.New(c.Jev.APIKey, c.Jev.Model)
+			client.SetMetrics(metrics)
+			ranking = append(ranking, discovery.WithRanking(measuredRanker{client, metrics}, jev.Policy()))
 		}
-		discovery := discovery.New(itunes.New(), source, ranking...)
+		metadata := itunes.New()
+		metadata.SetMetrics(metrics)
+		discovery := discovery.New(measuredMetadata{metadata, metrics}, measuredSources{source, metrics}, ranking...)
 		rootID, rootPath := lib.SourceRoot()
-		imports, err := ingest.New(ctx, ingest.Root{ID: rootID, Path: rootPath}, filepath.Join(c.DataDir, "ingest"), ingest.Dependencies{Store: database.IngestStore{DB: db}, Discovery: discovery, Downloader: source, Media: ingest.NewAudioMedia(), Playlists: data})
+		store := database.IngestStore{DB: db}
+		metrics.SetSnapshot(func(ctx context.Context) (telemetry.Snapshot, error) {
+			stats, err := store.QueueStats(ctx, rootID)
+			return telemetry.Snapshot{Jobs: stats.Jobs, Items: stats.Items, LibraryTracks: stats.LibraryTracks, LibraryBytes: stats.LibraryBytes, LibraryDuration: stats.LibraryDuration, OldestQueuedAt: stats.OldestQueuedAt}, err
+		})
+		audio := ingest.NewAudioMedia()
+		audio.SetMetrics(metrics)
+		imports, err := ingest.New(ctx, ingest.Root{ID: rootID, Path: rootPath}, filepath.Join(c.DataDir, "ingest"), ingest.Dependencies{Store: store, Discovery: discovery, Downloader: measuredDownloader{source, metrics}, Media: measuredMedia{audio, metrics}, Playlists: data, Concurrency: concurrency, Metrics: metrics})
 		if err != nil {
 			return fmt.Errorf("initialize ingestion: %w", err)
 		}
 		defer imports.Close()
 		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Acquisition{Discovery: discovery, Ingest: imports}))
 	}
-	servers := []server{{name: "native", http: httpserver.New(c.Addr, db.PingContext, options...)}}
+	servers := []server{{name: "native", http: httpserver.NewWithMetrics(c.Addr, db.PingContext, metrics, options...)}}
+	if c.MetricsAddr != "" {
+		servers = append(servers, server{name: "metrics", http: httpserver.Metrics(c.MetricsAddr, metrics.Registry)})
+	}
 	if c.Subsonic.Enabled() {
 		legacy, cleanup, err := legacyServer(ctx, c, lib, database.StateStore{DB: db})
 		if err != nil {
@@ -79,6 +101,11 @@ func Run(ctx context.Context, c config.Config) error {
 		}
 		defer cleanup()
 		servers = append(servers, server{name: "legacy-subsonic", http: legacy})
+	}
+	for _, server := range servers {
+		if server.name != "native" {
+			server.http.Handler = metrics.HTTP(server.name, server.http.Handler)
+		}
 	}
 	return serve(ctx, servers)
 }
