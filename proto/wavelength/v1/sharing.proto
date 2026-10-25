@@ -6,7 +6,7 @@ import "google/protobuf/timestamp.proto";
 
 // Access links grant only the selected tracks, without disclosing account credentials.
 service SharingService {
-  // Requires a named identity and wavelength:stream. Default lifetime: one hour.
+  // Requires a named identity and wavelength:stream. Default lifetime: three hours.
   rpc CreatePlaybackLink(CreatePlaybackLinkRequest) returns (CreateAccessLinkResponse);
   // Requires wavelength:write and wavelength:stream; captures the supplied track order.
   rpc CreateShare(CreateShareRequest) returns (CreateAccessLinkResponse);
@@ -21,18 +21,21 @@ message AccessLink {
   repeated string track_ids = 4;
   google.protobuf.Timestamp created_at = 5;
   google.protobuf.Timestamp expires_at = 6;
-  google.protobuf.Timestamp revoked_at = 7;
+  // Kept for wire compatibility; revoked links are deleted.
+  google.protobuf.Timestamp revoked_at = 7 [deprecated = true];
 }
 message CreatePlaybackLinkRequest {
   string track_id = 1;
-  // Zero selects one hour. Otherwise 60..86400 seconds.
+  // Zero selects three hours. Otherwise 60..86400 seconds.
   int32 expires_in_seconds = 2;
 }
 message CreateShareRequest {
   string name = 1;
   repeated string track_ids = 2;
-  // Omit for no expiry.
+  // Omit for a 30-day lifetime.
   google.protobuf.Timestamp expires_at = 3;
+  // Explicitly disable expiry. Cannot be combined with expires_at.
+  bool no_expiry = 4;
 }
 // The bearer URL is returned only on creation; persisted records contain its hash.
 message CreateAccessLinkResponse { AccessLink link = 1; string url = 2; }

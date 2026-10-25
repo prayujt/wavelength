@@ -60,7 +60,14 @@ func ref(id int64) discovery.Ref {
 	return discovery.Ref{Provider: "itunes", ID: strconv.FormatInt(id, 10)}
 }
 func track(e entry) discovery.Track {
-	return discovery.Track{Ref: ref(e.TrackID), Title: e.Title, Artist: e.Artist, Album: e.Album, ReleaseDate: e.Date, TrackNumber: e.Number, DiscNumber: e.Disc, Duration: float64(e.Millis) / 1000, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Genre: e.Genre}
+	t := discovery.Track{Ref: ref(e.TrackID), Title: e.Title, Artist: e.Artist, Album: e.Album, ReleaseDate: e.Date, TrackNumber: e.Number, DiscNumber: e.Disc, Duration: float64(e.Millis) / 1000, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Genre: e.Genre}
+	if e.ArtistID > 0 {
+		t.ArtistRef = ref(e.ArtistID)
+	}
+	if e.AlbumID > 0 {
+		t.ReleaseRef = ref(e.AlbumID)
+	}
+	return t
 }
 func release(e entry) discovery.Release {
 	r := discovery.Release{Ref: ref(e.AlbumID), Title: e.Album, Artist: e.Artist, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Tracks: []discovery.Track{}}

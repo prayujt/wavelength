@@ -49,7 +49,7 @@ const (
 
 // SharingServiceClient is a client for the wavelength.v1.SharingService service.
 type SharingServiceClient interface {
-	// Requires a named identity and wavelength:stream. Default lifetime: one hour.
+	// Requires a named identity and wavelength:stream. Default lifetime: three hours.
 	CreatePlaybackLink(context.Context, *connect.Request[v1.CreatePlaybackLinkRequest]) (*connect.Response[v1.CreateAccessLinkResponse], error)
 	// Requires wavelength:write and wavelength:stream; captures the supplied track order.
 	CreateShare(context.Context, *connect.Request[v1.CreateShareRequest]) (*connect.Response[v1.CreateAccessLinkResponse], error)
@@ -126,7 +126,7 @@ func (c *sharingServiceClient) RevokeAccessLink(ctx context.Context, req *connec
 
 // SharingServiceHandler is an implementation of the wavelength.v1.SharingService service.
 type SharingServiceHandler interface {
-	// Requires a named identity and wavelength:stream. Default lifetime: one hour.
+	// Requires a named identity and wavelength:stream. Default lifetime: three hours.
 	CreatePlaybackLink(context.Context, *connect.Request[v1.CreatePlaybackLinkRequest]) (*connect.Response[v1.CreateAccessLinkResponse], error)
 	// Requires wavelength:write and wavelength:stream; captures the supplied track order.
 	CreateShare(context.Context, *connect.Request[v1.CreateShareRequest]) (*connect.Response[v1.CreateAccessLinkResponse], error)

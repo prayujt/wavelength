@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AudioLines, Play } from '@lucide/svelte';
+  import { AudioLines, Play, Mic2 } from '@lucide/svelte';
+  import { create } from '@bufbuild/protobuf';
+  import { TrackSchema } from '../gen/wavelength/v1/library_pb';
+  import Lyrics from '../components/Lyrics.svelte';
   import Cover from '../components/Cover.svelte';
   import { duration } from '../lib/format';
   type SharedTrack = {
@@ -17,6 +20,40 @@
   let loading = $state(true);
   let error = $state('');
   let index = $state(-1);
+  let showLyrics = $state(false);
+  let position = $state(0);
+  const currentTrack = $derived(
+    index < 0
+      ? undefined
+      : create(TrackSchema, {
+          id: tracks[index].id,
+          title: tracks[index].title,
+          artist: tracks[index].artist,
+          album: tracks[index].album,
+          artworkPath: tracks[index].artwork_url,
+        }),
+  );
+  const lyricPlayer = {
+    get track() {
+      return currentTrack;
+    },
+    get position() {
+      return position;
+    },
+    seek(value: number) {
+      audio.currentTime = value;
+      position = value;
+    },
+  };
+  async function loadLyrics(id: string, signal: AbortSignal) {
+    const response = await fetch(`${base}/lyrics/${encodeURIComponent(id)}`, {
+      credentials: 'omit',
+      signal,
+    });
+    if (response.status === 404) return '';
+    if (!response.ok) throw new Error('Unable to load lyrics.');
+    return (await response.json()).lyrics as string;
+  }
   let url = $state('');
   let busy = $state(false);
   let audio: HTMLAudioElement;
@@ -68,6 +105,7 @@
       audio.pause();
       url = result.url;
       index = next;
+      position = 0;
       audio.src = url;
       await audio.play();
     } catch (cause) {
@@ -126,14 +164,24 @@
       >{/each}
   </div>
   <div class="shared-audio">
-    <p>
-      {index >= 0
-        ? `${tracks[index].title} · ${tracks[index].artist}`
-        : 'Choose a song to listen'}
-    </p>
+    <div class="shared-audio-heading">
+      <p>
+        {index >= 0
+          ? `${tracks[index].title} · ${tracks[index].artist}`
+          : 'Choose a song to listen'}
+      </p>
+      <button
+        class="icon-button"
+        aria-label="Show lyrics"
+        aria-expanded={showLyrics}
+        disabled={!currentTrack}
+        onclick={() => (showLyrics = !showLyrics)}><Mic2 size={18} /></button
+      >
+    </div>
     <audio
       bind:this={audio}
       controls
+      ontimeupdate={() => (position = audio.currentTime)}
       preload="none"
       onended={() => {
         if (index + 1 < tracks.length) void play(index + 1);
@@ -145,4 +193,13 @@
       }}
     ></audio>
   </div>
+
+  {#if showLyrics}<div class="shared-lyrics">
+      <Lyrics
+        player={lyricPlayer}
+        {loadLyrics}
+        embedded
+        close={() => (showLyrics = false)}
+      />
+    </div>{/if}
 </main>

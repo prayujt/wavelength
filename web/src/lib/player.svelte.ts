@@ -1,6 +1,7 @@
 import type { Track } from '../gen/wavelength/v1/library_pb';
 import { api, session } from './session.svelte';
 import { errorMessage } from './api';
+import { ListeningReporter, type ListeningOrigin } from './listening';
 
 export class PlayerState {
   tracks = $state<Track[]>([]);
@@ -18,6 +19,8 @@ export class PlayerState {
   private lastSaved = 0;
   private lastHeartbeat = 0;
   private saves = Promise.resolve();
+  private listening = new ListeningReporter();
+  private origin: ListeningOrigin = 'queue';
 
   async restore() {
     const generation = this.generation;
@@ -43,6 +46,7 @@ export class PlayerState {
           Math.max(0, index),
           false,
           Number(queue.positionMs) / 1000,
+          'restored',
         );
     } catch (error) {
       this.error = errorMessage(error);
@@ -50,12 +54,20 @@ export class PlayerState {
   }
 
   async play(tracks: Track[], index = 0) {
+    this.finishListen('skipped');
     this.tracks = tracks;
-    await this.open(index, true);
+    await this.open(index, true, 0, 'direct');
   }
 
-  async open(index: number, autoplay: boolean, position = 0) {
+  async open(
+    index: number,
+    autoplay: boolean,
+    position = 0,
+    origin: ListeningOrigin = 'queue',
+  ) {
     if (!this.audio || !this.tracks[index]) return;
+    this.finishListen('skipped');
+    this.origin = origin;
     const generation = ++this.generation;
     this.audio.pause();
     this.audio.removeAttribute('src');
@@ -91,7 +103,8 @@ export class PlayerState {
     }
   }
 
-  async next() {
+  async next(completed = false) {
+    this.finishListen(completed ? 'completed' : 'skipped');
     if (this.index + 1 < this.tracks.length)
       await this.open(this.index + 1, true);
     else this.save();
@@ -119,6 +132,12 @@ export class PlayerState {
 
   started() {
     this.playing = true;
+    if (this.track)
+      this.listening.start(
+        this.track.id,
+        this.origin,
+        this.audio?.currentTime || 0,
+      );
     if (!this.recorded && this.track) {
       this.recorded = true;
       void api.user.recordPlay({ trackId: this.track.id }).catch((error) => {
@@ -131,6 +150,7 @@ export class PlayerState {
   update() {
     if (!this.audio || this.audio.readyState === 0) return;
     this.position = this.audio.currentTime;
+    this.listening.sample(this.position, this.playing && !this.audio.seeking);
     if (Date.now() - this.lastSaved > 15000) this.save();
     if (this.playing && this.track && Date.now() - this.lastHeartbeat > 60000) {
       this.lastHeartbeat = Date.now();
@@ -144,9 +164,37 @@ export class PlayerState {
 
   seek(position: number) {
     if (!this.audio) return;
+    this.listening.sample(this.audio.currentTime, this.playing);
+    this.listening.reset(position);
     this.audio.currentTime = position;
     this.position = position;
+    this.listening.report(position, this.playing);
     this.save();
+  }
+
+  paused() {
+    if (this.audio)
+      this.listening.sample(
+        this.audio.currentTime,
+        this.playing && !this.audio.seeking,
+      );
+    this.playing = false;
+    if (!this.loading) {
+      this.listening.report(this.audio?.currentTime || this.position, false);
+      this.save();
+    }
+  }
+
+  seeking() {
+    if (this.audio) this.listening.reset(this.audio.currentTime);
+  }
+
+  private finishListen(outcome: 'completed' | 'skipped' | 'stopped') {
+    this.listening.finish(
+      this.audio?.currentTime || this.position,
+      this.playing && !this.audio?.seeking,
+      outcome,
+    );
   }
 
   save() {
@@ -169,6 +217,7 @@ export class PlayerState {
   }
 
   dispose() {
+    this.finishListen('stopped');
     ++this.generation;
     this.audio?.pause();
     this.audio?.removeAttribute('src');

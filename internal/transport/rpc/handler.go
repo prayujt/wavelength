@@ -12,6 +12,7 @@ import (
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/listening"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -56,7 +57,7 @@ func failure(err error) error {
 		}
 		return connect.NewError(code, err)
 	}
-	if errors.Is(err, ingest.ErrConflict) {
+	if errors.Is(err, listening.ErrConflict) || errors.Is(err, ingest.ErrConflict) {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	}
 	if errors.Is(err, ingest.ErrCapacity) {
@@ -68,13 +69,13 @@ func failure(err error) error {
 	if errors.Is(err, discovery.ErrUnavailable) {
 		return connect.NewError(connect.CodeUnavailable, errors.New("music provider is unavailable"))
 	}
-	if errors.Is(err, sharing.ErrInvalid) || errors.Is(err, userdata.ErrInvalid) || errors.Is(err, ingest.ErrInvalid) || errors.Is(err, discovery.ErrInvalid) {
+	if errors.Is(err, listening.ErrInvalid) || errors.Is(err, sharing.ErrInvalid) || errors.Is(err, userdata.ErrInvalid) || errors.Is(err, ingest.ErrInvalid) || errors.Is(err, discovery.ErrInvalid) {
 		return invalid("invalid request parameters")
 	}
 	if errors.Is(err, userdata.ErrForbidden) {
 		return connect.NewError(connect.CodePermissionDenied, errors.New("operation is not permitted"))
 	}
-	if errors.Is(err, sharing.ErrNotFound) || errors.Is(err, library.ErrNotFound) || errors.Is(err, state.ErrNotFound) || errors.Is(err, ingest.ErrNotFound) || errors.Is(err, discovery.ErrNotFound) {
+	if errors.Is(err, listening.ErrNotFound) || errors.Is(err, sharing.ErrNotFound) || errors.Is(err, library.ErrNotFound) || errors.Is(err, state.ErrNotFound) || errors.Is(err, ingest.ErrNotFound) || errors.Is(err, discovery.ErrNotFound) {
 		return connect.NewError(connect.CodeNotFound, errors.New("requested item not found"))
 	}
 	if errors.Is(err, context.Canceled) {

@@ -19,6 +19,7 @@
   import { errorMessage } from '../lib/api';
   import { stateLabel } from '../lib/format';
   import { link } from '../lib/navigation';
+  import SongCredits from '../components/SongCredits.svelte';
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import SourcePicker from '../components/SourcePicker.svelte';
@@ -308,13 +309,12 @@
                 >{:else}<strong
                   >{item.metadata?.title || `Song ${index + 1}`}</strong
                 >{/if}
-              {#if item.state === 'completed' && item.artistId}<a
-                  class="track-artist-link"
-                  href={link(`artist/${encodeURIComponent(item.artistId)}`)}
-                  >{item.metadata?.artist}</a
-                >{:else}<span
-                  >{item.metadata?.artist || item.metadataRef?.id}</span
-                >{/if}<small class:accent={item.state === 'completed'}
+              {#if item.metadata}<SongCredits
+                  track={item.metadata}
+                  artistID={item.artistId}
+                  albumID={item.albumId}
+                />{:else}<span>{item.metadataRef?.id}</span>{/if}<small
+                class:accent={item.state === 'completed'}
                 >{overrides[index]
                   ? 'New recording selected'
                   : phases[item.state] || stateLabel(item.state)}{item.reused

@@ -25,6 +25,7 @@ import (
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/listening"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
@@ -191,6 +192,7 @@ func appWithOptions(t *testing.T, issuer, dataDir, music string, options []https
 		features = append(features, transportmcp.Features{})
 	}
 	features[0].Links = links
+	features[0].Listening = listening.New(database.ListeningStore{DB: db}, lib)
 	options = append(options, httpserver.WithSharing(lib, links))
 	options = append(options, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...))
 	server.Config.Handler = httpserver.New("", db.PingContext, options...).Handler

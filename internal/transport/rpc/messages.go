@@ -15,8 +15,11 @@ func timestamp(t time.Time) *timestamppb.Timestamp {
 	return timestamppb.New(t)
 }
 func track(t library.Track) *pb.Track {
+	group := t.AlbumIdentity()
 	return &pb.Track{
 		Id:              t.ID,
+		ArtistId:        group.ArtistID,
+		AlbumId:         group.AlbumID,
 		Title:           t.Title,
 		Artist:          t.Artist,
 		Album:           t.Album,

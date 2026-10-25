@@ -108,6 +108,9 @@ func TestNativeRPCProtocolsAndAudio(t *testing.T) {
 	if err != nil || len(album.Msg.Tracks) != 1 {
 		t.Fatalf("album %v %v", album, err)
 	}
+	if listing.Msg.Tracks[0].ArtistId != artist.Msg.Artist.Id || listing.Msg.Tracks[0].AlbumId != album.Msg.Album.Id {
+		t.Fatal("track navigation differs from catalog identities", listing.Msg.Tracks[0])
+	}
 	if album.Msg.Album.ArtworkPath != album.Msg.Tracks[0].ArtworkPath || artist.Msg.Artist.ArtworkPath != album.Msg.Album.ArtworkPath {
 		t.Fatal("artwork projections disagree")
 	}

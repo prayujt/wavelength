@@ -3,6 +3,9 @@
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import type { PlayerState } from '../lib/player.svelte';
   import { duration } from '../lib/format';
+  import { link } from '../lib/navigation';
+  import { reveal } from '../lib/motion';
+  import SongCredits from './SongCredits.svelte';
   import Cover from './Cover.svelte';
   import TrackMenu from './TrackMenu.svelte';
   let {
@@ -10,22 +13,40 @@
     player,
     add,
     remove,
+    addedIDs = new Set<string>(),
   }: {
     tracks: Track[];
     player: PlayerState;
     add?: (track: Track) => void;
     remove?: (index: number) => void;
+    addedIDs?: Set<string>;
   } = $props();
+  const rows = $derived.by(() => {
+    const occurrences = new Map<string, number>();
+    return tracks.map((track) => {
+      const occurrence = occurrences.get(track.id) || 0;
+      occurrences.set(track.id, occurrence + 1);
+      return { track, key: `${track.id}-${occurrence}` };
+    });
+  });
 </script>
 
-<div class="track-list">
+<div
+  class="track-list"
+  style:--action-count={2 + Number(!!add) + Number(!!remove)}
+>
   <div class="track-row table-heading">
     <span>#</span><span>Title</span><span class="album-column">Album</span><span
       class="track-duration"><Clock3 size={14} aria-label="Duration" /></span
     ><span></span>
   </div>
-  {#each tracks as track, index (`${track.id}-${index}`)}
-    <div class:current={player.track?.id === track.id} class="track-row">
+  {#each rows as { track, key }, index (key)}
+    <div
+      use:reveal={addedIDs.has(track.id)}
+      data-track-id={track.id}
+      class:current={player.track?.id === track.id}
+      class="track-row"
+    >
       <button
         class="track-play icon-button"
         aria-label={`Play ${track.title}`}
@@ -42,10 +63,14 @@
           <button
             class="text-button song-title"
             onclick={() => player.play(tracks, index)}>{track.title}</button
-          ><span class="muted">{track.artist || 'Unknown artist'}</span>
+          ><SongCredits {track} mobileAlbum />
         </div>
       </div>
-      <span class="album-column muted truncate">{track.album || '—'}</span>
+      {#if track.album}<a
+          class="album-column muted truncate"
+          href={link(`album/${encodeURIComponent(track.albumId)}`)}
+          >{track.album}</a
+        >{:else}<span class="album-column muted">—</span>{/if}
       <span class="track-duration muted">{duration(track.durationSeconds)}</span
       >
       <div class="row-actions">

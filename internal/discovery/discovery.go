@@ -32,6 +32,8 @@ func (r Ref) ValidSource() bool   { return r.Provider == "youtube" && videoID.Ma
 func (r Ref) Empty() bool         { return r == (Ref{}) }
 
 type Track struct {
+	ArtistRef   Ref     `json:"artist_ref"`
+	ReleaseRef  Ref     `json:"release_ref"`
 	Ref         Ref     `json:"ref"`
 	Title       string  `json:"title"`
 	Artist      string  `json:"artist"`

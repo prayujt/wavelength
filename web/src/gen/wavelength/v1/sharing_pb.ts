@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file wavelength/v1/sharing.proto.
  */
 export const file_wavelength_v1_sharing: GenFile = /*@__PURE__*/
-  fileDesc("Cht3YXZlbGVuZ3RoL3YxL3NoYXJpbmcucHJvdG8SDXdhdmVsZW5ndGgudjEi1wEKCkFjY2Vzc0xpbmsSCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIMCgRuYW1lGAMgASgJEhEKCXRyYWNrX2lkcxgEIAMoCRIuCgpjcmVhdGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpyZXZva2VkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCJJChlDcmVhdGVQbGF5YmFja0xpbmtSZXF1ZXN0EhAKCHRyYWNrX2lkGAEgASgJEhoKEmV4cGlyZXNfaW5fc2Vjb25kcxgCIAEoBSJlChJDcmVhdGVTaGFyZVJlcXVlc3QSDAoEbmFtZRgBIAEoCRIRCgl0cmFja19pZHMYAiADKAkSLgoKZXhwaXJlc19hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAiUAoYQ3JlYXRlQWNjZXNzTGlua1Jlc3BvbnNlEicKBGxpbmsYASABKAsyGS53YXZlbGVuZ3RoLnYxLkFjY2Vzc0xpbmsSCwoDdXJsGAIgASgJIkUKFkxpc3RBY2Nlc3NMaW5rc1JlcXVlc3QSDAoEa2luZBgBIAEoCRINCgVsaW1pdBgCIAEoBRIOCgZvZmZzZXQYAyABKAUiQwoXTGlzdEFjY2Vzc0xpbmtzUmVzcG9uc2USKAoFbGlua3MYASADKAsyGS53YXZlbGVuZ3RoLnYxLkFjY2Vzc0xpbmsiJQoXUmV2b2tlQWNjZXNzTGlua1JlcXVlc3QSCgoCaWQYASABKAkiGgoYUmV2b2tlQWNjZXNzTGlua1Jlc3BvbnNlMpsDCg5TaGFyaW5nU2VydmljZRJnChJDcmVhdGVQbGF5YmFja0xpbmsSKC53YXZlbGVuZ3RoLnYxLkNyZWF0ZVBsYXliYWNrTGlua1JlcXVlc3QaJy53YXZlbGVuZ3RoLnYxLkNyZWF0ZUFjY2Vzc0xpbmtSZXNwb25zZRJZCgtDcmVhdGVTaGFyZRIhLndhdmVsZW5ndGgudjEuQ3JlYXRlU2hhcmVSZXF1ZXN0Gicud2F2ZWxlbmd0aC52MS5DcmVhdGVBY2Nlc3NMaW5rUmVzcG9uc2USYAoPTGlzdEFjY2Vzc0xpbmtzEiUud2F2ZWxlbmd0aC52MS5MaXN0QWNjZXNzTGlua3NSZXF1ZXN0GiYud2F2ZWxlbmd0aC52MS5MaXN0QWNjZXNzTGlua3NSZXNwb25zZRJjChBSZXZva2VBY2Nlc3NMaW5rEiYud2F2ZWxlbmd0aC52MS5SZXZva2VBY2Nlc3NMaW5rUmVxdWVzdBonLndhdmVsZW5ndGgudjEuUmV2b2tlQWNjZXNzTGlua1Jlc3BvbnNlQj5aPGdpdGh1Yi5jb20vcHJheXVqdC93YXZlbGVuZ3RoL2dlbi93YXZlbGVuZ3RoL3YxO3dhdmVsZW5ndGh2MWIGcHJvdG8z", [file_google_protobuf_timestamp]);
+  fileDesc("Cht3YXZlbGVuZ3RoL3YxL3NoYXJpbmcucHJvdG8SDXdhdmVsZW5ndGgudjEi2wEKCkFjY2Vzc0xpbmsSCgoCaWQYASABKAkSDAoEa2luZBgCIAEoCRIMCgRuYW1lGAMgASgJEhEKCXRyYWNrX2lkcxgEIAMoCRIuCgpjcmVhdGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpleHBpcmVzX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIyCgpyZXZva2VkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEICGAEiSQoZQ3JlYXRlUGxheWJhY2tMaW5rUmVxdWVzdBIQCgh0cmFja19pZBgBIAEoCRIaChJleHBpcmVzX2luX3NlY29uZHMYAiABKAUieAoSQ3JlYXRlU2hhcmVSZXF1ZXN0EgwKBG5hbWUYASABKAkSEQoJdHJhY2tfaWRzGAIgAygJEi4KCmV4cGlyZXNfYXQYAyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhEKCW5vX2V4cGlyeRgEIAEoCCJQChhDcmVhdGVBY2Nlc3NMaW5rUmVzcG9uc2USJwoEbGluaxgBIAEoCzIZLndhdmVsZW5ndGgudjEuQWNjZXNzTGluaxILCgN1cmwYAiABKAkiRQoWTGlzdEFjY2Vzc0xpbmtzUmVxdWVzdBIMCgRraW5kGAEgASgJEg0KBWxpbWl0GAIgASgFEg4KBm9mZnNldBgDIAEoBSJDChdMaXN0QWNjZXNzTGlua3NSZXNwb25zZRIoCgVsaW5rcxgBIAMoCzIZLndhdmVsZW5ndGgudjEuQWNjZXNzTGluayIlChdSZXZva2VBY2Nlc3NMaW5rUmVxdWVzdBIKCgJpZBgBIAEoCSIaChhSZXZva2VBY2Nlc3NMaW5rUmVzcG9uc2UymwMKDlNoYXJpbmdTZXJ2aWNlEmcKEkNyZWF0ZVBsYXliYWNrTGluaxIoLndhdmVsZW5ndGgudjEuQ3JlYXRlUGxheWJhY2tMaW5rUmVxdWVzdBonLndhdmVsZW5ndGgudjEuQ3JlYXRlQWNjZXNzTGlua1Jlc3BvbnNlElkKC0NyZWF0ZVNoYXJlEiEud2F2ZWxlbmd0aC52MS5DcmVhdGVTaGFyZVJlcXVlc3QaJy53YXZlbGVuZ3RoLnYxLkNyZWF0ZUFjY2Vzc0xpbmtSZXNwb25zZRJgCg9MaXN0QWNjZXNzTGlua3MSJS53YXZlbGVuZ3RoLnYxLkxpc3RBY2Nlc3NMaW5rc1JlcXVlc3QaJi53YXZlbGVuZ3RoLnYxLkxpc3RBY2Nlc3NMaW5rc1Jlc3BvbnNlEmMKEFJldm9rZUFjY2Vzc0xpbmsSJi53YXZlbGVuZ3RoLnYxLlJldm9rZUFjY2Vzc0xpbmtSZXF1ZXN0Gicud2F2ZWxlbmd0aC52MS5SZXZva2VBY2Nlc3NMaW5rUmVzcG9uc2VCPlo8Z2l0aHViLmNvbS9wcmF5dWp0L3dhdmVsZW5ndGgvZ2VuL3dhdmVsZW5ndGgvdjE7d2F2ZWxlbmd0aHYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message wavelength.v1.AccessLink
@@ -49,7 +49,10 @@ export type AccessLink = Message<"wavelength.v1.AccessLink"> & {
   expiresAt?: Timestamp | undefined;
 
   /**
-   * @generated from field: google.protobuf.Timestamp revoked_at = 7;
+   * Kept for wire compatibility; revoked links are deleted.
+   *
+   * @generated from field: google.protobuf.Timestamp revoked_at = 7 [deprecated = true];
+   * @deprecated
    */
   revokedAt?: Timestamp | undefined;
 };
@@ -71,7 +74,7 @@ export type CreatePlaybackLinkRequest = Message<"wavelength.v1.CreatePlaybackLin
   trackId: string;
 
   /**
-   * Zero selects one hour. Otherwise 60..86400 seconds.
+   * Zero selects three hours. Otherwise 60..86400 seconds.
    *
    * @generated from field: int32 expires_in_seconds = 2;
    */
@@ -100,11 +103,18 @@ export type CreateShareRequest = Message<"wavelength.v1.CreateShareRequest"> & {
   trackIds: string[];
 
   /**
-   * Omit for no expiry.
+   * Omit for a 30-day lifetime.
    *
    * @generated from field: google.protobuf.Timestamp expires_at = 3;
    */
   expiresAt?: Timestamp | undefined;
+
+  /**
+   * Explicitly disable expiry. Cannot be combined with expires_at.
+   *
+   * @generated from field: bool no_expiry = 4;
+   */
+  noExpiry: boolean;
 };
 
 /**
@@ -221,7 +231,7 @@ export const RevokeAccessLinkResponseSchema: GenMessage<RevokeAccessLinkResponse
  */
 export const SharingService: GenService<{
   /**
-   * Requires a named identity and wavelength:stream. Default lifetime: one hour.
+   * Requires a named identity and wavelength:stream. Default lifetime: three hours.
    *
    * @generated from rpc wavelength.v1.SharingService.CreatePlaybackLink
    */

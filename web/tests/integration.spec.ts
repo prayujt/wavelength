@@ -52,6 +52,28 @@ test('OIDC, embedded artwork, timed lyrics, playback and saved queue work togeth
         .evaluate((img: HTMLImageElement) => img.naturalWidth),
     )
     .toBe(16);
+  const history = await page.evaluate(async () => {
+    const me = await (await fetch('/auth/me')).json();
+    const response = await fetch(
+      '/wavelength.v1.ListeningService/ListListeningSessions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Connect-Protocol-Version': '1',
+          'X-CSRF-Token': me.csrf_token,
+        },
+        body: JSON.stringify({ origin: 'direct' }),
+      },
+    );
+    return response.json();
+  });
+  expect(
+    history.sessions?.some(
+      (listen: { track: { title: string }; playing?: boolean }) =>
+        listen.track.title === 'First Light',
+    ),
+  ).toBe(true);
   await page.getByRole('button', { name: 'Show lyrics' }).click();
   const lyrics = page.getByRole('complementary', {
     name: 'Lyrics',
@@ -245,9 +267,10 @@ test('reviewed downloads enter the library and selected playlist and can be play
     .click();
   await page.getByRole('button', { name: /99.*Imported Tone/ }).click();
   const review = page.getByRole('dialog', { name: 'Review download' });
-  await review
-    .getByRole('combobox', { name: 'Download playlist' })
-    .selectOption({ label: 'Downloads mix' });
+  await review.getByRole('combobox', { name: 'Download playlist' }).click();
+  await page
+    .getByRole('option', { name: 'Downloads mix', exact: true })
+    .click();
   await review.getByRole('button', { name: 'Download 1 song' }).click();
   await expect(page).toHaveURL(/#imports\/[^/]+$/);
   await expect(
@@ -352,6 +375,26 @@ test('share pages play without a session and revocation stops their audio links'
       path: info.outputPath('shared-player.png'),
       fullPage: true,
     });
+    await recipient
+      .getByRole('button', { name: 'Show lyrics', exact: true })
+      .click();
+    const lyrics = recipient.getByRole('complementary', {
+      name: 'Lyrics',
+      exact: true,
+    });
+    await expect(
+      lyrics.getByRole('button', { name: 'First line', exact: true }),
+    ).toBeVisible();
+    await lyrics
+      .getByRole('button', { name: 'Second line', exact: true })
+      .click();
+    await expect(
+      lyrics.getByRole('button', { name: 'Second line', exact: true }),
+    ).toHaveAttribute('aria-current', 'true');
+    await recipient.screenshot({
+      path: info.outputPath('shared-lyrics.png'),
+      fullPage: true,
+    });
     const playbackURL = await recipient.locator('audio').getAttribute('src');
     await dialog
       .getByRole('button', { name: 'Revoke link', exact: true })
@@ -367,46 +410,39 @@ test('share pages play without a session and revocation stops their audio links'
   }
 });
 
-test('direct playback URLs can be copied for another player and managed from Links', async ({
+test('only shared music is exposed in the UI and revoking removes its row', async ({
   page,
-  browser,
 }) => {
   await login(page);
   await page
     .getByRole('button', { name: 'More options for First Light' })
     .click();
-  await page
-    .getByRole('button', { name: 'Playback link', exact: true })
-    .click();
-  const dialog = page.getByRole('dialog', { name: 'Create playback link' });
+  await expect(
+    page.getByRole('button', { name: 'Playback link', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('button', { name: 'Share song', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Share music' });
+  await expect(
+    dialog.getByRole('combobox', { name: 'Share expiry' }),
+  ).toHaveText('In 30 days');
   await dialog
     .getByRole('button', { name: 'Create link', exact: true })
     .click();
-  const playbackURL = await dialog
-    .getByRole('textbox', { name: 'Created link' })
-    .inputValue();
-  expect(playbackURL).toContain('/play/');
-  const anonymous = await browser.newContext();
-  try {
-    const response = await anonymous.request.get(playbackURL, {
-      headers: { Range: 'bytes=0-15' },
-    });
-    expect(response.status()).toBe(206);
-    expect(response.headers()['content-length']).toBe('16');
-    expect(response.headers()['content-range']).toMatch(/^bytes 0-15\//);
-    await page.keyboard.press('Escape');
-    await page.getByRole('link', { name: 'Links', exact: true }).click();
-    await page
-      .getByRole('button', { name: 'Playback links', exact: true })
-      .click();
-    const row = page
-      .locator('.access-link-row')
-      .filter({ hasText: 'First Light' })
-      .first();
-    await row.getByRole('button', { name: 'Revoke', exact: true }).click();
-    await expect(row).toContainText('Revoked');
-    expect((await anonymous.request.get(playbackURL)).status()).toBe(404);
-  } finally {
-    await anonymous.close();
-  }
+  await expect(
+    dialog.getByRole('textbox', { name: 'Created link' }),
+  ).not.toBeEmpty();
+  await page.keyboard.press('Escape');
+  await page.getByRole('link', { name: 'Links', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Playback links', exact: true }),
+  ).toHaveCount(0);
+  const row = page
+    .locator('.access-link-row')
+    .filter({ hasText: 'First Light' })
+    .first();
+  await expect(row).toContainText('Expires');
+  const count = await page.locator('.access-link-row').count();
+  await row.getByRole('button', { name: 'Revoke', exact: true }).click();
+  await expect(page.locator('.access-link-row')).toHaveCount(count - 1);
+  await expect(page.getByText('Revoked', { exact: true })).toHaveCount(0);
 });

@@ -6,7 +6,6 @@
   import { errorMessage } from '../lib/api';
   import Notice from '../components/Notice.svelte';
   let links = $state<AccessLink[]>([]);
-  let kind = $state('share');
   let loading = $state(true);
   let busy = $state('');
   let error = $state('');
@@ -18,13 +17,13 @@
       request++;
     };
   });
-  async function load(next = 0) {
+  async function load(next = 0, background = false) {
     const generation = ++request;
-    loading = true;
+    if (!background) loading = true;
     error = '';
     try {
       const response = await api.sharing.listAccessLinks({
-        kind,
+        kind: 'share',
         limit: 50,
         offset: next,
       });
@@ -39,7 +38,6 @@
     }
   }
   function status(item: AccessLink) {
-    if (item.revokedAt) return 'Revoked';
     if (item.expiresAt) {
       const date = new Date(Number(item.expiresAt.seconds) * 1000);
       return date.getTime() <= Date.now()
@@ -53,7 +51,8 @@
     error = '';
     try {
       await api.sharing.revokeAccessLink({ id });
-      await load(offset);
+      links = links.filter((link) => link.id !== id);
+      await load(!links.length && offset ? offset - 50 : offset, true);
     } catch (cause) {
       error = errorMessage(cause);
     } finally {
@@ -65,33 +64,16 @@
 <header class="page-heading">
   <div>
     <h1>Links</h1>
-    <p class="subtitle">Manage shared music and temporary playback access.</p>
+    <p class="subtitle">Manage access to music you’ve shared.</p>
   </div>
 </header>
-<div class="entity-actions">
-  <button
-    class:primary={kind === 'share'}
-    class="button secondary"
-    onclick={() => {
-      kind = 'share';
-      void load();
-    }}>Shared music</button
-  ><button
-    class:primary={kind === 'playback'}
-    class="button secondary"
-    onclick={() => {
-      kind = 'playback';
-      void load();
-    }}>Playback links</button
-  >
-</div>
 <Notice message={error} />
 {#if loading}<div class="loading-state" role="status">
     Loading links…
   </div>{:else if !links.length}<div class="empty-state">
     <Link size={28} />
-    <h2>No {kind === 'share' ? 'shares' : 'playback links'} yet</h2>
-    <p>Create a link from a song’s menu, or share an album or playlist.</p>
+    <h2>No shares yet</h2>
+    <p>Share a song, album, or playlist to create a link.</p>
   </div>{:else}<div class="access-links">
     {#each links as item}<div class="access-link-row">
         <div>
@@ -103,7 +85,7 @@
         </div>
         <button
           class="button secondary compact"
-          disabled={!!busy || !!item.revokedAt || status(item) === 'Expired'}
+          disabled={!!busy}
           onclick={() => revoke(item.id)}>Revoke</button
         >
       </div>{/each}

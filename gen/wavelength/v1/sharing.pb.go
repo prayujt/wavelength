@@ -23,13 +23,16 @@ const (
 )
 
 type AccessLink struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Kind          string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
-	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
-	TrackIds      []string               `protobuf:"bytes,4,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Kind      string                 `protobuf:"bytes,2,opt,name=kind,proto3" json:"kind,omitempty"`
+	Name      string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	TrackIds  []string               `protobuf:"bytes,4,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Kept for wire compatibility; revoked links are deleted.
+	//
+	// Deprecated: Marked as deprecated in wavelength/v1/sharing.proto.
 	RevokedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=revoked_at,json=revokedAt,proto3" json:"revoked_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -107,6 +110,7 @@ func (x *AccessLink) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in wavelength/v1/sharing.proto.
 func (x *AccessLink) GetRevokedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.RevokedAt
@@ -117,7 +121,7 @@ func (x *AccessLink) GetRevokedAt() *timestamppb.Timestamp {
 type CreatePlaybackLinkRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	TrackId string                 `protobuf:"bytes,1,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
-	// Zero selects one hour. Otherwise 60..86400 seconds.
+	// Zero selects three hours. Otherwise 60..86400 seconds.
 	ExpiresInSeconds int32 `protobuf:"varint,2,opt,name=expires_in_seconds,json=expiresInSeconds,proto3" json:"expires_in_seconds,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -171,8 +175,10 @@ type CreateShareRequest struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
 	Name     string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	TrackIds []string               `protobuf:"bytes,2,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
-	// Omit for no expiry.
-	ExpiresAt     *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Omit for a 30-day lifetime.
+	ExpiresAt *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	// Explicitly disable expiry. Cannot be combined with expires_at.
+	NoExpiry      bool `protobuf:"varint,4,opt,name=no_expiry,json=noExpiry,proto3" json:"no_expiry,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -226,6 +232,13 @@ func (x *CreateShareRequest) GetExpiresAt() *timestamppb.Timestamp {
 		return x.ExpiresAt
 	}
 	return nil
+}
+
+func (x *CreateShareRequest) GetNoExpiry() bool {
+	if x != nil {
+		return x.NoExpiry
+	}
+	return false
 }
 
 // The bearer URL is returned only on creation; persisted records contain its hash.
@@ -470,7 +483,7 @@ var File_wavelength_v1_sharing_proto protoreflect.FileDescriptor
 
 const file_wavelength_v1_sharing_proto_rawDesc = "" +
 	"\n" +
-	"\x1bwavelength/v1/sharing.proto\x12\rwavelength.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x92\x02\n" +
+	"\x1bwavelength/v1/sharing.proto\x12\rwavelength.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\x96\x02\n" +
 	"\n" +
 	"AccessLink\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
@@ -480,17 +493,18 @@ const file_wavelength_v1_sharing_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x129\n" +
+	"expires_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12=\n" +
 	"\n" +
-	"revoked_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\trevokedAt\"d\n" +
+	"revoked_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampB\x02\x18\x01R\trevokedAt\"d\n" +
 	"\x19CreatePlaybackLinkRequest\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12,\n" +
-	"\x12expires_in_seconds\x18\x02 \x01(\x05R\x10expiresInSeconds\"\x80\x01\n" +
+	"\x12expires_in_seconds\x18\x02 \x01(\x05R\x10expiresInSeconds\"\x9d\x01\n" +
 	"\x12CreateShareRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
 	"\ttrack_ids\x18\x02 \x03(\tR\btrackIds\x129\n" +
 	"\n" +
-	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\"[\n" +
+	"expires_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\texpiresAt\x12\x1b\n" +
+	"\tno_expiry\x18\x04 \x01(\bR\bnoExpiry\"[\n" +
 	"\x18CreateAccessLinkResponse\x12-\n" +
 	"\x04link\x18\x01 \x01(\v2\x19.wavelength.v1.AccessLinkR\x04link\x12\x10\n" +
 	"\x03url\x18\x02 \x01(\tR\x03url\"Z\n" +

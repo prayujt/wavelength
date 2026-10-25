@@ -83,7 +83,8 @@ The Subsonic scan endpoints report an idle state and the stored track count;
 `startScan` performs no filesystem work. A fresh database starts empty even if the
 music directory contains files. New music enters through explicit ingestion jobs.
 
-SQLite also holds playlists, bookmarks, playback queues, and listening history.
+SQLite also holds playlists, bookmarks, playback queues, and [detailed listening history](docs/listening.md),
+including time listened, completion/skips, and artist/album filters through RPC and MCP.
 Back up the data directory as well as your music collection.
 
 ## Discover and acquire music
@@ -134,8 +135,9 @@ chunks. Media requests use the same authentication as the native API.
 
 Explicitly create temporary direct audio URLs for Sonos and other players with
 `SharingService.CreatePlaybackLink`, or public player pages with `CreateShare`.
-Both are scoped to selected music and revocable. Songs, albums and playlists have
-share controls in the UI; **Links** manages existing access. See
+Playback links default to three hours; shares default to 30 days. Both are scoped
+to selected music and revocable. Songs, albums and playlists have
+share controls in the UI; **Links** manages public shares. See
 [playback and sharing links](docs/sharing.md) for RPC/MCP usage and lifetimes.
 
 For browser sign-in, configure a generic OIDC provider, register `/auth/callback`,

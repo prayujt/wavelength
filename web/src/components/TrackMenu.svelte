@@ -1,6 +1,6 @@
 <script lang="ts">
   import { create } from '@bufbuild/protobuf';
-  import { Download, Ellipsis, RefreshCw, Share2, Link } from '@lucide/svelte';
+  import { Download, Ellipsis, RefreshCw, Share2 } from '@lucide/svelte';
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import {
     ExternalTrackSchema,
@@ -11,7 +11,7 @@
   import { go } from '../lib/navigation';
   import { errorMessage } from '../lib/api';
   import AccessLinkDialog from './AccessLinkDialog.svelte';
-  let linkKind = $state<'share' | 'playback'>();
+  let sharing = $state(false);
   import SourcePicker from './SourcePicker.svelte';
   import Notice from './Notice.svelte';
   let {
@@ -99,13 +99,8 @@
       {#if id}<button
           onclick={() => {
             open = false;
-            linkKind = 'share';
+            sharing = true;
           }}><Share2 size={14} /> Share song</button
-        ><button
-          onclick={() => {
-            open = false;
-            linkKind = 'playback';
-          }}><Link size={14} /> Playback link</button
         ><button onclick={replace}><RefreshCw size={14} /> Replace audio</button
         >{:else if downloadOptions}<button
           onclick={() => {
@@ -127,9 +122,8 @@
     {choose}
   />{/if}
 
-{#if linkKind}<AccessLinkDialog
+{#if sharing}<AccessLinkDialog
     name={title}
     trackIds={[id]}
-    kind={linkKind}
-    close={() => (linkKind = undefined)}
+    close={() => (sharing = false)}
   />{/if}

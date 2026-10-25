@@ -42,20 +42,25 @@ button resumes it. Opening the panel immediately centers the current timed line,
 including while paused. Lines can seek the player; untimed lyrics remain readable text.
 Opening either does not run a scan or fetch new metadata.
 
+Background downloads refresh the library in place, preserving song rows, open
+menus, and scroll. Publication bursts are coalesced; only new visible entries
+animate, respecting reduced-motion preferences. Artist and album names link to
+their pages in song lists, downloads, the queue, and now playing.
+
 The sidebar uses compact grouped navigation with light/dark themes. The theme
 button follows your system preference initially and remembers explicit changes.
 
-## Sharing and external playback
+## Sharing music
 
-Use a saved song’s menu to create a public share page or a temporary direct audio
-link for another player. Album and playlist Share buttons capture their current
-songs. Choose an expiry, create the link, and copy it before closing the dialog.
-The **Links** page lists your shares and playback grants and lets you revoke them.
+Use a saved song’s menu or an album/playlist Share button to create a public player
+link. Shares default to 30 days; choose a different expiry with the styled menu,
+or explicitly choose Never. Copy the link before closing the dialog. The **Links**
+page lists public shares and permanently deletes them when revoked.
 
 Recipients open `/s/<token>` without signing in. Its player has access only to the
-shared songs and their artwork. Direct `/play/<token>/audio.<ext>` links return
-audio bytes and support seeking. See [sharing](../docs/sharing.md) for lifetimes,
-permissions, and RPC/MCP usage.
+shared songs, artwork, and saved lyrics, with timed highlighting and click-to-seek.
+Direct audio URLs remain available through RPC/MCP, with a three-hour default.
+See [sharing](../docs/sharing.md) for permissions and lifetimes.
 
 ## Development
 
@@ -106,7 +111,8 @@ not need a route fallback.
 
 `src/gen/` is generated from the repository's protobuf files. `src/lib/api.ts`
 constructs typed clients for LibraryService, UserDataService, DiscoveryService,
-and IngestionService using the official Connect web transport. Application data
+IngestionService, RealtimeService, SharingService, and ListeningService using the
+official Connect web transport. Application data
 goes through those clients. Session endpoints remain under `/auth/`; audio uses
 the cookie-authenticated, range-capable path from `GetPlaybackInfo`, and artwork
 uses the authenticated `artwork_path` supplied in catalog responses.
@@ -137,3 +143,7 @@ controlled responses. The Go-driven suite serves the production build and uses
 real OIDC redirects, SQLite-backed sessions, CSRF checks, Connect handlers, and
 media playback. External discovery/download providers are fixtures so tests do
 not depend on public services. FFmpeg is required for its audio fixture.
+
+The signed-in player reports [detailed listening sessions](../docs/listening.md)
+automatically, including cumulative listening time, completion/skips, and whether
+a song was selected directly, queued, or resumed from a saved queue.

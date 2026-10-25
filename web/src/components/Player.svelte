@@ -12,6 +12,7 @@
   } from '@lucide/svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { duration } from '../lib/format';
+  import SongCredits from './SongCredits.svelte';
   import Cover from './Cover.svelte';
   import Notice from './Notice.svelte';
   import Lyrics from './Lyrics.svelte';
@@ -34,12 +35,11 @@
   bind:volume
   onloadedmetadata={() => player.loaded()}
   onplay={() => player.started()}
-  onpause={() => {
-    player.playing = false;
-    if (!player.loading) player.save();
-  }}
+  onpause={() => player.paused()}
+  onseeking={() => player.seeking()}
+  onseeked={() => player.seeking()}
   ontimeupdate={() => player.update()}
-  onended={() => player.next()}
+  onended={() => player.next(true)}
   onerror={() => {
     if (player.track && audio.hasAttribute('src'))
       player.error =
@@ -63,21 +63,20 @@
     {#if !player.tracks.length}<p class="muted">
         Add a song to start your queue.
       </p>{/if}
-    {#each player.tracks as track, index (`${track.id}-${index}`)}<button
+    {#each player.tracks as track, index (`${track.id}-${index}`)}<div
         class:active={index === player.index}
         class="queue-item"
-        onclick={() => player.open(index, true)}
-        ><Cover
+      >
+        <Cover
           name={track.album || track.title}
           artwork={track.artworkPath}
           small
         /><span
-          ><strong>{track.title}</strong><small
-            >{track.artist || 'Unknown artist'}</small
-          ></span
-        >{#if index === player.index}<span class="playing-dot"
-          ></span>{/if}</button
-      >{/each}
+          ><button class="text-button" onclick={() => player.open(index, true)}
+            ><strong>{track.title}</strong></button
+          ><SongCredits {track} /></span
+        >{#if index === player.index}<span class="playing-dot"></span>{/if}
+      </div>{/each}
   </aside>
 {/if}
 {#if showLyrics}<Lyrics {player} close={() => (showLyrics = false)} />{/if}
@@ -89,9 +88,10 @@
       small
     />
     <div>
-      <strong>{player.track?.title || 'Nothing playing yet'}</strong><span
-        >{player.track?.artist || 'Find your next favorite'}</span
-      >
+      <strong>{player.track?.title || 'Nothing playing yet'}</strong
+      >{#if player.track}<SongCredits track={player.track} />{:else}<span
+          >Find your next favorite</span
+        >{/if}
     </div>
   </div>
   <div class="player-center">
