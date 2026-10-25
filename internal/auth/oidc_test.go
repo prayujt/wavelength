@@ -160,6 +160,10 @@ func provider(t *testing.T, mode string) *httptest.Server {
 }
 
 func app(t *testing.T, issuer, dataDir, music string, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Acquisition) (*httptest.Server, *sql.DB) {
+	return appWithOptions(t, issuer, dataDir, music, nil, acquisition...)
+}
+
+func appWithOptions(t *testing.T, issuer, dataDir, music string, options []httpserver.Option, acquisition ...func(*sql.DB, *library.Library, *userdata.Service) transportmcp.Acquisition) (*httptest.Server, *sql.DB) {
 	t.Helper()
 	db, err := database.Open(context.Background(), dataDir)
 	if err != nil {
@@ -181,7 +185,8 @@ func app(t *testing.T, issuer, dataDir, music string, acquisition ...func(*sql.D
 	if len(acquisition) > 0 {
 		features = append(features, acquisition[0](db, lib, data))
 	}
-	server.Config.Handler = httpserver.New("", db.PingContext, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...)).Handler
+	options = append(options, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...))
+	server.Config.Handler = httpserver.New("", db.PingContext, options...).Handler
 	server.Start()
 	t.Cleanup(func() {
 		server.Close()

@@ -1,3 +1,9 @@
-# The runtime base installs packages and copies no repository files.
 *
 !Dockerfile.runtime
+!web/
+!web/**
+web/node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/.env*

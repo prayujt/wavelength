@@ -12,6 +12,7 @@ import (
 type Config struct {
 	MusicDir  string   `env:"WAVELENGTH_MUSIC_DIR"`
 	DataDir   string   `env:"WAVELENGTH_DATA_DIR" envDefault:"./data"`
+	WebDir    string   `env:"WAVELENGTH_WEB_DIR"`
 	Addr      string   `env:"WAVELENGTH_ADDR" envDefault:"127.0.0.1:8080"`
 	Token     string   `env:"WAVELENGTH_TOKEN"`
 	PublicURL string   `env:"WAVELENGTH_PUBLIC_URL"`
