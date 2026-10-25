@@ -1,5 +1,8 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:
@@ -30,7 +33,7 @@ jobs:
       - run: go test -race -timeout 90s ./internal/auth -run '^TestWebBrowser$'
         env:
           WAVELENGTH_WEB_TESTS: "1"
-  check:
+  api:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

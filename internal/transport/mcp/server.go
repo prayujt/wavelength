@@ -133,6 +133,10 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 		path := "/media/tracks/" + t.ID
 		return object{"track": track(t), "http_path": path, "url": strings.TrimSuffix(manager.ResourceURL(), "/mcp") + path, "supports_ranges": true, "authentication_required": true}, nil
 	})
+	add(s, "get_lyrics", "Read lyrics already stored with a local track. Does not fetch lyrics from an external provider.", false, false, func(ctx context.Context, in idInput) (object, error) {
+		lyrics, err := lib.Lyrics(ctx, in.ID)
+		return object{"lyrics": lyrics}, err
+	})
 	registerPersonal(s, data)
 	if len(acquisition) > 0 {
 		registerAcquisition(s, acquisition[0])

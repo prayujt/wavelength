@@ -17,6 +17,9 @@ type Acquisition struct {
 type metadataRefInput struct {
 	Ref discovery.Ref `json:"ref"`
 }
+type lookupInput struct {
+	Refs []discovery.Ref `json:"metadata_refs"`
+}
 type sourcesInput struct {
 	Ref discovery.Ref `json:"metadata_ref"`
 }
@@ -59,6 +62,14 @@ func addAcquisition[In any](s *mcp.Server, name, description string, mutate, ext
 	})
 }
 func registerAcquisition(s *mcp.Server, a Acquisition) {
+	addAcquisition(s, "lookup_imports", "Find which exact metadata references are already in the shared library. Returns local track IDs for playback; never downloads or contacts a provider.", false, false, func(ctx context.Context, in lookupInput) (object, error) {
+		found, err := a.Ingest.Lookup(ctx, in.Refs)
+		tracks := []object{}
+		for ref, id := range found {
+			tracks = append(tracks, object{"metadata_ref": ref, "track_id": id})
+		}
+		return object{"tracks": tracks}, err
+	})
 	addAcquisition(s, "search_music", "Search external music metadata for songs, albums and artists. This does not download anything; list_tracks searches the local library.", false, true, func(ctx context.Context, in browseInput) (object, error) {
 		if in.Offset != 0 {
 			return nil, discovery.ErrInvalid

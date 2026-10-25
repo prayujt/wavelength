@@ -2,47 +2,124 @@
   import { onMount } from 'svelte';
   import {
     AudioLines,
+    ChevronDown,
+    ChevronRight,
     Compass,
+    Disc3,
     Download,
     Library,
     ListMusic,
     LogOut,
+    Moon,
+    Music2,
+    PanelLeftClose,
+    PanelLeftOpen,
+    Search,
+    Sun,
+    Users,
   } from '@lucide/svelte';
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import { api, session } from '../lib/session.svelte';
   import { PlayerState } from '../lib/player.svelte';
+  import { DownloadSelection } from '../lib/downloads.svelte';
   import { errorMessage } from '../lib/api';
-  import { initials } from '../lib/format';
+  import { duration, initials } from '../lib/format';
+  import { go, link, readRoute } from '../lib/navigation';
+  import { theme } from '../lib/theme.svelte';
   import LibraryView from '../views/Library.svelte';
+  import LibraryDetail from '../views/LibraryDetail.svelte';
   import Discover from '../views/Discover.svelte';
+  import DiscoveryDetail from '../views/DiscoveryDetail.svelte';
   import Imports from '../views/Imports.svelte';
   import Playlists from '../views/Playlists.svelte';
   import Notice from './Notice.svelte';
   import Player from './Player.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
-
-  const navigation = [
-    { id: 'library', label: 'Your library', icon: Library },
-    { id: 'discover', label: 'Discover', icon: Compass },
-    { id: 'imports', label: 'Downloads', icon: Download },
-    { id: 'playlists', label: 'Playlists', icon: ListMusic },
-  ];
+  import CommandPalette from './CommandPalette.svelte';
+  import DownloadReview from './DownloadReview.svelte';
   const player = new PlayerState();
-  let view = $state('library');
+  const basket = new DownloadSelection();
+  let address = $state(window.location.hash);
+  const route = $derived(readRoute(address));
   let adding = $state<Track>();
   let error = $state('');
   let listener = $state(
     session.user?.name || session.user?.email || 'Listener',
   );
-  const navigate = (id: string) => {
-    window.location.hash = id;
-  };
+  let sidebar = $state(true);
+  let searchOpen = $state(false);
+  let collapsed = $state<string[]>([]);
+  const shortcut = /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘ K'
+    : 'Ctrl K';
+  const groups = [
+    {
+      label: 'Library',
+      icon: Library,
+      tone: 'library',
+      items: [
+        { label: 'Songs', page: 'library', tab: '', icon: Music2 },
+        { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
+        { label: 'Artists', page: 'library', tab: 'artists', icon: Users },
+      ],
+    },
+    {
+      label: 'Browse',
+      icon: Compass,
+      tone: 'browse',
+      items: [
+        { label: 'Discover', page: 'discover', tab: '', icon: Compass },
+        { label: 'Downloads', page: 'imports', tab: '', icon: Download },
+      ],
+    },
+    {
+      label: 'Collection',
+      icon: ListMusic,
+      tone: 'collection',
+      items: [
+        { label: 'Playlists', page: 'playlists', tab: '', icon: ListMusic },
+      ],
+    },
+  ];
+  const pageName = $derived(
+    route.page === 'artist'
+      ? 'Artist'
+      : route.page === 'album'
+        ? 'Album'
+        : route.page === 'discover'
+          ? 'Discover'
+          : route.page === 'imports'
+            ? 'Downloads'
+            : route.page === 'playlists'
+              ? 'Playlists'
+              : 'Library',
+  );
+  const libraryTab = $derived(route.query.get('tab') || '');
+  function active(page: string, tab: string) {
+    if (page === 'library' && route.page === 'artist') return tab === 'artists';
+    if (page === 'library' && route.page === 'album') return tab === 'albums';
+    return route.page === page && (page !== 'library' || libraryTab === tab);
+  }
+  function closeMobile() {
+    if (matchMedia('(max-width: 760px)').matches) sidebar = false;
+  }
+  function search() {
+    basket.reviewing = false;
+    searchOpen = true;
+  }
+  function keyboard(event: KeyboardEvent) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (!searchOpen && document.querySelector('dialog[open]')) return;
+      searchOpen = !searchOpen;
+    }
+  }
   onMount(() => {
+    if (matchMedia('(max-width: 760px)').matches) sidebar = false;
     const sync = () => {
-      const hash = window.location.hash.slice(1);
-      view = navigation.some((item) => item.id === hash) ? hash : 'library';
+      address = window.location.hash;
+      closeMobile();
     };
-    sync();
     window.addEventListener('hashchange', sync);
     const controller = new AbortController();
     api.user
@@ -67,67 +144,175 @@
   }
 </script>
 
-<div class="app-shell">
-  <aside class="sidebar">
-    <a class="brand" href="#library"
-      ><AudioLines size={27} /><span>wavelength</span></a
-    >
-    <p class="nav-label">Your space</p>
-    <nav aria-label="Main navigation">
-      {#each navigation as item}<a
-          href={`#${item.id}`}
-          class:active={view === item.id}
-          aria-current={view === item.id ? 'page' : undefined}
-          ><item.icon size={19} /><span>{item.label}</span
-          >{#if view === item.id}<span class="nav-dot"></span>{/if}</a
-        >{/each}
-    </nav>
-    <div class="sidebar-note">
-      <span class="mini-wave" aria-hidden="true">▂ ▅ ▃ ▇ ▄ ▂</span>
-      <p>A collection that<br />sounds like you.</p>
-    </div>
-    <div class="account">
-      <span class="avatar">{initials(listener)}</span>
-      <div><strong>{listener}</strong><span>Your account</span></div>
-      <button
-        class="icon-button"
-        aria-label="Sign out"
-        title="Sign out"
-        disabled={session.signingOut}
-        onclick={logout}><LogOut size={17} /></button
+<svelte:window onkeydown={keyboard} />
+<div class="app-shell" class:sidebar-collapsed={!sidebar}>
+  {#if sidebar}<button
+      class="navigation-backdrop"
+      aria-label="Close navigation"
+      onclick={() => (sidebar = false)}
+    ></button>
+    <aside class="sidebar">
+      <div class="sidebar-heading">
+        <a class="workspace-brand" href="#library" onclick={closeMobile}
+          ><AudioLines size={24} /><strong>Wavelength</strong></a
+        ><button
+          class="icon-button"
+          aria-label="Hide sidebar"
+          onclick={() => (sidebar = false)}><PanelLeftClose size={16} /></button
+        >
+      </div>
+      <button class="sidebar-search" onclick={search}
+        ><Search size={15} /><span>Search music</span><kbd>{shortcut}</kbd
+        ></button
       >
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        {#each groups as group}<div class="nav-group">
+            <button
+              class="nav-group-heading"
+              aria-expanded={!collapsed.includes(group.label)}
+              aria-controls={`nav-${group.tone}`}
+              onclick={() =>
+                (collapsed = collapsed.includes(group.label)
+                  ? collapsed.filter((label) => label !== group.label)
+                  : [...collapsed, group.label])}
+              ><group.icon size={16} class={`nav-tone-${group.tone}`} /><span
+                >{group.label}</span
+              ><ChevronRight
+                size={12}
+                class={!collapsed.includes(group.label) ? 'rotated' : ''}
+              /></button
+            >{#if !collapsed.includes(group.label)}<div
+                class="nav-children"
+                id={`nav-${group.tone}`}
+              >
+                {#each group.items as item}<a
+                    href={link(item.page, item.tab ? { tab: item.tab } : {})}
+                    class:active={active(item.page, item.tab)}
+                    aria-current={active(item.page, item.tab)
+                      ? 'page'
+                      : undefined}
+                    onclick={closeMobile}
+                    ><item.icon size={15} strokeWidth={1.6} />{item.label}</a
+                  >{/each}
+              </div>{/if}
+          </div>{/each}
+      </nav>
+      <div class="sidebar-bottom">
+        <a class="sidebar-download-link" href="#imports" onclick={closeMobile}
+          ><Download size={14} /> Manage downloads</a
+        >
+        <div class="account">
+          <span class="avatar">{initials(listener)}</span>
+          <div><strong>{listener}</strong><span>Signed in</span></div>
+          <button
+            class="icon-button"
+            aria-label="Sign out"
+            title="Sign out"
+            disabled={session.signingOut}
+            onclick={logout}><LogOut size={16} /></button
+          >
+        </div>
+      </div>
+    </aside>{/if}
+  <main class="main">
+    <header class="topbar">
+      <div class="breadcrumb">
+        {#if !sidebar}<button
+            class="icon-button"
+            aria-label="Show sidebar"
+            onclick={() => (sidebar = true)}><PanelLeftOpen size={17} /></button
+          >{/if}<a href="#library" class="breadcrumb-workspace"
+          ><AudioLines size={15} /> Wavelength</a
+        ><ChevronRight size={12} /><span class="breadcrumb-current"
+          >{pageName}</span
+        >
+      </div>
+      <div class="header-actions">
+        <button
+          class="icon-button"
+          aria-label="Open search"
+          title={`Search (${shortcut})`}
+          onclick={search}><Search size={16} /></button
+        ><button
+          class="icon-button"
+          aria-label="Toggle color theme"
+          onclick={() => theme.toggle()}
+          >{#if theme.dark}<Sun size={16} />{:else}<Moon
+              size={16}
+            />{/if}</button
+        ><button
+          class="icon-button mobile-account"
+          aria-label="Sign out"
+          disabled={session.signingOut}
+          onclick={logout}><LogOut size={16} /></button
+        >
+      </div>
+    </header>
+    <div class="content">
+      <Notice
+        message={error}
+        dismiss={() => (error = '')}
+      />{#key address}{#if route.page === 'library'}<LibraryView
+            {player}
+            add={(track) => (adding = track)}
+            initialTab={libraryTab}
+          />{:else if route.page === 'artist' || route.page === 'album'}<LibraryDetail
+            kind={route.page}
+            id={route.id}
+            {player}
+            add={(track) => (adding = track)}
+          />{:else if route.page === 'discover' && ['artist', 'release'].includes(route.id)}<DiscoveryDetail
+            kind={route.id}
+            provider={route.query.get('provider') || ''}
+            id={route.query.get('id') || ''}
+            {basket}
+            {player}
+          />{:else if route.page === 'discover'}<Discover
+            {basket}
+            {player}
+            initialQuery={route.query.get('q') || ''}
+          />{:else if route.page === 'imports'}<Imports
+            {player}
+            initialID={route.id}
+          />{:else if route.page === 'playlists'}<Playlists
+            {player}
+            add={(track) => (adding = track)}
+          />{:else}<div class="empty-state">
+            <h1>Page not found</h1>
+            <a class="button secondary" href="#library">Open library</a>
+          </div>{/if}{/key}
+      {#if basket.tracks.length}<div class="selection-bar">
+          <div>
+            <strong
+              >{basket.tracks.length}
+              {basket.tracks.length === 1 ? 'song' : 'songs'} selected</strong
+            ><span>{duration(basket.duration)} · Ready for review</span>
+          </div>
+          <div class="entity-actions">
+            <button
+              class="button secondary compact"
+              onclick={() => basket.clear()}>Clear</button
+            ><button
+              class="button primary"
+              onclick={() => (basket.reviewing = true)}
+              >Review download <ChevronRight size={14} /></button
+            >
+          </div>
+        </div>{/if}
     </div>
-  </aside>
-  <main class="main-content">
-    <div class="topbar">
-      <span>YOUR PERSONAL MUSIC SPACE</span><span
-        ><span class="online-dot"></span> Wavelength</span
-      >
-      <button
-        class="icon-button mobile-account"
-        aria-label="Sign out"
-        disabled={session.signingOut}
-        onclick={logout}><LogOut size={17} /></button
-      >
-    </div>
-    <Notice
-      message={error}
-      dismiss={() => (error = '')}
-    />{#if view === 'library'}<LibraryView
-        {player}
-        add={(track) => (adding = track)}
-        discover={() => navigate('discover')}
-      />{:else if view === 'discover'}<Discover
-        imported={() => navigate('imports')}
-      />{:else if view === 'imports'}<Imports
-      />{:else if view === 'playlists'}<Playlists
-        {player}
-        add={(track) => (adding = track)}
-      />{/if}
   </main>
   <Player {player} />
 </div>
 {#if adding}<PlaylistPicker
     track={adding}
     close={() => (adding = undefined)}
+  />{/if}
+{#if searchOpen}<CommandPalette
+    {player}
+    {basket}
+    close={() => (searchOpen = false)}
+  />{/if}
+{#if basket.reviewing}<DownloadReview
+    {basket}
+    started={(job) => go(`imports/${encodeURIComponent(job.id)}`)}
   />{/if}

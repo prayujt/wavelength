@@ -1,10 +1,32 @@
 # Wavelength web
 
-A Svelte 5 + TypeScript client for Wavelength's Connect RPC API. The first version
-includes OIDC sign-in, local song/album/artist browsing, playback and a saved queue,
-playlist management, external discovery, recording selection, and import progress
-with cancellation and retries. Bookmarks and listening history remain available
+A Svelte 5 + TypeScript client for Wavelength's Connect RPC API. It includes OIDC
+sign-in, library browsing, dedicated artist/album pages, artwork, playback and a
+saved queue, stored lyrics, playlists, and managed downloads. Cmd/Ctrl+K searches
+the library and external music catalog together, with explicit Play or Review
+download actions. Bookmarks and listening history remain available
 through the API; they do not have screens yet.
+
+## Downloading music
+
+1. Search in Discover or with Cmd/Ctrl+K. Songs matched to existing imports show
+   **In library** and can be played immediately.
+2. Select songs, or open an album and select the songs you are missing. Selections
+   remain available as you browse other artists and albums.
+3. Open **Review download**. Keep automatic matching or choose specific recordings,
+   optionally select a destination playlist, and submit the download.
+4. Follow the dedicated job page in Downloads. Uncertain matches ask for a recording;
+   failed items can be retried, and unfinished work can be cancelled.
+5. Play completed songs directly from the job or find them in the library.
+
+Existing-import checks use provider provenance, never fuzzy title matching. Older
+catalog entries without provenance are not guessed to be the same recording.
+Artwork is read from existing embedded tags or an adjacent cover on demand. The
+lyrics panel reads saved lyrics through `GetLyrics`; timed LRC lines can seek the
+player. Opening either does not run a scan or fetch new metadata.
+
+The sidebar uses compact grouped navigation with light/dark themes. The theme
+button follows your system preference initially and remembers explicit changes.
 
 ## Development
 
@@ -56,8 +78,9 @@ not need a route fallback.
 `src/gen/` is generated from the repository's protobuf files. `src/lib/api.ts`
 constructs typed clients for LibraryService, UserDataService, DiscoveryService,
 and IngestionService using the official Connect web transport. Application data
-goes through those clients. Session endpoints remain under `/auth/`, and audio
-uses the cookie-authenticated, range-capable path from `GetPlaybackInfo`.
+goes through those clients. Session endpoints remain under `/auth/`; audio uses
+the cookie-authenticated, range-capable path from `GetPlaybackInfo`, and artwork
+uses the authenticated `artwork_path` supplied in catalog responses.
 
 After changing protobuf definitions:
 

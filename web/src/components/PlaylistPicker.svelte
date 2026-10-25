@@ -61,7 +61,6 @@
 >
   <div class="section-heading">
     <div>
-      <p class="eyebrow">Keep it close</p>
       <h2>Add to playlist</h2>
       <p class="muted">{track.title}</p>
     </div>

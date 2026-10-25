@@ -61,6 +61,11 @@ func WithNative(lib *library.Library, manager *auth.Manager) Option {
 	return func(mux *http.ServeMux) {
 		path, handler := rpc.Handler(lib, manager)
 		mux.Handle(path, handler)
+		mux.Handle("GET /media/tracks/{id}/artwork", manager.Protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if err := media.Artwork(w, r, lib, r.PathValue("id")); err != nil {
+				apiError(w, r, err)
+			}
+		})))
 		mux.Handle("GET /media/tracks/{id}", manager.Protect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if err := auth.RequireScope(r.Context(), auth.ScopeStream); err != nil {
 				http.Error(w, "insufficient scope", http.StatusForbidden)

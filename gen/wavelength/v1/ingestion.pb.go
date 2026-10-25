@@ -74,6 +74,146 @@ func (x *ProviderRef) GetId() string {
 	return ""
 }
 
+type LookupImportsRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MetadataRefs  []*ProviderRef         `protobuf:"bytes,1,rep,name=metadata_refs,json=metadataRefs,proto3" json:"metadata_refs,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupImportsRequest) Reset() {
+	*x = LookupImportsRequest{}
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupImportsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupImportsRequest) ProtoMessage() {}
+
+func (x *LookupImportsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupImportsRequest.ProtoReflect.Descriptor instead.
+func (*LookupImportsRequest) Descriptor() ([]byte, []int) {
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *LookupImportsRequest) GetMetadataRefs() []*ProviderRef {
+	if x != nil {
+		return x.MetadataRefs
+	}
+	return nil
+}
+
+type ImportedTrack struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	MetadataRef   *ProviderRef           `protobuf:"bytes,1,opt,name=metadata_ref,json=metadataRef,proto3" json:"metadata_ref,omitempty"`
+	TrackId       string                 `protobuf:"bytes,2,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ImportedTrack) Reset() {
+	*x = ImportedTrack{}
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ImportedTrack) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ImportedTrack) ProtoMessage() {}
+
+func (x *ImportedTrack) ProtoReflect() protoreflect.Message {
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ImportedTrack.ProtoReflect.Descriptor instead.
+func (*ImportedTrack) Descriptor() ([]byte, []int) {
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *ImportedTrack) GetMetadataRef() *ProviderRef {
+	if x != nil {
+		return x.MetadataRef
+	}
+	return nil
+}
+
+func (x *ImportedTrack) GetTrackId() string {
+	if x != nil {
+		return x.TrackId
+	}
+	return ""
+}
+
+type LookupImportsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Tracks        []*ImportedTrack       `protobuf:"bytes,1,rep,name=tracks,proto3" json:"tracks,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LookupImportsResponse) Reset() {
+	*x = LookupImportsResponse{}
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LookupImportsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LookupImportsResponse) ProtoMessage() {}
+
+func (x *LookupImportsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LookupImportsResponse.ProtoReflect.Descriptor instead.
+func (*LookupImportsResponse) Descriptor() ([]byte, []int) {
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *LookupImportsResponse) GetTracks() []*ImportedTrack {
+	if x != nil {
+		return x.Tracks
+	}
+	return nil
+}
+
 type ExternalTrack struct {
 	state           protoimpl.MessageState `protogen:"open.v1"`
 	Ref             *ProviderRef           `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
@@ -93,7 +233,7 @@ type ExternalTrack struct {
 
 func (x *ExternalTrack) Reset() {
 	*x = ExternalTrack{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[1]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -105,7 +245,7 @@ func (x *ExternalTrack) String() string {
 func (*ExternalTrack) ProtoMessage() {}
 
 func (x *ExternalTrack) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[1]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -118,7 +258,7 @@ func (x *ExternalTrack) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalTrack.ProtoReflect.Descriptor instead.
 func (*ExternalTrack) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{1}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *ExternalTrack) GetRef() *ProviderRef {
@@ -211,7 +351,7 @@ type MusicRelease struct {
 
 func (x *MusicRelease) Reset() {
 	*x = MusicRelease{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[2]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -223,7 +363,7 @@ func (x *MusicRelease) String() string {
 func (*MusicRelease) ProtoMessage() {}
 
 func (x *MusicRelease) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[2]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -236,7 +376,7 @@ func (x *MusicRelease) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MusicRelease.ProtoReflect.Descriptor instead.
 func (*MusicRelease) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{2}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *MusicRelease) GetRef() *ProviderRef {
@@ -285,7 +425,7 @@ type MusicArtist struct {
 
 func (x *MusicArtist) Reset() {
 	*x = MusicArtist{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[3]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -297,7 +437,7 @@ func (x *MusicArtist) String() string {
 func (*MusicArtist) ProtoMessage() {}
 
 func (x *MusicArtist) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[3]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -310,7 +450,7 @@ func (x *MusicArtist) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MusicArtist.ProtoReflect.Descriptor instead.
 func (*MusicArtist) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{3}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *MusicArtist) GetRef() *ProviderRef {
@@ -350,7 +490,7 @@ type SourceCandidate struct {
 
 func (x *SourceCandidate) Reset() {
 	*x = SourceCandidate{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[4]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -362,7 +502,7 @@ func (x *SourceCandidate) String() string {
 func (*SourceCandidate) ProtoMessage() {}
 
 func (x *SourceCandidate) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[4]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -375,7 +515,7 @@ func (x *SourceCandidate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceCandidate.ProtoReflect.Descriptor instead.
 func (*SourceCandidate) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{4}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *SourceCandidate) GetRef() *ProviderRef {
@@ -437,7 +577,7 @@ type SearchMusicRequest struct {
 
 func (x *SearchMusicRequest) Reset() {
 	*x = SearchMusicRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[5]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +589,7 @@ func (x *SearchMusicRequest) String() string {
 func (*SearchMusicRequest) ProtoMessage() {}
 
 func (x *SearchMusicRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[5]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +602,7 @@ func (x *SearchMusicRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchMusicRequest.ProtoReflect.Descriptor instead.
 func (*SearchMusicRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{5}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *SearchMusicRequest) GetQuery() string {
@@ -490,7 +630,7 @@ type SearchMusicResponse struct {
 
 func (x *SearchMusicResponse) Reset() {
 	*x = SearchMusicResponse{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[6]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +642,7 @@ func (x *SearchMusicResponse) String() string {
 func (*SearchMusicResponse) ProtoMessage() {}
 
 func (x *SearchMusicResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[6]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,7 +655,7 @@ func (x *SearchMusicResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SearchMusicResponse.ProtoReflect.Descriptor instead.
 func (*SearchMusicResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{6}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SearchMusicResponse) GetTracks() []*ExternalTrack {
@@ -548,7 +688,7 @@ type GetMusicArtistRequest struct {
 
 func (x *GetMusicArtistRequest) Reset() {
 	*x = GetMusicArtistRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[7]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -560,7 +700,7 @@ func (x *GetMusicArtistRequest) String() string {
 func (*GetMusicArtistRequest) ProtoMessage() {}
 
 func (x *GetMusicArtistRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[7]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -573,7 +713,7 @@ func (x *GetMusicArtistRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMusicArtistRequest.ProtoReflect.Descriptor instead.
 func (*GetMusicArtistRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{7}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetMusicArtistRequest) GetRef() *ProviderRef {
@@ -592,7 +732,7 @@ type GetMusicArtistResponse struct {
 
 func (x *GetMusicArtistResponse) Reset() {
 	*x = GetMusicArtistResponse{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[8]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -604,7 +744,7 @@ func (x *GetMusicArtistResponse) String() string {
 func (*GetMusicArtistResponse) ProtoMessage() {}
 
 func (x *GetMusicArtistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[8]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -617,7 +757,7 @@ func (x *GetMusicArtistResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMusicArtistResponse.ProtoReflect.Descriptor instead.
 func (*GetMusicArtistResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{8}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetMusicArtistResponse) GetArtist() *MusicArtist {
@@ -636,7 +776,7 @@ type GetMusicReleaseRequest struct {
 
 func (x *GetMusicReleaseRequest) Reset() {
 	*x = GetMusicReleaseRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[9]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -648,7 +788,7 @@ func (x *GetMusicReleaseRequest) String() string {
 func (*GetMusicReleaseRequest) ProtoMessage() {}
 
 func (x *GetMusicReleaseRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[9]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -661,7 +801,7 @@ func (x *GetMusicReleaseRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMusicReleaseRequest.ProtoReflect.Descriptor instead.
 func (*GetMusicReleaseRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{9}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *GetMusicReleaseRequest) GetRef() *ProviderRef {
@@ -680,7 +820,7 @@ type GetMusicReleaseResponse struct {
 
 func (x *GetMusicReleaseResponse) Reset() {
 	*x = GetMusicReleaseResponse{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[10]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -692,7 +832,7 @@ func (x *GetMusicReleaseResponse) String() string {
 func (*GetMusicReleaseResponse) ProtoMessage() {}
 
 func (x *GetMusicReleaseResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[10]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -705,7 +845,7 @@ func (x *GetMusicReleaseResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetMusicReleaseResponse.ProtoReflect.Descriptor instead.
 func (*GetMusicReleaseResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{10}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *GetMusicReleaseResponse) GetRelease() *MusicRelease {
@@ -724,7 +864,7 @@ type FindSourcesRequest struct {
 
 func (x *FindSourcesRequest) Reset() {
 	*x = FindSourcesRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[11]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -736,7 +876,7 @@ func (x *FindSourcesRequest) String() string {
 func (*FindSourcesRequest) ProtoMessage() {}
 
 func (x *FindSourcesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[11]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -749,7 +889,7 @@ func (x *FindSourcesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSourcesRequest.ProtoReflect.Descriptor instead.
 func (*FindSourcesRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{11}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *FindSourcesRequest) GetMetadataRef() *ProviderRef {
@@ -768,7 +908,7 @@ type FindSourcesResponse struct {
 
 func (x *FindSourcesResponse) Reset() {
 	*x = FindSourcesResponse{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[12]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +920,7 @@ func (x *FindSourcesResponse) String() string {
 func (*FindSourcesResponse) ProtoMessage() {}
 
 func (x *FindSourcesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[12]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +933,7 @@ func (x *FindSourcesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindSourcesResponse.ProtoReflect.Descriptor instead.
 func (*FindSourcesResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{12}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *FindSourcesResponse) GetCandidates() []*SourceCandidate {
@@ -814,7 +954,7 @@ type ImportSelection struct {
 
 func (x *ImportSelection) Reset() {
 	*x = ImportSelection{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[13]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -826,7 +966,7 @@ func (x *ImportSelection) String() string {
 func (*ImportSelection) ProtoMessage() {}
 
 func (x *ImportSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[13]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -839,7 +979,7 @@ func (x *ImportSelection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportSelection.ProtoReflect.Descriptor instead.
 func (*ImportSelection) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{13}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ImportSelection) GetMetadataRef() *ProviderRef {
@@ -871,7 +1011,7 @@ type CreateImportRequest struct {
 
 func (x *CreateImportRequest) Reset() {
 	*x = CreateImportRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[14]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -883,7 +1023,7 @@ func (x *CreateImportRequest) String() string {
 func (*CreateImportRequest) ProtoMessage() {}
 
 func (x *CreateImportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[14]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -896,7 +1036,7 @@ func (x *CreateImportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateImportRequest.ProtoReflect.Descriptor instead.
 func (*CreateImportRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{14}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *CreateImportRequest) GetRequestId() string {
@@ -936,7 +1076,7 @@ type GetImportRequest struct {
 
 func (x *GetImportRequest) Reset() {
 	*x = GetImportRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[15]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +1088,7 @@ func (x *GetImportRequest) String() string {
 func (*GetImportRequest) ProtoMessage() {}
 
 func (x *GetImportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[15]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +1101,7 @@ func (x *GetImportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetImportRequest.ProtoReflect.Descriptor instead.
 func (*GetImportRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{15}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetImportRequest) GetId() string {
@@ -981,7 +1121,7 @@ type ListImportsRequest struct {
 
 func (x *ListImportsRequest) Reset() {
 	*x = ListImportsRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[16]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -993,7 +1133,7 @@ func (x *ListImportsRequest) String() string {
 func (*ListImportsRequest) ProtoMessage() {}
 
 func (x *ListImportsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[16]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1006,7 +1146,7 @@ func (x *ListImportsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImportsRequest.ProtoReflect.Descriptor instead.
 func (*ListImportsRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{16}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListImportsRequest) GetLimit() int32 {
@@ -1033,7 +1173,7 @@ type ListImportsResponse struct {
 
 func (x *ListImportsResponse) Reset() {
 	*x = ListImportsResponse{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[17]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1045,7 +1185,7 @@ func (x *ListImportsResponse) String() string {
 func (*ListImportsResponse) ProtoMessage() {}
 
 func (x *ListImportsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[17]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1058,7 +1198,7 @@ func (x *ListImportsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListImportsResponse.ProtoReflect.Descriptor instead.
 func (*ListImportsResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{17}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListImportsResponse) GetImports() []*ImportJob {
@@ -1084,7 +1224,7 @@ type CancelImportRequest struct {
 
 func (x *CancelImportRequest) Reset() {
 	*x = CancelImportRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[18]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1096,7 +1236,7 @@ func (x *CancelImportRequest) String() string {
 func (*CancelImportRequest) ProtoMessage() {}
 
 func (x *CancelImportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[18]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1109,7 +1249,7 @@ func (x *CancelImportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelImportRequest.ProtoReflect.Descriptor instead.
 func (*CancelImportRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{18}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *CancelImportRequest) GetId() string {
@@ -1129,7 +1269,7 @@ type SourceOverride struct {
 
 func (x *SourceOverride) Reset() {
 	*x = SourceOverride{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[19]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1141,7 +1281,7 @@ func (x *SourceOverride) String() string {
 func (*SourceOverride) ProtoMessage() {}
 
 func (x *SourceOverride) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[19]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1154,7 +1294,7 @@ func (x *SourceOverride) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceOverride.ProtoReflect.Descriptor instead.
 func (*SourceOverride) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{19}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SourceOverride) GetIndex() int32 {
@@ -1181,7 +1321,7 @@ type RetryImportRequest struct {
 
 func (x *RetryImportRequest) Reset() {
 	*x = RetryImportRequest{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[20]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1193,7 +1333,7 @@ func (x *RetryImportRequest) String() string {
 func (*RetryImportRequest) ProtoMessage() {}
 
 func (x *RetryImportRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[20]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1206,7 +1346,7 @@ func (x *RetryImportRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RetryImportRequest.ProtoReflect.Descriptor instead.
 func (*RetryImportRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{20}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *RetryImportRequest) GetId() string {
@@ -1239,7 +1379,7 @@ type ImportItem struct {
 
 func (x *ImportItem) Reset() {
 	*x = ImportItem{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[21]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1251,7 +1391,7 @@ func (x *ImportItem) String() string {
 func (*ImportItem) ProtoMessage() {}
 
 func (x *ImportItem) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[21]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1264,7 +1404,7 @@ func (x *ImportItem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportItem.ProtoReflect.Descriptor instead.
 func (*ImportItem) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{21}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ImportItem) GetMetadataRef() *ProviderRef {
@@ -1340,7 +1480,7 @@ type ImportJob struct {
 
 func (x *ImportJob) Reset() {
 	*x = ImportJob{}
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[22]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1352,7 +1492,7 @@ func (x *ImportJob) String() string {
 func (*ImportJob) ProtoMessage() {}
 
 func (x *ImportJob) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_ingestion_proto_msgTypes[22]
+	mi := &file_wavelength_v1_ingestion_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1365,7 +1505,7 @@ func (x *ImportJob) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ImportJob.ProtoReflect.Descriptor instead.
 func (*ImportJob) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{22}
+	return file_wavelength_v1_ingestion_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ImportJob) GetId() string {
@@ -1431,7 +1571,14 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\x1dwavelength/v1/ingestion.proto\x12\rwavelength.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"9\n" +
 	"\vProviderRef\x12\x1a\n" +
 	"\bprovider\x18\x01 \x01(\tR\bprovider\x12\x0e\n" +
-	"\x02id\x18\x02 \x01(\tR\x02id\"\xed\x02\n" +
+	"\x02id\x18\x02 \x01(\tR\x02id\"W\n" +
+	"\x14LookupImportsRequest\x12?\n" +
+	"\rmetadata_refs\x18\x01 \x03(\v2\x1a.wavelength.v1.ProviderRefR\fmetadataRefs\"i\n" +
+	"\rImportedTrack\x12=\n" +
+	"\fmetadata_ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\vmetadataRef\x12\x19\n" +
+	"\btrack_id\x18\x02 \x01(\tR\atrackId\"M\n" +
+	"\x15LookupImportsResponse\x124\n" +
+	"\x06tracks\x18\x01 \x03(\v2\x1c.wavelength.v1.ImportedTrackR\x06tracks\"\xed\x02\n" +
 	"\rExternalTrack\x12,\n" +
 	"\x03ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\x03ref\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x16\n" +
@@ -1545,8 +1692,9 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\tGetArtist\x12$.wavelength.v1.GetMusicArtistRequest\x1a%.wavelength.v1.GetMusicArtistResponse\x12[\n" +
 	"\n" +
 	"GetRelease\x12%.wavelength.v1.GetMusicReleaseRequest\x1a&.wavelength.v1.GetMusicReleaseResponse\x12T\n" +
-	"\vFindSources\x12!.wavelength.v1.FindSourcesRequest\x1a\".wavelength.v1.FindSourcesResponse2\x98\x03\n" +
-	"\x10IngestionService\x12L\n" +
+	"\vFindSources\x12!.wavelength.v1.FindSourcesRequest\x1a\".wavelength.v1.FindSourcesResponse2\xf4\x03\n" +
+	"\x10IngestionService\x12Z\n" +
+	"\rLookupImports\x12#.wavelength.v1.LookupImportsRequest\x1a$.wavelength.v1.LookupImportsResponse\x12L\n" +
 	"\fCreateImport\x12\".wavelength.v1.CreateImportRequest\x1a\x18.wavelength.v1.ImportJob\x12F\n" +
 	"\tGetImport\x12\x1f.wavelength.v1.GetImportRequest\x1a\x18.wavelength.v1.ImportJob\x12T\n" +
 	"\vListImports\x12!.wavelength.v1.ListImportsRequest\x1a\".wavelength.v1.ListImportsResponse\x12L\n" +
@@ -1565,86 +1713,94 @@ func file_wavelength_v1_ingestion_proto_rawDescGZIP() []byte {
 	return file_wavelength_v1_ingestion_proto_rawDescData
 }
 
-var file_wavelength_v1_ingestion_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_wavelength_v1_ingestion_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_wavelength_v1_ingestion_proto_goTypes = []any{
 	(*ProviderRef)(nil),             // 0: wavelength.v1.ProviderRef
-	(*ExternalTrack)(nil),           // 1: wavelength.v1.ExternalTrack
-	(*MusicRelease)(nil),            // 2: wavelength.v1.MusicRelease
-	(*MusicArtist)(nil),             // 3: wavelength.v1.MusicArtist
-	(*SourceCandidate)(nil),         // 4: wavelength.v1.SourceCandidate
-	(*SearchMusicRequest)(nil),      // 5: wavelength.v1.SearchMusicRequest
-	(*SearchMusicResponse)(nil),     // 6: wavelength.v1.SearchMusicResponse
-	(*GetMusicArtistRequest)(nil),   // 7: wavelength.v1.GetMusicArtistRequest
-	(*GetMusicArtistResponse)(nil),  // 8: wavelength.v1.GetMusicArtistResponse
-	(*GetMusicReleaseRequest)(nil),  // 9: wavelength.v1.GetMusicReleaseRequest
-	(*GetMusicReleaseResponse)(nil), // 10: wavelength.v1.GetMusicReleaseResponse
-	(*FindSourcesRequest)(nil),      // 11: wavelength.v1.FindSourcesRequest
-	(*FindSourcesResponse)(nil),     // 12: wavelength.v1.FindSourcesResponse
-	(*ImportSelection)(nil),         // 13: wavelength.v1.ImportSelection
-	(*CreateImportRequest)(nil),     // 14: wavelength.v1.CreateImportRequest
-	(*GetImportRequest)(nil),        // 15: wavelength.v1.GetImportRequest
-	(*ListImportsRequest)(nil),      // 16: wavelength.v1.ListImportsRequest
-	(*ListImportsResponse)(nil),     // 17: wavelength.v1.ListImportsResponse
-	(*CancelImportRequest)(nil),     // 18: wavelength.v1.CancelImportRequest
-	(*SourceOverride)(nil),          // 19: wavelength.v1.SourceOverride
-	(*RetryImportRequest)(nil),      // 20: wavelength.v1.RetryImportRequest
-	(*ImportItem)(nil),              // 21: wavelength.v1.ImportItem
-	(*ImportJob)(nil),               // 22: wavelength.v1.ImportJob
-	(*timestamppb.Timestamp)(nil),   // 23: google.protobuf.Timestamp
+	(*LookupImportsRequest)(nil),    // 1: wavelength.v1.LookupImportsRequest
+	(*ImportedTrack)(nil),           // 2: wavelength.v1.ImportedTrack
+	(*LookupImportsResponse)(nil),   // 3: wavelength.v1.LookupImportsResponse
+	(*ExternalTrack)(nil),           // 4: wavelength.v1.ExternalTrack
+	(*MusicRelease)(nil),            // 5: wavelength.v1.MusicRelease
+	(*MusicArtist)(nil),             // 6: wavelength.v1.MusicArtist
+	(*SourceCandidate)(nil),         // 7: wavelength.v1.SourceCandidate
+	(*SearchMusicRequest)(nil),      // 8: wavelength.v1.SearchMusicRequest
+	(*SearchMusicResponse)(nil),     // 9: wavelength.v1.SearchMusicResponse
+	(*GetMusicArtistRequest)(nil),   // 10: wavelength.v1.GetMusicArtistRequest
+	(*GetMusicArtistResponse)(nil),  // 11: wavelength.v1.GetMusicArtistResponse
+	(*GetMusicReleaseRequest)(nil),  // 12: wavelength.v1.GetMusicReleaseRequest
+	(*GetMusicReleaseResponse)(nil), // 13: wavelength.v1.GetMusicReleaseResponse
+	(*FindSourcesRequest)(nil),      // 14: wavelength.v1.FindSourcesRequest
+	(*FindSourcesResponse)(nil),     // 15: wavelength.v1.FindSourcesResponse
+	(*ImportSelection)(nil),         // 16: wavelength.v1.ImportSelection
+	(*CreateImportRequest)(nil),     // 17: wavelength.v1.CreateImportRequest
+	(*GetImportRequest)(nil),        // 18: wavelength.v1.GetImportRequest
+	(*ListImportsRequest)(nil),      // 19: wavelength.v1.ListImportsRequest
+	(*ListImportsResponse)(nil),     // 20: wavelength.v1.ListImportsResponse
+	(*CancelImportRequest)(nil),     // 21: wavelength.v1.CancelImportRequest
+	(*SourceOverride)(nil),          // 22: wavelength.v1.SourceOverride
+	(*RetryImportRequest)(nil),      // 23: wavelength.v1.RetryImportRequest
+	(*ImportItem)(nil),              // 24: wavelength.v1.ImportItem
+	(*ImportJob)(nil),               // 25: wavelength.v1.ImportJob
+	(*timestamppb.Timestamp)(nil),   // 26: google.protobuf.Timestamp
 }
 var file_wavelength_v1_ingestion_proto_depIdxs = []int32{
-	0,  // 0: wavelength.v1.ExternalTrack.ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 1: wavelength.v1.MusicRelease.ref:type_name -> wavelength.v1.ProviderRef
-	1,  // 2: wavelength.v1.MusicRelease.tracks:type_name -> wavelength.v1.ExternalTrack
-	0,  // 3: wavelength.v1.MusicArtist.ref:type_name -> wavelength.v1.ProviderRef
-	2,  // 4: wavelength.v1.MusicArtist.releases:type_name -> wavelength.v1.MusicRelease
-	0,  // 5: wavelength.v1.SourceCandidate.ref:type_name -> wavelength.v1.ProviderRef
-	1,  // 6: wavelength.v1.SearchMusicResponse.tracks:type_name -> wavelength.v1.ExternalTrack
-	2,  // 7: wavelength.v1.SearchMusicResponse.releases:type_name -> wavelength.v1.MusicRelease
-	3,  // 8: wavelength.v1.SearchMusicResponse.artists:type_name -> wavelength.v1.MusicArtist
-	0,  // 9: wavelength.v1.GetMusicArtistRequest.ref:type_name -> wavelength.v1.ProviderRef
-	3,  // 10: wavelength.v1.GetMusicArtistResponse.artist:type_name -> wavelength.v1.MusicArtist
-	0,  // 11: wavelength.v1.GetMusicReleaseRequest.ref:type_name -> wavelength.v1.ProviderRef
-	2,  // 12: wavelength.v1.GetMusicReleaseResponse.release:type_name -> wavelength.v1.MusicRelease
-	0,  // 13: wavelength.v1.FindSourcesRequest.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	4,  // 14: wavelength.v1.FindSourcesResponse.candidates:type_name -> wavelength.v1.SourceCandidate
-	0,  // 15: wavelength.v1.ImportSelection.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 16: wavelength.v1.ImportSelection.source_ref:type_name -> wavelength.v1.ProviderRef
-	13, // 17: wavelength.v1.CreateImportRequest.items:type_name -> wavelength.v1.ImportSelection
-	0,  // 18: wavelength.v1.CreateImportRequest.release_ref:type_name -> wavelength.v1.ProviderRef
-	22, // 19: wavelength.v1.ListImportsResponse.imports:type_name -> wavelength.v1.ImportJob
-	0,  // 20: wavelength.v1.SourceOverride.source_ref:type_name -> wavelength.v1.ProviderRef
-	19, // 21: wavelength.v1.RetryImportRequest.overrides:type_name -> wavelength.v1.SourceOverride
-	0,  // 22: wavelength.v1.ImportItem.metadata_ref:type_name -> wavelength.v1.ProviderRef
-	0,  // 23: wavelength.v1.ImportItem.source_ref:type_name -> wavelength.v1.ProviderRef
-	1,  // 24: wavelength.v1.ImportItem.metadata:type_name -> wavelength.v1.ExternalTrack
-	21, // 25: wavelength.v1.ImportJob.items:type_name -> wavelength.v1.ImportItem
-	23, // 26: wavelength.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
-	23, // 27: wavelength.v1.ImportJob.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 28: wavelength.v1.ImportJob.release_ref:type_name -> wavelength.v1.ProviderRef
-	5,  // 29: wavelength.v1.DiscoveryService.Search:input_type -> wavelength.v1.SearchMusicRequest
-	7,  // 30: wavelength.v1.DiscoveryService.GetArtist:input_type -> wavelength.v1.GetMusicArtistRequest
-	9,  // 31: wavelength.v1.DiscoveryService.GetRelease:input_type -> wavelength.v1.GetMusicReleaseRequest
-	11, // 32: wavelength.v1.DiscoveryService.FindSources:input_type -> wavelength.v1.FindSourcesRequest
-	14, // 33: wavelength.v1.IngestionService.CreateImport:input_type -> wavelength.v1.CreateImportRequest
-	15, // 34: wavelength.v1.IngestionService.GetImport:input_type -> wavelength.v1.GetImportRequest
-	16, // 35: wavelength.v1.IngestionService.ListImports:input_type -> wavelength.v1.ListImportsRequest
-	18, // 36: wavelength.v1.IngestionService.CancelImport:input_type -> wavelength.v1.CancelImportRequest
-	20, // 37: wavelength.v1.IngestionService.RetryImport:input_type -> wavelength.v1.RetryImportRequest
-	6,  // 38: wavelength.v1.DiscoveryService.Search:output_type -> wavelength.v1.SearchMusicResponse
-	8,  // 39: wavelength.v1.DiscoveryService.GetArtist:output_type -> wavelength.v1.GetMusicArtistResponse
-	10, // 40: wavelength.v1.DiscoveryService.GetRelease:output_type -> wavelength.v1.GetMusicReleaseResponse
-	12, // 41: wavelength.v1.DiscoveryService.FindSources:output_type -> wavelength.v1.FindSourcesResponse
-	22, // 42: wavelength.v1.IngestionService.CreateImport:output_type -> wavelength.v1.ImportJob
-	22, // 43: wavelength.v1.IngestionService.GetImport:output_type -> wavelength.v1.ImportJob
-	17, // 44: wavelength.v1.IngestionService.ListImports:output_type -> wavelength.v1.ListImportsResponse
-	22, // 45: wavelength.v1.IngestionService.CancelImport:output_type -> wavelength.v1.ImportJob
-	22, // 46: wavelength.v1.IngestionService.RetryImport:output_type -> wavelength.v1.ImportJob
-	38, // [38:47] is the sub-list for method output_type
-	29, // [29:38] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	0,  // 0: wavelength.v1.LookupImportsRequest.metadata_refs:type_name -> wavelength.v1.ProviderRef
+	0,  // 1: wavelength.v1.ImportedTrack.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	2,  // 2: wavelength.v1.LookupImportsResponse.tracks:type_name -> wavelength.v1.ImportedTrack
+	0,  // 3: wavelength.v1.ExternalTrack.ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 4: wavelength.v1.MusicRelease.ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 5: wavelength.v1.MusicRelease.tracks:type_name -> wavelength.v1.ExternalTrack
+	0,  // 6: wavelength.v1.MusicArtist.ref:type_name -> wavelength.v1.ProviderRef
+	5,  // 7: wavelength.v1.MusicArtist.releases:type_name -> wavelength.v1.MusicRelease
+	0,  // 8: wavelength.v1.SourceCandidate.ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 9: wavelength.v1.SearchMusicResponse.tracks:type_name -> wavelength.v1.ExternalTrack
+	5,  // 10: wavelength.v1.SearchMusicResponse.releases:type_name -> wavelength.v1.MusicRelease
+	6,  // 11: wavelength.v1.SearchMusicResponse.artists:type_name -> wavelength.v1.MusicArtist
+	0,  // 12: wavelength.v1.GetMusicArtistRequest.ref:type_name -> wavelength.v1.ProviderRef
+	6,  // 13: wavelength.v1.GetMusicArtistResponse.artist:type_name -> wavelength.v1.MusicArtist
+	0,  // 14: wavelength.v1.GetMusicReleaseRequest.ref:type_name -> wavelength.v1.ProviderRef
+	5,  // 15: wavelength.v1.GetMusicReleaseResponse.release:type_name -> wavelength.v1.MusicRelease
+	0,  // 16: wavelength.v1.FindSourcesRequest.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	7,  // 17: wavelength.v1.FindSourcesResponse.candidates:type_name -> wavelength.v1.SourceCandidate
+	0,  // 18: wavelength.v1.ImportSelection.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 19: wavelength.v1.ImportSelection.source_ref:type_name -> wavelength.v1.ProviderRef
+	16, // 20: wavelength.v1.CreateImportRequest.items:type_name -> wavelength.v1.ImportSelection
+	0,  // 21: wavelength.v1.CreateImportRequest.release_ref:type_name -> wavelength.v1.ProviderRef
+	25, // 22: wavelength.v1.ListImportsResponse.imports:type_name -> wavelength.v1.ImportJob
+	0,  // 23: wavelength.v1.SourceOverride.source_ref:type_name -> wavelength.v1.ProviderRef
+	22, // 24: wavelength.v1.RetryImportRequest.overrides:type_name -> wavelength.v1.SourceOverride
+	0,  // 25: wavelength.v1.ImportItem.metadata_ref:type_name -> wavelength.v1.ProviderRef
+	0,  // 26: wavelength.v1.ImportItem.source_ref:type_name -> wavelength.v1.ProviderRef
+	4,  // 27: wavelength.v1.ImportItem.metadata:type_name -> wavelength.v1.ExternalTrack
+	24, // 28: wavelength.v1.ImportJob.items:type_name -> wavelength.v1.ImportItem
+	26, // 29: wavelength.v1.ImportJob.created_at:type_name -> google.protobuf.Timestamp
+	26, // 30: wavelength.v1.ImportJob.updated_at:type_name -> google.protobuf.Timestamp
+	0,  // 31: wavelength.v1.ImportJob.release_ref:type_name -> wavelength.v1.ProviderRef
+	8,  // 32: wavelength.v1.DiscoveryService.Search:input_type -> wavelength.v1.SearchMusicRequest
+	10, // 33: wavelength.v1.DiscoveryService.GetArtist:input_type -> wavelength.v1.GetMusicArtistRequest
+	12, // 34: wavelength.v1.DiscoveryService.GetRelease:input_type -> wavelength.v1.GetMusicReleaseRequest
+	14, // 35: wavelength.v1.DiscoveryService.FindSources:input_type -> wavelength.v1.FindSourcesRequest
+	1,  // 36: wavelength.v1.IngestionService.LookupImports:input_type -> wavelength.v1.LookupImportsRequest
+	17, // 37: wavelength.v1.IngestionService.CreateImport:input_type -> wavelength.v1.CreateImportRequest
+	18, // 38: wavelength.v1.IngestionService.GetImport:input_type -> wavelength.v1.GetImportRequest
+	19, // 39: wavelength.v1.IngestionService.ListImports:input_type -> wavelength.v1.ListImportsRequest
+	21, // 40: wavelength.v1.IngestionService.CancelImport:input_type -> wavelength.v1.CancelImportRequest
+	23, // 41: wavelength.v1.IngestionService.RetryImport:input_type -> wavelength.v1.RetryImportRequest
+	9,  // 42: wavelength.v1.DiscoveryService.Search:output_type -> wavelength.v1.SearchMusicResponse
+	11, // 43: wavelength.v1.DiscoveryService.GetArtist:output_type -> wavelength.v1.GetMusicArtistResponse
+	13, // 44: wavelength.v1.DiscoveryService.GetRelease:output_type -> wavelength.v1.GetMusicReleaseResponse
+	15, // 45: wavelength.v1.DiscoveryService.FindSources:output_type -> wavelength.v1.FindSourcesResponse
+	3,  // 46: wavelength.v1.IngestionService.LookupImports:output_type -> wavelength.v1.LookupImportsResponse
+	25, // 47: wavelength.v1.IngestionService.CreateImport:output_type -> wavelength.v1.ImportJob
+	25, // 48: wavelength.v1.IngestionService.GetImport:output_type -> wavelength.v1.ImportJob
+	20, // 49: wavelength.v1.IngestionService.ListImports:output_type -> wavelength.v1.ListImportsResponse
+	25, // 50: wavelength.v1.IngestionService.CancelImport:output_type -> wavelength.v1.ImportJob
+	25, // 51: wavelength.v1.IngestionService.RetryImport:output_type -> wavelength.v1.ImportJob
+	42, // [42:52] is the sub-list for method output_type
+	32, // [32:42] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_wavelength_v1_ingestion_proto_init() }
@@ -1658,7 +1814,7 @@ func file_wavelength_v1_ingestion_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wavelength_v1_ingestion_proto_rawDesc), len(file_wavelength_v1_ingestion_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   23,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

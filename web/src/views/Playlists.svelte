@@ -147,9 +147,8 @@
 
 <header class="page-heading">
   <div>
-    <p class="eyebrow">For every kind of day</p>
-    <h1>Your playlists<span class="accent">.</span></h1>
-    <p class="subtitle">A soundtrack for whatever comes next.</p>
+    <h1>Playlists</h1>
+    <p class="subtitle">Create and organize your playlists.</p>
   </div>
   <button
     class="button primary"
@@ -224,12 +223,12 @@
       }}
     />{:else if !error}<div class="empty-state">
       <ListMusic size={30} />
-      <h2>Make room for your favorites</h2>
+      <h2>This playlist is empty</h2>
       <p>Use the + beside a song in your library to add it here.</p>
     </div>{/if}
 {:else if !playlists.length && !error}<div class="empty-state">
     <div class="empty-icon"><ListMusic size={30} /></div>
-    <h2>A mix with your name on it</h2>
+    <h2>No playlists yet</h2>
     <p>Create a playlist, then add songs from your library.</p>
     <button
       class="button primary"
@@ -268,7 +267,7 @@
     close={() => {
       if (!busy) creating = false;
     }}
-    ><p class="eyebrow">Make it yours</p>
+  >
     <h2>New playlist</h2>
     <form
       onsubmit={(event) => {

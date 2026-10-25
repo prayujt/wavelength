@@ -31,12 +31,24 @@ func track(t library.Track) *pb.Track {
 		BitRateKbps:     int32(t.BitRate),
 		CreatedAt:       timestamp(t.CreatedAt),
 		ModifiedAt:      timestamp(t.ModifiedAt),
+		ArtworkPath:     artworkPath(t.ID),
 	}
 }
 func artist(a library.Artist) *pb.Artist {
-	return &pb.Artist{Id: a.ID, Name: a.Name, AlbumCount: int32(len(a.Albums))}
+	var artwork string
+	for _, album := range a.Albums {
+		if len(album.Tracks) > 0 {
+			artwork = artworkPath(album.Tracks[0].ID)
+			break
+		}
+	}
+	return &pb.Artist{Id: a.ID, Name: a.Name, AlbumCount: int32(len(a.Albums)), ArtworkPath: artwork}
 }
 func album(a library.Album) *pb.Album {
+	var artwork string
+	if len(a.Tracks) > 0 {
+		artwork = artworkPath(a.Tracks[0].ID)
+	}
 	return &pb.Album{
 		Id:              a.ID,
 		Name:            a.Name,
@@ -47,5 +59,8 @@ func album(a library.Album) *pb.Album {
 		TrackCount:      int32(len(a.Tracks)),
 		DurationSeconds: a.Duration,
 		CreatedAt:       timestamp(a.CreatedAt),
+		ArtworkPath:     artwork,
 	}
 }
+
+func artworkPath(id string) string { return "/media/tracks/" + id + "/artwork" }

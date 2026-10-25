@@ -215,7 +215,7 @@ func TestMCPAndNativeShareIdentityCollectionsAndOAuth(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listing.Tools) != 21 {
+	if len(listing.Tools) != 22 {
 		t.Fatalf("tools count %d", len(listing.Tools))
 	}
 	for _, item := range listing.Tools {

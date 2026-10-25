@@ -46,6 +46,9 @@ const (
 	// DiscoveryServiceFindSourcesProcedure is the fully-qualified name of the DiscoveryService's
 	// FindSources RPC.
 	DiscoveryServiceFindSourcesProcedure = "/wavelength.v1.DiscoveryService/FindSources"
+	// IngestionServiceLookupImportsProcedure is the fully-qualified name of the IngestionService's
+	// LookupImports RPC.
+	IngestionServiceLookupImportsProcedure = "/wavelength.v1.IngestionService/LookupImports"
 	// IngestionServiceCreateImportProcedure is the fully-qualified name of the IngestionService's
 	// CreateImport RPC.
 	IngestionServiceCreateImportProcedure = "/wavelength.v1.IngestionService/CreateImport"
@@ -213,6 +216,8 @@ func (UnimplementedDiscoveryServiceHandler) FindSources(context.Context, *connec
 
 // IngestionServiceClient is a client for the wavelength.v1.IngestionService service.
 type IngestionServiceClient interface {
+	// Exact provider references already published in the shared library.
+	LookupImports(context.Context, *connect.Request[v1.LookupImportsRequest]) (*connect.Response[v1.LookupImportsResponse], error)
 	CreateImport(context.Context, *connect.Request[v1.CreateImportRequest]) (*connect.Response[v1.ImportJob], error)
 	GetImport(context.Context, *connect.Request[v1.GetImportRequest]) (*connect.Response[v1.ImportJob], error)
 	ListImports(context.Context, *connect.Request[v1.ListImportsRequest]) (*connect.Response[v1.ListImportsResponse], error)
@@ -231,6 +236,12 @@ func NewIngestionServiceClient(httpClient connect.HTTPClient, baseURL string, op
 	baseURL = strings.TrimRight(baseURL, "/")
 	ingestionServiceMethods := v1.File_wavelength_v1_ingestion_proto.Services().ByName("IngestionService").Methods()
 	return &ingestionServiceClient{
+		lookupImports: connect.NewClient[v1.LookupImportsRequest, v1.LookupImportsResponse](
+			httpClient,
+			baseURL+IngestionServiceLookupImportsProcedure,
+			connect.WithSchema(ingestionServiceMethods.ByName("LookupImports")),
+			connect.WithClientOptions(opts...),
+		),
 		createImport: connect.NewClient[v1.CreateImportRequest, v1.ImportJob](
 			httpClient,
 			baseURL+IngestionServiceCreateImportProcedure,
@@ -266,11 +277,17 @@ func NewIngestionServiceClient(httpClient connect.HTTPClient, baseURL string, op
 
 // ingestionServiceClient implements IngestionServiceClient.
 type ingestionServiceClient struct {
-	createImport *connect.Client[v1.CreateImportRequest, v1.ImportJob]
-	getImport    *connect.Client[v1.GetImportRequest, v1.ImportJob]
-	listImports  *connect.Client[v1.ListImportsRequest, v1.ListImportsResponse]
-	cancelImport *connect.Client[v1.CancelImportRequest, v1.ImportJob]
-	retryImport  *connect.Client[v1.RetryImportRequest, v1.ImportJob]
+	lookupImports *connect.Client[v1.LookupImportsRequest, v1.LookupImportsResponse]
+	createImport  *connect.Client[v1.CreateImportRequest, v1.ImportJob]
+	getImport     *connect.Client[v1.GetImportRequest, v1.ImportJob]
+	listImports   *connect.Client[v1.ListImportsRequest, v1.ListImportsResponse]
+	cancelImport  *connect.Client[v1.CancelImportRequest, v1.ImportJob]
+	retryImport   *connect.Client[v1.RetryImportRequest, v1.ImportJob]
+}
+
+// LookupImports calls wavelength.v1.IngestionService.LookupImports.
+func (c *ingestionServiceClient) LookupImports(ctx context.Context, req *connect.Request[v1.LookupImportsRequest]) (*connect.Response[v1.LookupImportsResponse], error) {
+	return c.lookupImports.CallUnary(ctx, req)
 }
 
 // CreateImport calls wavelength.v1.IngestionService.CreateImport.
@@ -300,6 +317,8 @@ func (c *ingestionServiceClient) RetryImport(ctx context.Context, req *connect.R
 
 // IngestionServiceHandler is an implementation of the wavelength.v1.IngestionService service.
 type IngestionServiceHandler interface {
+	// Exact provider references already published in the shared library.
+	LookupImports(context.Context, *connect.Request[v1.LookupImportsRequest]) (*connect.Response[v1.LookupImportsResponse], error)
 	CreateImport(context.Context, *connect.Request[v1.CreateImportRequest]) (*connect.Response[v1.ImportJob], error)
 	GetImport(context.Context, *connect.Request[v1.GetImportRequest]) (*connect.Response[v1.ImportJob], error)
 	ListImports(context.Context, *connect.Request[v1.ListImportsRequest]) (*connect.Response[v1.ListImportsResponse], error)
@@ -314,6 +333,12 @@ type IngestionServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewIngestionServiceHandler(svc IngestionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	ingestionServiceMethods := v1.File_wavelength_v1_ingestion_proto.Services().ByName("IngestionService").Methods()
+	ingestionServiceLookupImportsHandler := connect.NewUnaryHandler(
+		IngestionServiceLookupImportsProcedure,
+		svc.LookupImports,
+		connect.WithSchema(ingestionServiceMethods.ByName("LookupImports")),
+		connect.WithHandlerOptions(opts...),
+	)
 	ingestionServiceCreateImportHandler := connect.NewUnaryHandler(
 		IngestionServiceCreateImportProcedure,
 		svc.CreateImport,
@@ -346,6 +371,8 @@ func NewIngestionServiceHandler(svc IngestionServiceHandler, opts ...connect.Han
 	)
 	return "/wavelength.v1.IngestionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case IngestionServiceLookupImportsProcedure:
+			ingestionServiceLookupImportsHandler.ServeHTTP(w, r)
 		case IngestionServiceCreateImportProcedure:
 			ingestionServiceCreateImportHandler.ServeHTTP(w, r)
 		case IngestionServiceGetImportProcedure:
@@ -364,6 +391,10 @@ func NewIngestionServiceHandler(svc IngestionServiceHandler, opts ...connect.Han
 
 // UnimplementedIngestionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedIngestionServiceHandler struct{}
+
+func (UnimplementedIngestionServiceHandler) LookupImports(context.Context, *connect.Request[v1.LookupImportsRequest]) (*connect.Response[v1.LookupImportsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.IngestionService.LookupImports is not implemented"))
+}
 
 func (UnimplementedIngestionServiceHandler) CreateImport(context.Context, *connect.Request[v1.CreateImportRequest]) (*connect.Response[v1.ImportJob], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.IngestionService.CreateImport is not implemented"))

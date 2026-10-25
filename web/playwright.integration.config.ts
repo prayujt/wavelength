@@ -2,6 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  outputDir: './test-results/integration',
   testMatch: 'integration.spec.ts',
   workers: 1,
   timeout: 20000,

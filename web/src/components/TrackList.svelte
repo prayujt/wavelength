@@ -32,7 +32,11 @@
         ><span>{index + 1}</span><Play size={15} fill="currentColor" /></button
       >
       <div class="track-title">
-        <Cover name={track.album || track.title} small />
+        <Cover
+          name={track.album || track.title}
+          artwork={track.artworkPath}
+          small
+        />
         <div>
           <button
             class="text-button song-title"

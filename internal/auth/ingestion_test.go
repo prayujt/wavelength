@@ -139,7 +139,7 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	bob := grant(t, s, registration, auth.ScopeRead+" "+auth.ScopeIngest, "subject-2")
 	mcpAlice, mcpRead, mcpBob := mcpClient(t, s, alice.Access), mcpClient(t, s, readonly.Access), mcpClient(t, s, bob.Access)
 	listing, err := mcpAlice.ListTools(context.Background(), nil)
-	if err != nil || len(listing.Tools) != 30 {
+	if err != nil || len(listing.Tools) != 32 {
 		t.Fatal(listing, err)
 	}
 	for _, tool := range listing.Tools {
@@ -160,6 +160,10 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	id := created["id"].(string)
 	client := wavelengthv1connect.NewIngestionServiceClient(s.Client(), s.URL)
 	job := waitImport(t, client, alice.Access, id)
+	matched := tool(t, mcpRead, "lookup_imports", map[string]any{"metadata_refs": []discovery.Ref{externalRef}}, false)["tracks"].([]any)
+	if len(matched) != 1 || matched[0].(map[string]any)["track_id"] != job.Items[0].TrackId {
+		t.Fatal("MCP lookup did not match the completed import", matched)
+	}
 	tool(t, mcpBob, "get_import", map[string]any{"id": id}, true)
 	tool(t, mcpBob, "cancel_import", map[string]any{"id": id}, true)
 	tool(t, mcpRead, "retry_import", map[string]any{"id": id}, true)
@@ -180,6 +184,10 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 			t.Fatal(result, err)
 		}
 		imports := wavelengthv1connect.NewIngestionServiceClient(tls.Client(), tls.URL, options...)
+		matches, err := imports.LookupImports(context.Background(), rpcRequest(readonly.Access, &pb.LookupImportsRequest{MetadataRefs: []*pb.ProviderRef{{Provider: "itunes", Id: "123"}, {Provider: "itunes", Id: "789"}}}))
+		if err != nil || len(matches.Msg.Tracks) != 1 || matches.Msg.Tracks[0].TrackId != job.Items[0].TrackId {
+			t.Fatal("exact import lookup differs across protocols", matches, err)
+		}
 		resultJob, err := imports.GetImport(context.Background(), rpcRequest(alice.Access, &pb.GetImportRequest{Id: id}))
 		if err != nil || resultJob.Msg.Items[0].TrackId != job.Items[0].TrackId {
 			t.Fatal(resultJob, err)
