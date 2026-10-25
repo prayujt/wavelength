@@ -20,6 +20,11 @@ Metadata and audio references are separate from local IDs. Supported providers a
 `itunes` (numeric metadata IDs) and `youtube` (11-character video IDs). URLs, shell
 options and client-supplied filesystem paths are not accepted as references.
 
+Individual-song imports resolve the album artist from the song's exact iTunes
+collection, keeping guest performers as track artists. If the collection credit
+cannot be resolved, metadata resolution fails before downloading so the import
+can be retried. Search results may leave the album artist unset until resolution.
+
 ## Authentication and interfaces
 
 MCP and native clients use the same delegated OAuth identity. Ingestion requires
