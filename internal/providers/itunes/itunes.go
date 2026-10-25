@@ -49,6 +49,7 @@ type entry struct {
 	Millis   int    `json:"trackTimeMillis"`
 	Artwork  string `json:"artworkUrl100"`
 	Genre    string `json:"primaryGenreName"`
+	Count    int    `json:"trackCount"`
 }
 
 func ref(id int64) discovery.Ref {
@@ -185,37 +186,65 @@ func (c *Client) albumArtist(ctx context.Context, id int64) (string, error) {
 }
 
 func (c *Client) Release(ctx context.Context, r discovery.Ref) (discovery.Release, error) {
-	entries, err := c.get(ctx, "/lookup", url.Values{"id": {r.ID}, "entity": {"song"}, "limit": {"200"}})
+	releases, err := c.Releases(ctx, []discovery.Ref{r})
 	if err != nil {
 		return discovery.Release{}, err
 	}
-	out := discovery.Release{Tracks: []discovery.Track{}}
+	if len(releases) == 0 {
+		return discovery.Release{}, discovery.ErrNotFound
+	}
+	return releases[0], nil
+}
+
+// One provider request covers the visible albums; fetching each card separately
+// would quickly exhaust the public API's request allowance.
+func (c *Client) Releases(ctx context.Context, refs []discovery.Ref) ([]discovery.Release, error) {
+	ids := make([]string, 0, len(refs))
+	for _, ref := range refs {
+		ids = append(ids, ref.ID)
+	}
+	entries, err := c.get(ctx, "/lookup", url.Values{"id": {strings.Join(ids, ",")}, "entity": {"song"}, "limit": {"200"}})
+	if err != nil {
+		return nil, err
+	}
+	albums := make(map[discovery.Ref]*discovery.Release)
 	for _, e := range entries {
-		if e.Kind == "collection" && ref(e.AlbumID) == r {
-			out = release(e)
-			break
+		if e.Kind == "collection" && e.Count <= 200 {
+			r := release(e)
+			albums[r.Ref] = &r
 		}
 	}
-	if out.Ref.Empty() {
-		return out, discovery.ErrNotFound
-	}
+	invalid := make(map[discovery.Ref]bool)
 	for _, e := range entries {
-		if e.Kind == "track" && ref(e.AlbumID) == r {
-			t := track(e)
-			t.AlbumArtist = out.Artist
-			out.Tracks = append(out.Tracks, t)
+		r := albums[ref(e.AlbumID)]
+		if e.Kind != "track" || r == nil {
+			continue
 		}
-	}
-	if len(out.Tracks) == 0 {
-		return out, fmt.Errorf("%w: empty release", discovery.ErrNotFound)
-	}
-	sort.SliceStable(out.Tracks, func(i, j int) bool {
-		a, b := out.Tracks[i], out.Tracks[j]
-		if a.DiscNumber != b.DiscNumber {
-			return a.DiscNumber < b.DiscNumber
+		if e.TrackID <= 0 || e.Title == "" || e.Artist == "" || e.Millis <= 0 {
+			invalid[r.Ref] = true
+			continue
 		}
-		return a.TrackNumber < b.TrackNumber
-	})
+		t := track(e)
+		t.AlbumArtist = r.Artist
+		r.Tracks = append(r.Tracks, t)
+	}
+	out := make([]discovery.Release, 0, len(refs))
+	seen := make(map[discovery.Ref]bool)
+	for _, ref := range refs {
+		r := albums[ref]
+		if r == nil || len(r.Tracks) == 0 || invalid[ref] || seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		sort.SliceStable(r.Tracks, func(i, j int) bool {
+			a, b := r.Tracks[i], r.Tracks[j]
+			if a.DiscNumber != b.DiscNumber {
+				return a.DiscNumber < b.DiscNumber
+			}
+			return a.TrackNumber < b.TrackNumber
+		})
+		out = append(out, *r)
+	}
 	return out, nil
 }
 func (c *Client) Artist(ctx context.Context, r discovery.Ref) (discovery.Artist, error) {

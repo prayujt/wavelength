@@ -1,11 +1,11 @@
 :root {
   color-scheme: light;
   --background: #ffffff;
-  --sidebar: #eeeef0;
+  --sidebar: #f7f7f8;
   --surface: #f8f9fb;
   --surface-raised: #ffffff;
   --hover: #f0f0f3;
-  --nav-active: #e1e1e5;
+  --nav-active: #eaeaee;
   --nav-line: #cfcfd3;
   --text: #282930;
   --muted: #767c87;
@@ -24,7 +24,7 @@
 :root[data-theme='dark'] {
   color-scheme: dark;
   --background: #18191e;
-  --sidebar: #17181d;
+  --sidebar: #1b1c21;
   --surface: #202128;
   --surface-raised: #1c1d23;
   --hover: #272830;

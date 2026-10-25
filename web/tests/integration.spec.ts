@@ -238,11 +238,12 @@ test('reviewed downloads enter the library and selected playlist and can be play
     .getByRole('textbox', { name: 'Search for new music' })
     .fill('Imported Artist');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
+  await page.getByRole('checkbox', { name: 'Select Imported Tone' }).check();
+  await page.getByRole('button', { name: 'Review download' }).click();
   await page
     .getByRole('button', { name: 'Choose recording for Imported Tone' })
     .click();
   await page.getByRole('button', { name: /99.*Imported Tone/ }).click();
-  await page.getByRole('button', { name: 'Review download' }).click();
   const review = page.getByRole('dialog', { name: 'Review download' });
   await review
     .getByRole('combobox', { name: 'Download playlist' })
@@ -287,7 +288,9 @@ test('global search recognizes an imported provider reference and plays it witho
   });
   await expect(playable).toHaveCount(2);
   await expect(
-    dialog.getByRole('option', { name: /Imported Tone.*Review download/ }),
+    dialog.getByRole('option', {
+      name: /Imported Tone.*Not downloaded.*Download/,
+    }),
   ).toHaveCount(0);
   await page.screenshot({ path: info.outputPath('search.png') });
   await playable.last().click();

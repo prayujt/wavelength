@@ -118,6 +118,25 @@ func (s *discoveryService) FindSources(ctx context.Context, r *connect.Request[p
 	}
 	return connect.NewResponse(out), nil
 }
+
+func (s *discoveryService) GetReleases(ctx context.Context, r *connect.Request[pb.GetMusicReleasesRequest]) (*connect.Response[pb.GetMusicReleasesResponse], error) {
+	if err := auth.RequireScope(ctx, auth.ScopeRead); err != nil {
+		return nil, failure(err)
+	}
+	refs := make([]discovery.Ref, 0, len(r.Msg.Refs))
+	for _, ref := range r.Msg.Refs {
+		refs = append(refs, providerRef(ref))
+	}
+	releases, err := s.discovery.Releases(ctx, refs)
+	if err != nil {
+		return nil, failure(err)
+	}
+	out := &pb.GetMusicReleasesResponse{}
+	for _, release := range releases {
+		out.Releases = append(out.Releases, musicRelease(release))
+	}
+	return connect.NewResponse(out), nil
+}
 func importUser(ctx context.Context, mutate bool) (string, error) {
 	owner, err := auth.PersonalID(ctx, false)
 	if err != nil {
@@ -146,6 +165,13 @@ func (s *ingestionService) LookupImports(ctx context.Context, r *connect.Request
 	if err != nil {
 		return nil, failure(err)
 	}
+	origins, err := s.ingest.Origins(ctx, r.Msg.TrackIds)
+	if err != nil {
+		return nil, failure(err)
+	}
+	for ref, id := range origins {
+		found[ref] = id
+	}
 	out := &pb.LookupImportsResponse{}
 	for ref, id := range found {
 		out.Tracks = append(out.Tracks, &pb.ImportedTrack{MetadataRef: refMessage(ref), TrackId: id})
@@ -165,7 +191,7 @@ func (s *ingestionService) CreateImport(ctx context.Context, r *connect.Request[
 	}
 	in := ingest.Request{RequestID: r.Msg.RequestId, ReleaseRef: providerRef(r.Msg.ReleaseRef), PlaylistID: r.Msg.PlaylistId}
 	for _, i := range r.Msg.Items {
-		in.Items = append(in.Items, ingest.Selection{MetadataRef: providerRef(i.GetMetadataRef()), SourceRef: providerRef(i.GetSourceRef())})
+		in.Items = append(in.Items, ingest.Selection{MetadataRef: providerRef(i.GetMetadataRef()), SourceRef: providerRef(i.GetSourceRef()), ReplaceTrackID: i.GetReplaceTrackId()})
 	}
 	return importResponse(s.ingest.Create(ctx, owner, in))
 }

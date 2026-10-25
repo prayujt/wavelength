@@ -7,7 +7,6 @@
     Compass,
     Disc3,
     Download,
-    Library,
     ListMusic,
     LogOut,
     Moon,
@@ -52,35 +51,23 @@
   );
   let sidebar = $state(true);
   let searchOpen = $state(false);
-  let collapsed = $state<string[]>([]);
   const shortcut = /Mac|iPhone|iPad/.test(navigator.platform)
     ? '⌘ K'
     : 'Ctrl K';
   const groups = [
     {
-      label: 'Library',
-      icon: Library,
-      tone: 'library',
-      items: [
-        { label: 'Songs', page: 'library', tab: '', icon: Music2 },
-        { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
-        { label: 'Artists', page: 'library', tab: 'artists', icon: Users },
-      ],
-    },
-    {
       label: 'Browse',
-      icon: Compass,
-      tone: 'browse',
       items: [
         { label: 'Discover', page: 'discover', tab: '', icon: Compass },
         { label: 'Downloads', page: 'imports', tab: '', icon: Download },
       ],
     },
     {
-      label: 'Collection',
-      icon: ListMusic,
-      tone: 'collection',
+      label: 'Your library',
       items: [
+        { label: 'Songs', page: 'library', tab: '', icon: Music2 },
+        { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
+        { label: 'Artists', page: 'library', tab: 'artists', icon: Users },
         { label: 'Playlists', page: 'playlists', tab: '', icon: ListMusic },
       ],
     },
@@ -173,40 +160,19 @@
       >
       <nav class="sidebar-nav" aria-label="Main navigation">
         {#each groups as group}<div class="nav-group">
-            <button
-              class="nav-group-heading"
-              aria-expanded={!collapsed.includes(group.label)}
-              aria-controls={`nav-${group.tone}`}
-              onclick={() =>
-                (collapsed = collapsed.includes(group.label)
-                  ? collapsed.filter((label) => label !== group.label)
-                  : [...collapsed, group.label])}
-              ><group.icon size={16} class={`nav-tone-${group.tone}`} /><span
-                >{group.label}</span
-              ><ChevronRight
-                size={12}
-                class={!collapsed.includes(group.label) ? 'rotated' : ''}
-              /></button
-            >{#if !collapsed.includes(group.label)}<div
-                class="nav-children"
-                id={`nav-${group.tone}`}
-              >
-                {#each group.items as item}<a
-                    href={link(item.page, item.tab ? { tab: item.tab } : {})}
-                    class:active={active(item.page, item.tab)}
-                    aria-current={active(item.page, item.tab)
-                      ? 'page'
-                      : undefined}
-                    onclick={closeMobile}
-                    ><item.icon size={15} strokeWidth={1.6} />{item.label}</a
-                  >{/each}
-              </div>{/if}
+            <p class="nav-section-label">{group.label}</p>
+            {#each group.items as item}<a
+                href={link(item.page, item.tab ? { tab: item.tab } : {})}
+                class:active={active(item.page, item.tab)}
+                aria-current={active(item.page, item.tab) ? 'page' : undefined}
+                onclick={closeMobile}
+                ><item.icon size={17} strokeWidth={1.7} /><span
+                  >{item.label}</span
+                ></a
+              >{/each}
           </div>{/each}
       </nav>
       <div class="sidebar-bottom">
-        <a class="sidebar-download-link" href="#imports" onclick={closeMobile}
-          ><Download size={14} /> Manage downloads</a
-        >
         <div class="account">
           <span class="avatar">{initials(listener)}</span>
           <div><strong>{listener}</strong><span>Signed in</span></div>

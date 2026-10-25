@@ -37,3 +37,24 @@ func (s *Service) Lookup(ctx context.Context, refs []discovery.Ref) (map[discove
 	}
 	return found, nil
 }
+
+func (s *Service) Origins(ctx context.Context, ids []string) (map[discovery.Ref]string, error) {
+	if len(ids) > MaxItems {
+		return nil, ErrInvalid
+	}
+	found := make(map[discovery.Ref]string)
+	for _, id := range ids {
+		if id == "" || len(id) > 128 {
+			return nil, ErrInvalid
+		}
+		ref, err := s.deps.Store.Origin(ctx, s.root.ID, id)
+		if errors.Is(err, ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		found[ref] = id
+	}
+	return found, nil
+}

@@ -86,6 +86,9 @@ func validate(r Request) error {
 		if !i.MetadataRef.ValidMetadata() || (!i.SourceRef.Empty() && !i.SourceRef.ValidSource()) {
 			return ErrInvalid
 		}
+		if i.ReplaceTrackID != "" && (!i.SourceRef.ValidSource() || len(r.Items) != 1 || !r.ReleaseRef.Empty() || r.PlaylistID != "") {
+			return ErrInvalid
+		}
 	}
 	return nil
 }
@@ -95,6 +98,18 @@ func (s *Service) Create(ctx context.Context, owner string, r Request) (Job, err
 	}
 	if err := validate(r); err != nil {
 		return Job{}, err
+	}
+	for _, item := range r.Items {
+		if item.ReplaceTrackID == "" {
+			continue
+		}
+		track, err := s.deps.Store.Lookup(ctx, s.root.ID, item.MetadataRef)
+		if err != nil {
+			return Job{}, err
+		}
+		if track.ID != item.ReplaceTrackID {
+			return Job{}, ErrConflict
+		}
 	}
 	if r.PlaylistID != "" {
 		if err := s.deps.Playlists.CheckImport(ctx, owner, r.PlaylistID); err != nil {

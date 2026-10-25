@@ -2,7 +2,7 @@
 
 Wavelength uses explicit acquisition jobs to add music. It never imports a directory,
 rescans after a download, or treats a file appearing on disk as a catalog change.
-Spotify imports and audio replacement are outside this capability.
+Spotify imports are outside this capability. Saved audio can be replaced explicitly while keeping its catalog identity.
 
 ## Workflow
 
@@ -12,11 +12,15 @@ Spotify imports and audio replacement are outside this capability.
    references to tracks already in the shared library, so clients can offer Play
    instead of another download. It reads provenance without contacting a provider
    or inspecting source files; it requires read permission rather than ingestion permission.
+   Native clients can resolve up to 20 album track lists in one `DiscoveryService.GetReleases`
+   call, then look up every song's exact reference. Search cards use those full lists
+   for partial and complete library badges; matching a few search hits never proves
+   that an entire album is saved.
 3. Find candidate recordings for a track. Results expose uploader, duration, match
    score, suitability, and a reason. A score is a heuristic, not audio fingerprinting.
 4. Submit selected tracks or one release. Explicit YouTube source references bypass
    automatic selection. Without one, only strong, unambiguous matches are accepted.
-5. Poll the returned job. Completed items contain local track IDs for existing
+5. Subscribe to `RealtimeService.Subscribe` before loading the job snapshot, or poll the returned job. Completed items contain local track IDs for existing
    playback and collection APIs. Ambiguous items pause at `needs_selection`; choose
    a source and retry with a zero-based item override.
 
@@ -28,6 +32,20 @@ Individual-song imports resolve the album artist from the song's exact iTunes
 collection, keeping guest performers as track artists. If the collection credit
 cannot be resolved, metadata resolution fails before downloading so the import
 can be retried. Search results may leave the album artist unset until resolution.
+
+## Replacing saved audio
+
+Resolve a saved song's provenance with `LookupImports` / `lookup_imports` using
+`track_ids`. Queue one item with that `metadata_ref`, an explicit YouTube
+`source_ref`, and `replace_track_id` set to the saved ID. Replacement requires
+ingestion permission and cannot be combined with an album import or playlist attachment.
+
+The worker downloads and validates a separate asset, preserves embedded artwork
+and lyrics, then switches the catalog path and source provenance in the same
+transaction as the completed job receipt. The ID, catalog metadata, playlists,
+queue and listening history remain intact. A failed or cancelled replacement
+leaves the original playable. Completed replacements publish a library event;
+HTTP validators and HLS session keys change with the asset.
 
 ## Authentication and interfaces
 

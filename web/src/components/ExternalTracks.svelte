@@ -1,14 +1,15 @@
 <script lang="ts">
-  import { Check, Play, SlidersHorizontal } from '@lucide/svelte';
+  import { Check, Download, Clock3, Play } from '@lucide/svelte';
   import type { ExternalTrack } from '../gen/wavelength/v1/ingestion_pb';
   import type { PlayerState } from '../lib/player.svelte';
   import { DownloadSelection, refKey } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
+  import { go } from '../lib/navigation';
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
   import Cover from './Cover.svelte';
   import Notice from './Notice.svelte';
-  import SourcePicker from './SourcePicker.svelte';
+  import TrackMenu from './TrackMenu.svelte';
   let {
     tracks,
     basket,
@@ -20,12 +21,18 @@
     player: PlayerState;
     checking?: boolean;
   } = $props();
-  let choosing = $state<ExternalTrack>();
   let error = $state('');
-  async function play(track: ExternalTrack) {
+  async function act(track: ExternalTrack) {
+    error = '';
     try {
-      const result = await api.library.getTrack({ id: basket.localID(track) });
-      if (result.track) await player.play([result.track]);
+      if (basket.localID(track)) {
+        const result = await api.library.getTrack({
+          id: basket.localID(track),
+        });
+        if (result.track) await player.play([result.track]);
+      } else if (basket.queued[refKey(track.ref)])
+        go(`imports/${encodeURIComponent(basket.queued[refKey(track.ref)])}`);
+      else await basket.download([track]);
     } catch (cause) {
       error = errorMessage(cause);
     }
@@ -34,50 +41,66 @@
 
 <Notice message={error} dismiss={() => (error = '')} />
 <div class="discovery-tracks">
-  {#each tracks as track (refKey(track.ref))}<div
-      class="discovery-track"
-      class:in-library={!!basket.localID(track)}
-    >
+  {#each tracks as track (refKey(track.ref))}
+    {@const owned = !!basket.localID(track)}
+    {@const queued = basket.queued[refKey(track.ref)]}
+    <div class="discovery-track" class:in-library={owned}>
       <input
         type="checkbox"
         aria-label={`Select ${track.title}`}
         checked={basket.has(track)}
-        disabled={checking || !!basket.localID(track)}
+        disabled={checking || owned || !!queued}
         onchange={() => basket.toggle(track)}
-      /><Cover
-        name={track.album || track.title}
-        artwork={track.artworkUrl}
-        small
       />
+      <div class="track-artwork">
+        <Cover
+          name={track.album || track.title}
+          artwork={track.artworkUrl}
+          small
+        />
+        <button
+          class="cover-action"
+          disabled={checking}
+          aria-label={`${owned ? 'Play' : queued ? 'View download for' : 'Download'} ${track.title}`}
+          title={owned
+            ? 'Play song'
+            : queued
+              ? 'View download'
+              : 'Download song'}
+          onclick={() => act(track)}
+          >{#if owned}<Play
+              size={15}
+              fill="currentColor"
+            />{:else if queued}<Clock3 size={15} />{:else}<Download
+              size={15}
+            />{/if}</button
+        >
+      </div>
       <div class="track-info">
         <strong>{track.title}</strong><span>{track.artist} · {track.album}</span
         >
       </div>
       <span class="track-duration muted">{duration(track.durationSeconds)}</span
-      >{#if basket.localID(track)}<span class="library-badge"
+      >
+      {#if owned}<span class="library-badge"
           ><Check size={12} /> In library</span
-        ><button
-          class="icon-button"
-          aria-label={`Play ${track.title}`}
-          onclick={() => play(track)}><Play size={16} /></button
         >{:else}<button
-          class="recording-button"
-          aria-label={`Choose recording for ${track.title}`}
-          onclick={() => (choosing = track)}
+          class="download-button"
+          aria-label={`${queued ? 'View download for' : 'Download'} ${track.title}`}
           disabled={checking}
-          ><SlidersHorizontal size={14} /><span
-            >{basket.sources[refKey(track.ref)]
-              ? 'Selected'
-              : 'Recording'}</span
-          ></button
+          onclick={() => act(track)}
+          >{#if queued}<Clock3 size={14} /><span>Queued</span>{:else}<Download
+              size={14}
+            /><span>Download</span>{/if}</button
         >{/if}
-    </div>{/each}
+      <TrackMenu
+        id={basket.localID(track)}
+        title={track.title}
+        downloadOptions={() => {
+          basket.add([track]);
+          basket.reviewing = true;
+        }}
+      />
+    </div>
+  {/each}
 </div>
-{#if choosing}<SourcePicker
-    track={choosing}
-    close={() => (choosing = undefined)}
-    choose={(candidate) => {
-      if (choosing) basket.choose(choosing, candidate);
-      choosing = undefined;
-    }}
-  />{/if}

@@ -203,6 +203,16 @@ async function signedIn(page: Page, existing = false) {
           },
         ],
       },
+      GetReleases: {
+        releases: [
+          {
+            ref: { provider: 'itunes', id: '789' },
+            title: 'Next Chapter',
+            artist: 'The Morning',
+            tracks: [external],
+          },
+        ],
+      },
       GetRelease: {
         release: {
           ref: { provider: 'itunes', id: '789' },
@@ -330,11 +340,19 @@ test('download review preserves source and playlist choices and opens job progre
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await signedIn(page);
   await findNewMusic(page);
+  await page.getByRole('checkbox', { name: 'Select New Light' }).check();
+  await page.getByRole('button', { name: 'Review download' }).click();
   await page
     .getByRole('button', { name: 'Choose recording for New Light' })
     .click();
+  const sources = page.getByRole('dialog', {
+    name: 'Choose a recording for New Light',
+  });
+  await expect(
+    sources.getByRole('link', { name: /Open New Light.*on YouTube/ }),
+  ).toHaveAttribute('href', 'https://www.youtube.com/watch?v=BaW_jenozKc');
+  await expect(sources.getByRole('link')).toHaveAttribute('target', '_blank');
   await page.getByRole('button', { name: /98.*New Light/ }).click();
-  await page.getByRole('button', { name: 'Review download' }).click();
   const dialog = page.getByRole('dialog', { name: 'Review download' });
   await expect(dialog).toContainText('New Light — Official Audio');
   await dialog.getByRole('button', { name: 'Download 1 song' }).hover();
@@ -401,17 +419,22 @@ test('Cmd/Ctrl+K searches library and external music with different actions', as
   ).toBeVisible();
   await expect(
     dialog.getByRole('option', {
-      name: /New Light.*Not downloaded.*Review download/,
+      name: /New Light.*Not downloaded.*Download/,
     }),
   ).toBeVisible();
   await page.screenshot({ path: info.outputPath('search.png') });
+  const queued = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/CreateImport',
+  );
   await dialog
-    .getByRole('option', { name: /New Light.*Review download/ })
+    .getByRole('option', { name: /New Light.*Not downloaded.*Download/ })
     .click();
+  expect((await queued).postDataJSON()).toMatchObject({
+    items: [{ metadataRef: ref }],
+  });
   await expect(
     page.getByRole('dialog', { name: 'Review download' }),
-  ).toBeVisible();
-  await page.keyboard.press('Escape');
+  ).toHaveCount(0);
   await page.keyboard.press('Meta+k');
   await expect(dialog).toBeVisible();
   await dialog.getByRole('combobox').press('ArrowDown');
@@ -430,7 +453,7 @@ test('external artist and release pages preserve selection while browsing', asyn
   await expect(
     page.getByRole('heading', { name: 'The Morning' }),
   ).toBeVisible();
-  await page.getByRole('link', { name: /Next Chapter.*The Morning/ }).click();
+  await page.getByRole('link', { name: 'Next Chapter', exact: true }).click();
   await expect(page).toHaveURL(/#discover\/release/);
   await expect(
     page.getByRole('checkbox', { name: 'Select New Light' }),
@@ -554,7 +577,7 @@ test('Discover restores search, category and selection after artist and album na
   await expect(artistResult.locator('img')).toBeVisible();
   await expect(artistResult.locator('img')).toHaveJSProperty('naturalWidth', 1);
   await artistResult.click();
-  await page.getByRole('link', { name: /Next Chapter.*The Morning/ }).click();
+  await page.getByRole('link', { name: 'Next Chapter', exact: true }).click();
   await page.locator('.back-link').click();
   await expect(
     page.getByRole('textbox', { name: 'Search for new music' }),
@@ -805,6 +828,11 @@ test('download history and job details scroll independently without moving the p
     { width: 390, height: 844 },
   ]) {
     await page.setViewportSize(size);
+    if (
+      size.width < 760 &&
+      (await page.getByRole('button', { name: 'Hide sidebar' }).isVisible())
+    )
+      await page.getByRole('button', { name: 'Hide sidebar' }).click();
     const list = page.locator('.job-list');
     const detail = page.locator('.job-detail');
     await expect
@@ -835,4 +863,173 @@ test('download history and job details scroll independently without moving the p
       path: info.outputPath(`downloads-${size.width}.png`),
     });
   }
+});
+
+test('album search checks every song and becomes playable when the last one arrives', async ({
+  page,
+}, info) => {
+  await signedIn(page);
+  const second = {
+    ...external,
+    ref: { provider: 'itunes', id: '124' },
+    title: 'Last Light',
+  };
+  await page.route('**/wavelength.v1.DiscoveryService/GetReleases', (route) =>
+    route.fulfill({
+      json: {
+        releases: [
+          {
+            ref: { provider: 'itunes', id: '789' },
+            title: 'Next Chapter',
+            artist: 'The Morning',
+            tracks: [external, second],
+          },
+        ],
+      },
+    }),
+  );
+  await page.route('**/wavelength.v1.IngestionService/LookupImports', (route) =>
+    route.fulfill({
+      json: { tracks: [{ metadataRef: ref, trackId: track.id }] },
+    }),
+  );
+  await findNewMusic(page);
+  const card = page.locator('.external-release');
+  await expect(card).toContainText('1 of 2 songs in library');
+  await card.hover();
+  const request = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/CreateImport',
+  );
+  await card
+    .getByRole('button', { name: 'Download album Next Chapter' })
+    .click();
+  expect((await request).postDataJSON().items).toEqual([
+    { metadataRef: second.ref },
+  ]);
+  await page.evaluate(
+    (metadataRef) =>
+      window.testMusicEvent({
+        libraryUpdated: { track: { metadataRef, trackId: 'track-2' } },
+      }),
+    second.ref,
+  );
+  await expect(card).toContainText('Fully in library');
+  await page.route('**/wavelength.v1.LibraryService/GetTrack', (route) =>
+    route.fulfill({ json: { track } }),
+  );
+  await card.getByRole('button', { name: 'Play album Next Chapter' }).click();
+  await expect(page.locator('.now-playing')).toContainText('First Light');
+  await page.screenshot({ path: info.outputPath('owned-album-search.png') });
+  await page.reload();
+  await expect(page.locator('.external-release')).toContainText(
+    '1 of 2 songs in library',
+  );
+});
+
+test('global search shows album ownership before opening the album', async ({
+  page,
+}) => {
+  await signedIn(page, true);
+  await page.goto('/');
+  await page.keyboard.press('Control+k');
+  const dialog = page.getByRole('dialog', { name: 'Search music' });
+  await dialog.getByRole('combobox').fill('The Morning');
+  await expect(
+    dialog.getByRole('option', { name: /Next Chapter.*Fully in library/ }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Play Next Chapter' }).click();
+  await expect(page.locator('.now-playing')).toContainText('First Light');
+});
+
+test('direct download queues automatically and keeps the search in place', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await findNewMusic(page);
+  const request = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/CreateImport',
+  );
+  await page
+    .locator('.discovery-track')
+    .getByRole('button', { name: 'Download New Light', exact: true })
+    .last()
+    .click();
+  expect((await request).postDataJSON()).toMatchObject({
+    requestId: expect.any(String),
+    items: [{ metadataRef: ref }],
+  });
+  await expect(page).toHaveURL(/#discover\?/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.discovery-track')).toContainText('Queued');
+});
+
+test('saved songs can queue an explicit replacement through their options menu', async ({
+  page,
+}) => {
+  await signedIn(page, true);
+  await page.goto('/');
+  await page
+    .getByRole('button', { name: 'More options for First Light' })
+    .click();
+  const lookup = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/LookupImports',
+  );
+  await page
+    .getByRole('button', { name: 'Replace audio', exact: true })
+    .click();
+  expect((await lookup).postDataJSON()).toEqual({ trackIds: [track.id] });
+  const picker = page.getByRole('dialog', {
+    name: 'Choose a recording for First Light',
+  });
+  await expect(
+    picker.getByRole('link', { name: /on YouTube/ }),
+  ).toHaveAttribute('href', 'https://www.youtube.com/watch?v=BaW_jenozKc');
+  const request = page.waitForRequest(
+    '**/wavelength.v1.IngestionService/CreateImport',
+  );
+  await picker.getByRole('button', { name: /98.*New Light/ }).click();
+  expect((await request).postDataJSON()).toMatchObject({
+    items: [
+      {
+        metadataRef: ref,
+        sourceRef: { provider: 'youtube', id: 'BaW_jenozKc' },
+        replaceTrackId: track.id,
+      },
+    ],
+  });
+  await expect(page).toHaveURL(/#imports\/import-1$/);
+});
+
+test('quick download retries reuse the request ID after a network failure', async ({
+  page,
+}) => {
+  await signedIn(page);
+  let attempts = 0;
+  const keys: string[] = [];
+  await page.route(
+    '**/wavelength.v1.IngestionService/CreateImport',
+    (route) => {
+      keys.push(route.request().postDataJSON().requestId);
+      attempts++;
+      return attempts === 1
+        ? route.fulfill({
+            status: 503,
+            json: { code: 'unavailable', message: 'Please try again' },
+          })
+        : route.fulfill({ json: importedJob });
+    },
+  );
+  await findNewMusic(page);
+  const download = page
+    .locator('.discovery-track')
+    .getByRole('button', { name: 'Download New Light', exact: true })
+    .last();
+  await download.click();
+  await expect(
+    page.getByText('Please try again', { exact: true }),
+  ).toBeVisible();
+  await download.click();
+  await expect(page.locator('.discovery-track')).toContainText('Queued');
+  expect(keys).toHaveLength(2);
+  expect(keys[0]).toBe(keys[1]);
 });

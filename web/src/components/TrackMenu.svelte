@@ -1,0 +1,117 @@
+<script lang="ts">
+  import { create } from '@bufbuild/protobuf';
+  import { Download, Ellipsis, RefreshCw } from '@lucide/svelte';
+  import type { Track } from '../gen/wavelength/v1/library_pb';
+  import {
+    ExternalTrackSchema,
+    type SourceCandidate,
+    type ExternalTrack,
+  } from '../gen/wavelength/v1/ingestion_pb';
+  import { api } from '../lib/session.svelte';
+  import { go } from '../lib/navigation';
+  import { errorMessage } from '../lib/api';
+  import SourcePicker from './SourcePicker.svelte';
+  import Notice from './Notice.svelte';
+  let {
+    id = '',
+    title,
+    downloadOptions,
+  }: { id?: string; title: string; downloadOptions?: () => void } = $props();
+  let menu: HTMLDivElement;
+  let open = $state(false);
+  let choosing = $state<ExternalTrack>();
+  let busy = $state(false);
+  let error = $state('');
+  let requestId = '';
+  async function replace() {
+    open = false;
+    busy = true;
+    error = '';
+    try {
+      const [local, provenance] = await Promise.all([
+        api.library.getTrack({ id }),
+        api.ingestion.lookupImports({ trackIds: [id] }),
+      ]);
+      const ref = provenance.tracks.find(
+        (match) => match.trackId === id,
+      )?.metadataRef;
+      if (!local.track || !ref)
+        throw new Error('This song has no download source to replace.');
+      const track: Track = local.track;
+      choosing = create(ExternalTrackSchema, {
+        ref,
+        title: track.title,
+        artist: track.artist,
+        album: track.album,
+        durationSeconds: track.durationSeconds,
+      });
+      requestId = crypto.randomUUID();
+    } catch (cause) {
+      error = errorMessage(cause);
+    } finally {
+      busy = false;
+    }
+  }
+  async function choose(candidate: SourceCandidate) {
+    if (!choosing || busy) return;
+    busy = true;
+    error = '';
+    try {
+      const job = await api.ingestion.createImport({
+        requestId,
+        items: [
+          {
+            metadataRef: choosing.ref,
+            sourceRef: candidate.ref,
+            replaceTrackId: id,
+          },
+        ],
+      });
+      choosing = undefined;
+      go(`imports/${encodeURIComponent(job.id)}`);
+    } catch (cause) {
+      error = errorMessage(cause);
+    } finally {
+      busy = false;
+    }
+  }
+</script>
+
+<svelte:window
+  onpointerdown={(event) => {
+    if (open && !menu?.contains(event.target as Node)) open = false;
+  }}
+  onkeydown={(event) => {
+    if (event.key === 'Escape') open = false;
+  }}
+/>
+<div class="track-menu" bind:this={menu}>
+  <button
+    class="icon-button"
+    aria-label={`More options for ${title}`}
+    aria-expanded={open}
+    disabled={busy}
+    onclick={() => (open = !open)}><Ellipsis size={17} /></button
+  >
+  {#if open}<div class="track-menu-options">
+      {#if id}<button onclick={replace}
+          ><RefreshCw size={14} /> Replace audio</button
+        >{:else if downloadOptions}<button
+          onclick={() => {
+            open = false;
+            downloadOptions();
+          }}><Download size={14} /> Download options</button
+        >{/if}
+    </div>{/if}
+  {#if !choosing}<Notice message={error} dismiss={() => (error = '')} />{/if}
+</div>
+{#if choosing}<SourcePicker
+    track={choosing}
+    {busy}
+    {error}
+    action="Replace audio"
+    close={() => {
+      if (!busy) choosing = undefined;
+    }}
+    {choose}
+  />{/if}

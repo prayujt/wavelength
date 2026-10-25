@@ -9,6 +9,8 @@ service DiscoveryService {
   rpc Search(SearchMusicRequest) returns (SearchMusicResponse);
   rpc GetArtist(GetMusicArtistRequest) returns (GetMusicArtistResponse);
   rpc GetRelease(GetMusicReleaseRequest) returns (GetMusicReleaseResponse);
+  // Resolve album track lists together for search cards and library checks.
+  rpc GetReleases(GetMusicReleasesRequest) returns (GetMusicReleasesResponse);
   rpc FindSources(FindSourcesRequest) returns (FindSourcesResponse);
 }
 // Jobs belong to the authenticated user. Completed tracks enter the shared catalog.
@@ -22,7 +24,11 @@ service IngestionService {
   rpc RetryImport(RetryImportRequest) returns (ImportJob);
 }
 message ProviderRef { string provider = 1; string id = 2; }
-message LookupImportsRequest { repeated ProviderRef metadata_refs = 1; }
+message LookupImportsRequest {
+  repeated ProviderRef metadata_refs = 1;
+  // Resolve provenance for saved songs, for example before replacing audio.
+  repeated string track_ids = 2;
+}
 message ImportedTrack { ProviderRef metadata_ref = 1; string track_id = 2; }
 message LookupImportsResponse { repeated ImportedTrack tracks = 1; }
 message ExternalTrack {
@@ -55,12 +61,17 @@ message GetMusicArtistRequest { ProviderRef ref = 1; }
 message GetMusicArtistResponse { MusicArtist artist = 1; }
 message GetMusicReleaseRequest { ProviderRef ref = 1; }
 message GetMusicReleaseResponse { MusicRelease release = 1; }
+message GetMusicReleasesRequest { repeated ProviderRef refs = 1; }
+// Unavailable albums are omitted, never treated as empty albums.
+message GetMusicReleasesResponse { repeated MusicRelease releases = 1; }
 message FindSourcesRequest { ProviderRef metadata_ref = 1; }
 message FindSourcesResponse { repeated SourceCandidate candidates = 1; }
 message ImportSelection {
   ProviderRef metadata_ref = 1;
   // Omit to select only a strong, unambiguous match automatically.
   ProviderRef source_ref = 2;
+  // Replace this exact saved track's audio. Requires an explicit source_ref.
+  string replace_track_id = 3;
 }
 message CreateImportRequest {
   // Required idempotency key, scoped to the authenticated user and library root.

@@ -148,6 +148,15 @@ func (s IngestStore) Lookup(ctx context.Context, root string, ref discovery.Ref)
 	return (Catalog{DB: s.DB}).Get(ctx, root, id)
 }
 
+func (s IngestStore) Origin(ctx context.Context, root, id string) (discovery.Ref, error) {
+	var ref discovery.Ref
+	err := s.DB.QueryRowContext(ctx, "SELECT provider,external_id FROM track_origins WHERE root_id=? AND track_id=? ORDER BY provider,external_id LIMIT 1", root, id).Scan(&ref.Provider, &ref.ID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ref, ingest.ErrNotFound
+	}
+	return ref, err
+}
+
 // Publication and its job receipt share a transaction. A crash cannot expose a
 // catalog row without also recording that this item completed.
 func (s IngestStore) Publish(ctx context.Context, root ingest.Root, jobID string, index int, p ingest.Prepared) (library.Track, error) {
@@ -178,7 +187,27 @@ func (s IngestStore) Publish(ctx context.Context, root ingest.Root, jobID string
 		if err != nil {
 			return t, err
 		}
+		if item.ReplaceTrackID != "" && item.State != ingest.Completed {
+			if existing != item.ReplaceTrackID || p.Track.ID != existing || p.Track.Path == "" || p.SHA256 == "" {
+				return t, ingest.ErrConflict
+			}
+			// Keep catalog identity and metadata; only the validated audio asset changes.
+			t.Path, t.Size, t.ModifiedAt = p.Track.Path, p.Track.Size, p.Track.ModifiedAt
+			t.Duration, t.BitRate, t.ContentType = p.Track.Duration, p.Track.BitRate, p.Track.ContentType
+			_, err = tx.ExecContext(ctx, "UPDATE tracks SET path=?,size=?,modified_at=?,duration=?,bit_rate=?,content_type=? WHERE root_id=? AND id=?", t.Path, t.Size, t.ModifiedAt.Format(time.RFC3339Nano), t.Duration, t.BitRate, t.ContentType, root.ID, existing)
+			if err != nil {
+				return t, err
+			}
+			_, err = tx.ExecContext(ctx, "UPDATE track_origins SET source_provider=?,source_id=?,sha256=? WHERE root_id=? AND track_id=?", item.SourceRef.Provider, item.SourceRef.ID, p.SHA256, root.ID, existing)
+			if err != nil {
+				return t, err
+			}
+			reused = false
+		}
 	} else {
+		if item.ReplaceTrackID != "" {
+			return t, ingest.ErrNotFound
+		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO tracks(id,root_id,path,title,artist,album,album_artist,track_number,disc_number,year,content_type,size,modified_at,genre,duration,bit_rate,created_at,search_text) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, t.ID, root.ID, t.Path, t.Title, t.Artist, t.Album, t.AlbumArtist, t.TrackNumber, t.DiscNumber, t.Year, t.ContentType, t.Size, t.ModifiedAt.Format(time.RFC3339Nano), t.Genre, t.Duration, t.BitRate, t.CreatedAt.Format(time.RFC3339Nano), strings.ToLower(t.Title+" "+t.Artist+" "+t.Album))
 		if err != nil {
 			return t, err

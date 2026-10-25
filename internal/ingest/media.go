@@ -233,3 +233,31 @@ func durationMatches(actual, expected float64) bool {
 	}
 	return delta <= allowance
 }
+
+// A different recording should not discard artwork or lyrics already curated
+// in the saved file. Copy those frames after preparing the new audio.
+func preserveMediaTags(path string, previous io.Reader) error {
+	old, err := id3v2.ParseReader(io.LimitReader(previous, 16<<20), id3v2.Options{Parse: true})
+	if err != nil {
+		return err
+	}
+	frames := old.AllFrames()
+	if len(frames["APIC"])+len(frames["USLT"])+len(frames["SYLT"]) == 0 {
+		return nil
+	}
+	tag, err := id3v2.Open(path, id3v2.Options{Parse: true})
+	if err != nil {
+		return err
+	}
+	defer tag.Close()
+	for _, id := range []string{"APIC", "USLT", "SYLT"} {
+		if len(frames[id]) == 0 {
+			continue
+		}
+		tag.DeleteFrames(id)
+		for _, frame := range frames[id] {
+			tag.AddFrame(id, frame)
+		}
+	}
+	return tag.Save()
+}

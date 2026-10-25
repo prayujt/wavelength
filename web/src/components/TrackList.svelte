@@ -4,6 +4,7 @@
   import type { PlayerState } from '../lib/player.svelte';
   import { duration } from '../lib/format';
   import Cover from './Cover.svelte';
+  import TrackMenu from './TrackMenu.svelte';
   let {
     tracks,
     player,
@@ -48,6 +49,7 @@
       <span class="track-duration muted">{duration(track.durationSeconds)}</span
       >
       <div class="row-actions">
+        <TrackMenu id={track.id} title={track.title} />
         <button
           class="icon-button"
           aria-label={`Queue ${track.title}`}

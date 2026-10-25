@@ -94,7 +94,7 @@ func (s *Service) cleanItem(j Job, n int) error {
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		if errors.Is(err, ErrNotFound) || (err == nil && existing.ID != item.Prepared.Track.ID) {
+		if errors.Is(err, ErrNotFound) || (err == nil && existing.Path != item.Prepared.Track.Path) {
 			for _, path := range []string{item.Prepared.Track.Path, pendingPath(*item.Prepared)} {
 				if err := s.files.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 					result = errors.Join(result, err)
@@ -125,7 +125,8 @@ func (s *Service) cleanCancelled(j Job) error {
 }
 
 func pendingPath(p Prepared) string {
-	return filepath.Join(filepath.Dir(p.Track.Path), ".pending-"+p.Track.ID)
+	asset := strings.TrimSuffix(filepath.Base(p.Track.Path), filepath.Ext(p.Track.Path))
+	return filepath.Join(filepath.Dir(p.Track.Path), ".pending-"+asset)
 }
 
 // Provider text may name a folder, but never supplies filesystem syntax.

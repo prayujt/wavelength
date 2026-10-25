@@ -43,6 +43,9 @@ const (
 	// DiscoveryServiceGetReleaseProcedure is the fully-qualified name of the DiscoveryService's
 	// GetRelease RPC.
 	DiscoveryServiceGetReleaseProcedure = "/wavelength.v1.DiscoveryService/GetRelease"
+	// DiscoveryServiceGetReleasesProcedure is the fully-qualified name of the DiscoveryService's
+	// GetReleases RPC.
+	DiscoveryServiceGetReleasesProcedure = "/wavelength.v1.DiscoveryService/GetReleases"
 	// DiscoveryServiceFindSourcesProcedure is the fully-qualified name of the DiscoveryService's
 	// FindSources RPC.
 	DiscoveryServiceFindSourcesProcedure = "/wavelength.v1.DiscoveryService/FindSources"
@@ -71,6 +74,8 @@ type DiscoveryServiceClient interface {
 	Search(context.Context, *connect.Request[v1.SearchMusicRequest]) (*connect.Response[v1.SearchMusicResponse], error)
 	GetArtist(context.Context, *connect.Request[v1.GetMusicArtistRequest]) (*connect.Response[v1.GetMusicArtistResponse], error)
 	GetRelease(context.Context, *connect.Request[v1.GetMusicReleaseRequest]) (*connect.Response[v1.GetMusicReleaseResponse], error)
+	// Resolve album track lists together for search cards and library checks.
+	GetReleases(context.Context, *connect.Request[v1.GetMusicReleasesRequest]) (*connect.Response[v1.GetMusicReleasesResponse], error)
 	FindSources(context.Context, *connect.Request[v1.FindSourcesRequest]) (*connect.Response[v1.FindSourcesResponse], error)
 }
 
@@ -103,6 +108,12 @@ func NewDiscoveryServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(discoveryServiceMethods.ByName("GetRelease")),
 			connect.WithClientOptions(opts...),
 		),
+		getReleases: connect.NewClient[v1.GetMusicReleasesRequest, v1.GetMusicReleasesResponse](
+			httpClient,
+			baseURL+DiscoveryServiceGetReleasesProcedure,
+			connect.WithSchema(discoveryServiceMethods.ByName("GetReleases")),
+			connect.WithClientOptions(opts...),
+		),
 		findSources: connect.NewClient[v1.FindSourcesRequest, v1.FindSourcesResponse](
 			httpClient,
 			baseURL+DiscoveryServiceFindSourcesProcedure,
@@ -117,6 +128,7 @@ type discoveryServiceClient struct {
 	search      *connect.Client[v1.SearchMusicRequest, v1.SearchMusicResponse]
 	getArtist   *connect.Client[v1.GetMusicArtistRequest, v1.GetMusicArtistResponse]
 	getRelease  *connect.Client[v1.GetMusicReleaseRequest, v1.GetMusicReleaseResponse]
+	getReleases *connect.Client[v1.GetMusicReleasesRequest, v1.GetMusicReleasesResponse]
 	findSources *connect.Client[v1.FindSourcesRequest, v1.FindSourcesResponse]
 }
 
@@ -135,6 +147,11 @@ func (c *discoveryServiceClient) GetRelease(ctx context.Context, req *connect.Re
 	return c.getRelease.CallUnary(ctx, req)
 }
 
+// GetReleases calls wavelength.v1.DiscoveryService.GetReleases.
+func (c *discoveryServiceClient) GetReleases(ctx context.Context, req *connect.Request[v1.GetMusicReleasesRequest]) (*connect.Response[v1.GetMusicReleasesResponse], error) {
+	return c.getReleases.CallUnary(ctx, req)
+}
+
 // FindSources calls wavelength.v1.DiscoveryService.FindSources.
 func (c *discoveryServiceClient) FindSources(ctx context.Context, req *connect.Request[v1.FindSourcesRequest]) (*connect.Response[v1.FindSourcesResponse], error) {
 	return c.findSources.CallUnary(ctx, req)
@@ -145,6 +162,8 @@ type DiscoveryServiceHandler interface {
 	Search(context.Context, *connect.Request[v1.SearchMusicRequest]) (*connect.Response[v1.SearchMusicResponse], error)
 	GetArtist(context.Context, *connect.Request[v1.GetMusicArtistRequest]) (*connect.Response[v1.GetMusicArtistResponse], error)
 	GetRelease(context.Context, *connect.Request[v1.GetMusicReleaseRequest]) (*connect.Response[v1.GetMusicReleaseResponse], error)
+	// Resolve album track lists together for search cards and library checks.
+	GetReleases(context.Context, *connect.Request[v1.GetMusicReleasesRequest]) (*connect.Response[v1.GetMusicReleasesResponse], error)
 	FindSources(context.Context, *connect.Request[v1.FindSourcesRequest]) (*connect.Response[v1.FindSourcesResponse], error)
 }
 
@@ -173,6 +192,12 @@ func NewDiscoveryServiceHandler(svc DiscoveryServiceHandler, opts ...connect.Han
 		connect.WithSchema(discoveryServiceMethods.ByName("GetRelease")),
 		connect.WithHandlerOptions(opts...),
 	)
+	discoveryServiceGetReleasesHandler := connect.NewUnaryHandler(
+		DiscoveryServiceGetReleasesProcedure,
+		svc.GetReleases,
+		connect.WithSchema(discoveryServiceMethods.ByName("GetReleases")),
+		connect.WithHandlerOptions(opts...),
+	)
 	discoveryServiceFindSourcesHandler := connect.NewUnaryHandler(
 		DiscoveryServiceFindSourcesProcedure,
 		svc.FindSources,
@@ -187,6 +212,8 @@ func NewDiscoveryServiceHandler(svc DiscoveryServiceHandler, opts ...connect.Han
 			discoveryServiceGetArtistHandler.ServeHTTP(w, r)
 		case DiscoveryServiceGetReleaseProcedure:
 			discoveryServiceGetReleaseHandler.ServeHTTP(w, r)
+		case DiscoveryServiceGetReleasesProcedure:
+			discoveryServiceGetReleasesHandler.ServeHTTP(w, r)
 		case DiscoveryServiceFindSourcesProcedure:
 			discoveryServiceFindSourcesHandler.ServeHTTP(w, r)
 		default:
@@ -208,6 +235,10 @@ func (UnimplementedDiscoveryServiceHandler) GetArtist(context.Context, *connect.
 
 func (UnimplementedDiscoveryServiceHandler) GetRelease(context.Context, *connect.Request[v1.GetMusicReleaseRequest]) (*connect.Response[v1.GetMusicReleaseResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.DiscoveryService.GetRelease is not implemented"))
+}
+
+func (UnimplementedDiscoveryServiceHandler) GetReleases(context.Context, *connect.Request[v1.GetMusicReleasesRequest]) (*connect.Response[v1.GetMusicReleasesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("wavelength.v1.DiscoveryService.GetReleases is not implemented"))
 }
 
 func (UnimplementedDiscoveryServiceHandler) FindSources(context.Context, *connect.Request[v1.FindSourcesRequest]) (*connect.Response[v1.FindSourcesResponse], error) {

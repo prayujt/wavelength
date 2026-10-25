@@ -9,7 +9,7 @@
   } from '../gen/wavelength/v1/ingestion_pb';
   import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
-  import { DownloadSelection } from '../lib/downloads.svelte';
+  import { DownloadSelection, refKey } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
   import { duration } from '../lib/format';
@@ -18,6 +18,7 @@
   import Notice from '../components/Notice.svelte';
   import ExternalTracks from '../components/ExternalTracks.svelte';
   import LibraryStatus from '../components/LibraryStatus.svelte';
+  import ExternalRelease from '../components/ExternalRelease.svelte';
   let {
     kind,
     provider,
@@ -62,6 +63,11 @@
               { signal: controller.signal },
             )
           ).release;
+          if (release?.ref)
+            basket.releases = {
+              ...basket.releases,
+              [refKey(release.ref)]: release,
+            };
           checking = true;
           await basket.lookup(release?.tracks || [], controller.signal);
         }
@@ -83,6 +89,25 @@
             .lookup(release.tracks)
             .catch((cause) => (error = errorMessage(cause)));
       });
+  });
+  $effect(() => {
+    if (!artist?.releases.length) return;
+    const albums = artist.releases;
+    realtime.resetVersion; // Recheck saved songs after reconnecting.
+    const pending = new AbortController();
+    checking = true;
+    untrack(
+      () =>
+        void basket
+          .lookupReleases(albums, pending.signal)
+          .catch((cause) => {
+            if (!pending.signal.aborted) error = errorMessage(cause);
+          })
+          .finally(() => {
+            if (!pending.signal.aborted) checking = false;
+          }),
+    );
+    return () => pending.abort();
   });
   async function playSaved() {
     try {
@@ -155,17 +180,13 @@
       {checking}
     />{:else}<div class="section-heading"><h2>Albums</h2></div>
     <div class="card-grid">
-      {#each artist?.releases || [] as item}<a
-          class="music-card"
-          href={link('discover/release', {
-            ...searchContext,
-            provider: item.ref?.provider || '',
-            id: item.ref?.id || '',
-          })}
-          ><Cover name={item.title} artwork={item.artworkUrl} /><strong
-            >{item.title}</strong
-          ><span>{item.artist}</span></a
-        >{/each}
+      {#each artist?.releases || [] as item}<ExternalRelease
+          album={item}
+          {basket}
+          {player}
+          context={searchContext}
+          {checking}
+        />{/each}
     </div>
     {#if !artist?.releases.length}<p class="muted">
         No albums returned for this artist.

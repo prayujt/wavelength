@@ -41,6 +41,7 @@ export class RealtimeState {
             } else if (event.payload.case === 'importUpdated') {
               const job = event.payload.value;
               this.imports = { ...this.imports, [job.id]: job };
+              basket.updateJob(job);
             } else if (event.payload.case === 'libraryUpdated') {
               const match = event.payload.value.track;
               if (match) basket.markImported([match]);

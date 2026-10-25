@@ -12,6 +12,7 @@
   import Notice from '../components/Notice.svelte';
   import ExternalTracks from '../components/ExternalTracks.svelte';
   import LibraryStatus from '../components/LibraryStatus.svelte';
+  import ExternalRelease from '../components/ExternalRelease.svelte';
   let {
     basket,
     player,
@@ -33,6 +34,7 @@
   });
   let loading = $state(false);
   let checking = $state(false);
+  let checkingAlbums = $state(false);
   let error = $state('');
   let controller: AbortController | undefined;
   const saved = $derived(
@@ -63,6 +65,31 @@
             .lookup(discovery.results.tracks)
             .catch((cause) => (error = errorMessage(cause)));
       });
+  });
+  $effect(() => {
+    const albums = discovery.results?.releases || [];
+    const visible =
+      discovery.category === 'all'
+        ? albums.slice(0, 6)
+        : discovery.category === 'releases'
+          ? albums
+          : [];
+    realtime.resetVersion; // Recheck saved songs after reconnecting.
+    if (!visible.length) return;
+    const pending = new AbortController();
+    checkingAlbums = true;
+    untrack(
+      () =>
+        void basket
+          .lookupReleases(visible, pending.signal)
+          .catch((cause) => {
+            if (!pending.signal.aborted) error = errorMessage(cause);
+          })
+          .finally(() => {
+            if (!pending.signal.aborted) checkingAlbums = false;
+          }),
+    );
+    return () => pending.abort();
   });
   function syncAddress() {
     history.replaceState(
@@ -209,17 +236,13 @@
           >{/if}
       </div>
       <div class="card-grid">
-        {#each discovery.category === 'all' ? discovery.results.releases.slice(0, 6) : discovery.results.releases as item}<a
-            class="music-card"
-            href={link('discover/release', {
-              ...context,
-              provider: item.ref?.provider || '',
-              id: item.ref?.id || '',
-            })}
-            ><Cover name={item.title} artwork={item.artworkUrl} /><strong
-              >{item.title}</strong
-            ><span>{item.artist}</span></a
-          >{/each}
+        {#each discovery.category === 'all' ? discovery.results.releases.slice(0, 6) : discovery.results.releases as item}<ExternalRelease
+            album={item}
+            {basket}
+            {player}
+            {context}
+            checking={checkingAlbums}
+          />{/each}
       </div>
     </section>{/if}
   {#if !discovery.results.tracks.length && !discovery.results.artists.length && !discovery.results.releases.length}<div

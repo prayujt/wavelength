@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file wavelength/v1/ingestion.proto.
  */
 export const file_wavelength_v1_ingestion: GenFile = /*@__PURE__*/
-  fileDesc("Ch13YXZlbGVuZ3RoL3YxL2luZ2VzdGlvbi5wcm90bxINd2F2ZWxlbmd0aC52MSIrCgtQcm92aWRlclJlZhIQCghwcm92aWRlchgBIAEoCRIKCgJpZBgCIAEoCSJJChRMb29rdXBJbXBvcnRzUmVxdWVzdBIxCg1tZXRhZGF0YV9yZWZzGAEgAygLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZiJTCg1JbXBvcnRlZFRyYWNrEjAKDG1ldGFkYXRhX3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSEAoIdHJhY2tfaWQYAiABKAkiRQoVTG9va3VwSW1wb3J0c1Jlc3BvbnNlEiwKBnRyYWNrcxgBIAMoCzIcLndhdmVsZW5ndGgudjEuSW1wb3J0ZWRUcmFjayL7AQoNRXh0ZXJuYWxUcmFjaxInCgNyZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEg0KBXRpdGxlGAIgASgJEg4KBmFydGlzdBgDIAEoCRINCgVhbGJ1bRgEIAEoCRIUCgxhbGJ1bV9hcnRpc3QYBSABKAkSDQoFZ2VucmUYBiABKAkSFAoMcmVsZWFzZV9kYXRlGAcgASgJEhQKDHRyYWNrX251bWJlchgIIAEoBRITCgtkaXNjX251bWJlchgJIAEoBRIYChBkdXJhdGlvbl9zZWNvbmRzGAogASgBEhMKC2FydHdvcmtfdXJsGAsgASgJIpkBCgxNdXNpY1JlbGVhc2USJwoDcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhINCgV0aXRsZRgCIAEoCRIOCgZhcnRpc3QYAyABKAkSEwoLYXJ0d29ya191cmwYBCABKAkSLAoGdHJhY2tzGAUgAygLMhwud2F2ZWxlbmd0aC52MS5FeHRlcm5hbFRyYWNrIogBCgtNdXNpY0FydGlzdBInCgNyZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEgwKBG5hbWUYAiABKAkSLQoIcmVsZWFzZXMYAyADKAsyGy53YXZlbGVuZ3RoLnYxLk11c2ljUmVsZWFzZRITCgthcnR3b3JrX3VybBgEIAEoCSKmAQoPU291cmNlQ2FuZGlkYXRlEicKA3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSDQoFdGl0bGUYAiABKAkSEAoIdXBsb2FkZXIYAyABKAkSGAoQZHVyYXRpb25fc2Vjb25kcxgEIAEoARINCgVzY29yZRgFIAEoARIQCghzdWl0YWJsZRgGIAEoCBIOCgZyZWFzb24YByABKAkiMgoSU2VhcmNoTXVzaWNSZXF1ZXN0Eg0KBXF1ZXJ5GAEgASgJEg0KBWxpbWl0GAIgASgFIp8BChNTZWFyY2hNdXNpY1Jlc3BvbnNlEiwKBnRyYWNrcxgBIAMoCzIcLndhdmVsZW5ndGgudjEuRXh0ZXJuYWxUcmFjaxItCghyZWxlYXNlcxgCIAMoCzIbLndhdmVsZW5ndGgudjEuTXVzaWNSZWxlYXNlEisKB2FydGlzdHMYAyADKAsyGi53YXZlbGVuZ3RoLnYxLk11c2ljQXJ0aXN0IkAKFUdldE11c2ljQXJ0aXN0UmVxdWVzdBInCgNyZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmIkQKFkdldE11c2ljQXJ0aXN0UmVzcG9uc2USKgoGYXJ0aXN0GAEgASgLMhoud2F2ZWxlbmd0aC52MS5NdXNpY0FydGlzdCJBChZHZXRNdXNpY1JlbGVhc2VSZXF1ZXN0EicKA3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYiRwoXR2V0TXVzaWNSZWxlYXNlUmVzcG9uc2USLAoHcmVsZWFzZRgBIAEoCzIbLndhdmVsZW5ndGgudjEuTXVzaWNSZWxlYXNlIkYKEkZpbmRTb3VyY2VzUmVxdWVzdBIwCgxtZXRhZGF0YV9yZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmIkkKE0ZpbmRTb3VyY2VzUmVzcG9uc2USMgoKY2FuZGlkYXRlcxgBIAMoCzIeLndhdmVsZW5ndGgudjEuU291cmNlQ2FuZGlkYXRlInMKD0ltcG9ydFNlbGVjdGlvbhIwCgxtZXRhZGF0YV9yZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEi4KCnNvdXJjZV9yZWYYAiABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmIp4BChNDcmVhdGVJbXBvcnRSZXF1ZXN0EhIKCnJlcXVlc3RfaWQYASABKAkSLQoFaXRlbXMYAiADKAsyHi53YXZlbGVuZ3RoLnYxLkltcG9ydFNlbGVjdGlvbhIvCgtyZWxlYXNlX3JlZhgDIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSEwoLcGxheWxpc3RfaWQYBCABKAkiHgoQR2V0SW1wb3J0UmVxdWVzdBIKCgJpZBgBIAEoCSIzChJMaXN0SW1wb3J0c1JlcXVlc3QSDQoFbGltaXQYASABKAUSDgoGb2Zmc2V0GAIgASgFIk8KE0xpc3RJbXBvcnRzUmVzcG9uc2USKQoHaW1wb3J0cxgBIAMoCzIYLndhdmVsZW5ndGgudjEuSW1wb3J0Sm9iEg0KBXRvdGFsGAIgASgFIiEKE0NhbmNlbEltcG9ydFJlcXVlc3QSCgoCaWQYASABKAkiTwoOU291cmNlT3ZlcnJpZGUSDQoFaW5kZXgYASABKAUSLgoKc291cmNlX3JlZhgCIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYiUgoSUmV0cnlJbXBvcnRSZXF1ZXN0EgoKAmlkGAEgASgJEjAKCW92ZXJyaWRlcxgCIAMoCzIdLndhdmVsZW5ndGgudjEuU291cmNlT3ZlcnJpZGUilQIKCkltcG9ydEl0ZW0SMAoMbWV0YWRhdGFfcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhIuCgpzb3VyY2VfcmVmGAIgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhINCgVzdGF0ZRgDIAEoCRINCgVlcnJvchgEIAEoCRIQCgh0cmFja19pZBgFIAEoCRIOCgZyZXVzZWQYBiABKAgSLgoIbWV0YWRhdGEYByABKAsyHC53YXZlbGVuZ3RoLnYxLkV4dGVybmFsVHJhY2sSEAoId2FybmluZ3MYCCADKAkSEAoIYWxidW1faWQYCSABKAkSEQoJYXJ0aXN0X2lkGAogASgJIoUCCglJbXBvcnRKb2ISCgoCaWQYASABKAkSDQoFc3RhdGUYAiABKAkSDQoFZXJyb3IYAyABKAkSKAoFaXRlbXMYBCADKAsyGS53YXZlbGVuZ3RoLnYxLkltcG9ydEl0ZW0SLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLgoKdXBkYXRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLwoLcmVsZWFzZV9yZWYYByABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEhMKC3BsYXlsaXN0X2lkGAggASgJMvACChBEaXNjb3ZlcnlTZXJ2aWNlEk8KBlNlYXJjaBIhLndhdmVsZW5ndGgudjEuU2VhcmNoTXVzaWNSZXF1ZXN0GiIud2F2ZWxlbmd0aC52MS5TZWFyY2hNdXNpY1Jlc3BvbnNlElgKCUdldEFydGlzdBIkLndhdmVsZW5ndGgudjEuR2V0TXVzaWNBcnRpc3RSZXF1ZXN0GiUud2F2ZWxlbmd0aC52MS5HZXRNdXNpY0FydGlzdFJlc3BvbnNlElsKCkdldFJlbGVhc2USJS53YXZlbGVuZ3RoLnYxLkdldE11c2ljUmVsZWFzZVJlcXVlc3QaJi53YXZlbGVuZ3RoLnYxLkdldE11c2ljUmVsZWFzZVJlc3BvbnNlElQKC0ZpbmRTb3VyY2VzEiEud2F2ZWxlbmd0aC52MS5GaW5kU291cmNlc1JlcXVlc3QaIi53YXZlbGVuZ3RoLnYxLkZpbmRTb3VyY2VzUmVzcG9uc2Uy9AMKEEluZ2VzdGlvblNlcnZpY2USWgoNTG9va3VwSW1wb3J0cxIjLndhdmVsZW5ndGgudjEuTG9va3VwSW1wb3J0c1JlcXVlc3QaJC53YXZlbGVuZ3RoLnYxLkxvb2t1cEltcG9ydHNSZXNwb25zZRJMCgxDcmVhdGVJbXBvcnQSIi53YXZlbGVuZ3RoLnYxLkNyZWF0ZUltcG9ydFJlcXVlc3QaGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYhJGCglHZXRJbXBvcnQSHy53YXZlbGVuZ3RoLnYxLkdldEltcG9ydFJlcXVlc3QaGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYhJUCgtMaXN0SW1wb3J0cxIhLndhdmVsZW5ndGgudjEuTGlzdEltcG9ydHNSZXF1ZXN0GiIud2F2ZWxlbmd0aC52MS5MaXN0SW1wb3J0c1Jlc3BvbnNlEkwKDENhbmNlbEltcG9ydBIiLndhdmVsZW5ndGgudjEuQ2FuY2VsSW1wb3J0UmVxdWVzdBoYLndhdmVsZW5ndGgudjEuSW1wb3J0Sm9iEkoKC1JldHJ5SW1wb3J0EiEud2F2ZWxlbmd0aC52MS5SZXRyeUltcG9ydFJlcXVlc3QaGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYkI+WjxnaXRodWIuY29tL3ByYXl1anQvd2F2ZWxlbmd0aC9nZW4vd2F2ZWxlbmd0aC92MTt3YXZlbGVuZ3RodjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
+  fileDesc("Ch13YXZlbGVuZ3RoL3YxL2luZ2VzdGlvbi5wcm90bxINd2F2ZWxlbmd0aC52MSIrCgtQcm92aWRlclJlZhIQCghwcm92aWRlchgBIAEoCRIKCgJpZBgCIAEoCSJcChRMb29rdXBJbXBvcnRzUmVxdWVzdBIxCg1tZXRhZGF0YV9yZWZzGAEgAygLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhIRCgl0cmFja19pZHMYAiADKAkiUwoNSW1wb3J0ZWRUcmFjaxIwCgxtZXRhZGF0YV9yZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEhAKCHRyYWNrX2lkGAIgASgJIkUKFUxvb2t1cEltcG9ydHNSZXNwb25zZRIsCgZ0cmFja3MYASADKAsyHC53YXZlbGVuZ3RoLnYxLkltcG9ydGVkVHJhY2si+wEKDUV4dGVybmFsVHJhY2sSJwoDcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhINCgV0aXRsZRgCIAEoCRIOCgZhcnRpc3QYAyABKAkSDQoFYWxidW0YBCABKAkSFAoMYWxidW1fYXJ0aXN0GAUgASgJEg0KBWdlbnJlGAYgASgJEhQKDHJlbGVhc2VfZGF0ZRgHIAEoCRIUCgx0cmFja19udW1iZXIYCCABKAUSEwoLZGlzY19udW1iZXIYCSABKAUSGAoQZHVyYXRpb25fc2Vjb25kcxgKIAEoARITCgthcnR3b3JrX3VybBgLIAEoCSKZAQoMTXVzaWNSZWxlYXNlEicKA3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSDQoFdGl0bGUYAiABKAkSDgoGYXJ0aXN0GAMgASgJEhMKC2FydHdvcmtfdXJsGAQgASgJEiwKBnRyYWNrcxgFIAMoCzIcLndhdmVsZW5ndGgudjEuRXh0ZXJuYWxUcmFjayKIAQoLTXVzaWNBcnRpc3QSJwoDcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhIMCgRuYW1lGAIgASgJEi0KCHJlbGVhc2VzGAMgAygLMhsud2F2ZWxlbmd0aC52MS5NdXNpY1JlbGVhc2USEwoLYXJ0d29ya191cmwYBCABKAkipgEKD1NvdXJjZUNhbmRpZGF0ZRInCgNyZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEg0KBXRpdGxlGAIgASgJEhAKCHVwbG9hZGVyGAMgASgJEhgKEGR1cmF0aW9uX3NlY29uZHMYBCABKAESDQoFc2NvcmUYBSABKAESEAoIc3VpdGFibGUYBiABKAgSDgoGcmVhc29uGAcgASgJIjIKElNlYXJjaE11c2ljUmVxdWVzdBINCgVxdWVyeRgBIAEoCRINCgVsaW1pdBgCIAEoBSKfAQoTU2VhcmNoTXVzaWNSZXNwb25zZRIsCgZ0cmFja3MYASADKAsyHC53YXZlbGVuZ3RoLnYxLkV4dGVybmFsVHJhY2sSLQoIcmVsZWFzZXMYAiADKAsyGy53YXZlbGVuZ3RoLnYxLk11c2ljUmVsZWFzZRIrCgdhcnRpc3RzGAMgAygLMhoud2F2ZWxlbmd0aC52MS5NdXNpY0FydGlzdCJAChVHZXRNdXNpY0FydGlzdFJlcXVlc3QSJwoDcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZiJEChZHZXRNdXNpY0FydGlzdFJlc3BvbnNlEioKBmFydGlzdBgBIAEoCzIaLndhdmVsZW5ndGgudjEuTXVzaWNBcnRpc3QiQQoWR2V0TXVzaWNSZWxlYXNlUmVxdWVzdBInCgNyZWYYASABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmIkcKF0dldE11c2ljUmVsZWFzZVJlc3BvbnNlEiwKB3JlbGVhc2UYASABKAsyGy53YXZlbGVuZ3RoLnYxLk11c2ljUmVsZWFzZSJDChdHZXRNdXNpY1JlbGVhc2VzUmVxdWVzdBIoCgRyZWZzGAEgAygLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZiJJChhHZXRNdXNpY1JlbGVhc2VzUmVzcG9uc2USLQoIcmVsZWFzZXMYASADKAsyGy53YXZlbGVuZ3RoLnYxLk11c2ljUmVsZWFzZSJGChJGaW5kU291cmNlc1JlcXVlc3QSMAoMbWV0YWRhdGFfcmVmGAEgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZiJJChNGaW5kU291cmNlc1Jlc3BvbnNlEjIKCmNhbmRpZGF0ZXMYASADKAsyHi53YXZlbGVuZ3RoLnYxLlNvdXJjZUNhbmRpZGF0ZSKNAQoPSW1wb3J0U2VsZWN0aW9uEjAKDG1ldGFkYXRhX3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSLgoKc291cmNlX3JlZhgCIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSGAoQcmVwbGFjZV90cmFja19pZBgDIAEoCSKeAQoTQ3JlYXRlSW1wb3J0UmVxdWVzdBISCgpyZXF1ZXN0X2lkGAEgASgJEi0KBWl0ZW1zGAIgAygLMh4ud2F2ZWxlbmd0aC52MS5JbXBvcnRTZWxlY3Rpb24SLwoLcmVsZWFzZV9yZWYYAyABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmEhMKC3BsYXlsaXN0X2lkGAQgASgJIh4KEEdldEltcG9ydFJlcXVlc3QSCgoCaWQYASABKAkiMwoSTGlzdEltcG9ydHNSZXF1ZXN0Eg0KBWxpbWl0GAEgASgFEg4KBm9mZnNldBgCIAEoBSJPChNMaXN0SW1wb3J0c1Jlc3BvbnNlEikKB2ltcG9ydHMYASADKAsyGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYhINCgV0b3RhbBgCIAEoBSIhChNDYW5jZWxJbXBvcnRSZXF1ZXN0EgoKAmlkGAEgASgJIk8KDlNvdXJjZU92ZXJyaWRlEg0KBWluZGV4GAEgASgFEi4KCnNvdXJjZV9yZWYYAiABKAsyGi53YXZlbGVuZ3RoLnYxLlByb3ZpZGVyUmVmIlIKElJldHJ5SW1wb3J0UmVxdWVzdBIKCgJpZBgBIAEoCRIwCglvdmVycmlkZXMYAiADKAsyHS53YXZlbGVuZ3RoLnYxLlNvdXJjZU92ZXJyaWRlIpUCCgpJbXBvcnRJdGVtEjAKDG1ldGFkYXRhX3JlZhgBIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSLgoKc291cmNlX3JlZhgCIAEoCzIaLndhdmVsZW5ndGgudjEuUHJvdmlkZXJSZWYSDQoFc3RhdGUYAyABKAkSDQoFZXJyb3IYBCABKAkSEAoIdHJhY2tfaWQYBSABKAkSDgoGcmV1c2VkGAYgASgIEi4KCG1ldGFkYXRhGAcgASgLMhwud2F2ZWxlbmd0aC52MS5FeHRlcm5hbFRyYWNrEhAKCHdhcm5pbmdzGAggAygJEhAKCGFsYnVtX2lkGAkgASgJEhEKCWFydGlzdF9pZBgKIAEoCSKFAgoJSW1wb3J0Sm9iEgoKAmlkGAEgASgJEg0KBXN0YXRlGAIgASgJEg0KBWVycm9yGAMgASgJEigKBWl0ZW1zGAQgAygLMhkud2F2ZWxlbmd0aC52MS5JbXBvcnRJdGVtEi4KCmNyZWF0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi8KC3JlbGVhc2VfcmVmGAcgASgLMhoud2F2ZWxlbmd0aC52MS5Qcm92aWRlclJlZhITCgtwbGF5bGlzdF9pZBgIIAEoCTLQAwoQRGlzY292ZXJ5U2VydmljZRJPCgZTZWFyY2gSIS53YXZlbGVuZ3RoLnYxLlNlYXJjaE11c2ljUmVxdWVzdBoiLndhdmVsZW5ndGgudjEuU2VhcmNoTXVzaWNSZXNwb25zZRJYCglHZXRBcnRpc3QSJC53YXZlbGVuZ3RoLnYxLkdldE11c2ljQXJ0aXN0UmVxdWVzdBolLndhdmVsZW5ndGgudjEuR2V0TXVzaWNBcnRpc3RSZXNwb25zZRJbCgpHZXRSZWxlYXNlEiUud2F2ZWxlbmd0aC52MS5HZXRNdXNpY1JlbGVhc2VSZXF1ZXN0GiYud2F2ZWxlbmd0aC52MS5HZXRNdXNpY1JlbGVhc2VSZXNwb25zZRJeCgtHZXRSZWxlYXNlcxImLndhdmVsZW5ndGgudjEuR2V0TXVzaWNSZWxlYXNlc1JlcXVlc3QaJy53YXZlbGVuZ3RoLnYxLkdldE11c2ljUmVsZWFzZXNSZXNwb25zZRJUCgtGaW5kU291cmNlcxIhLndhdmVsZW5ndGgudjEuRmluZFNvdXJjZXNSZXF1ZXN0GiIud2F2ZWxlbmd0aC52MS5GaW5kU291cmNlc1Jlc3BvbnNlMvQDChBJbmdlc3Rpb25TZXJ2aWNlEloKDUxvb2t1cEltcG9ydHMSIy53YXZlbGVuZ3RoLnYxLkxvb2t1cEltcG9ydHNSZXF1ZXN0GiQud2F2ZWxlbmd0aC52MS5Mb29rdXBJbXBvcnRzUmVzcG9uc2USTAoMQ3JlYXRlSW1wb3J0EiIud2F2ZWxlbmd0aC52MS5DcmVhdGVJbXBvcnRSZXF1ZXN0Ghgud2F2ZWxlbmd0aC52MS5JbXBvcnRKb2ISRgoJR2V0SW1wb3J0Eh8ud2F2ZWxlbmd0aC52MS5HZXRJbXBvcnRSZXF1ZXN0Ghgud2F2ZWxlbmd0aC52MS5JbXBvcnRKb2ISVAoLTGlzdEltcG9ydHMSIS53YXZlbGVuZ3RoLnYxLkxpc3RJbXBvcnRzUmVxdWVzdBoiLndhdmVsZW5ndGgudjEuTGlzdEltcG9ydHNSZXNwb25zZRJMCgxDYW5jZWxJbXBvcnQSIi53YXZlbGVuZ3RoLnYxLkNhbmNlbEltcG9ydFJlcXVlc3QaGC53YXZlbGVuZ3RoLnYxLkltcG9ydEpvYhJKCgtSZXRyeUltcG9ydBIhLndhdmVsZW5ndGgudjEuUmV0cnlJbXBvcnRSZXF1ZXN0Ghgud2F2ZWxlbmd0aC52MS5JbXBvcnRKb2JCPlo8Z2l0aHViLmNvbS9wcmF5dWp0L3dhdmVsZW5ndGgvZ2VuL3dhdmVsZW5ndGgvdjE7d2F2ZWxlbmd0aHYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
 
 /**
  * @generated from message wavelength.v1.ProviderRef
@@ -44,6 +44,13 @@ export type LookupImportsRequest = Message<"wavelength.v1.LookupImportsRequest">
    * @generated from field: repeated wavelength.v1.ProviderRef metadata_refs = 1;
    */
   metadataRefs: ProviderRef[];
+
+  /**
+   * Resolve provenance for saved songs, for example before replacing audio.
+   *
+   * @generated from field: repeated string track_ids = 2;
+   */
+  trackIds: string[];
 };
 
 /**
@@ -397,6 +404,42 @@ export const GetMusicReleaseResponseSchema: GenMessage<GetMusicReleaseResponse> 
   messageDesc(file_wavelength_v1_ingestion, 13);
 
 /**
+ * @generated from message wavelength.v1.GetMusicReleasesRequest
+ */
+export type GetMusicReleasesRequest = Message<"wavelength.v1.GetMusicReleasesRequest"> & {
+  /**
+   * @generated from field: repeated wavelength.v1.ProviderRef refs = 1;
+   */
+  refs: ProviderRef[];
+};
+
+/**
+ * Describes the message wavelength.v1.GetMusicReleasesRequest.
+ * Use `create(GetMusicReleasesRequestSchema)` to create a new message.
+ */
+export const GetMusicReleasesRequestSchema: GenMessage<GetMusicReleasesRequest> = /*@__PURE__*/
+  messageDesc(file_wavelength_v1_ingestion, 14);
+
+/**
+ * Unavailable albums are omitted, never treated as empty albums.
+ *
+ * @generated from message wavelength.v1.GetMusicReleasesResponse
+ */
+export type GetMusicReleasesResponse = Message<"wavelength.v1.GetMusicReleasesResponse"> & {
+  /**
+   * @generated from field: repeated wavelength.v1.MusicRelease releases = 1;
+   */
+  releases: MusicRelease[];
+};
+
+/**
+ * Describes the message wavelength.v1.GetMusicReleasesResponse.
+ * Use `create(GetMusicReleasesResponseSchema)` to create a new message.
+ */
+export const GetMusicReleasesResponseSchema: GenMessage<GetMusicReleasesResponse> = /*@__PURE__*/
+  messageDesc(file_wavelength_v1_ingestion, 15);
+
+/**
  * @generated from message wavelength.v1.FindSourcesRequest
  */
 export type FindSourcesRequest = Message<"wavelength.v1.FindSourcesRequest"> & {
@@ -411,7 +454,7 @@ export type FindSourcesRequest = Message<"wavelength.v1.FindSourcesRequest"> & {
  * Use `create(FindSourcesRequestSchema)` to create a new message.
  */
 export const FindSourcesRequestSchema: GenMessage<FindSourcesRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 14);
+  messageDesc(file_wavelength_v1_ingestion, 16);
 
 /**
  * @generated from message wavelength.v1.FindSourcesResponse
@@ -428,7 +471,7 @@ export type FindSourcesResponse = Message<"wavelength.v1.FindSourcesResponse"> &
  * Use `create(FindSourcesResponseSchema)` to create a new message.
  */
 export const FindSourcesResponseSchema: GenMessage<FindSourcesResponse> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 15);
+  messageDesc(file_wavelength_v1_ingestion, 17);
 
 /**
  * @generated from message wavelength.v1.ImportSelection
@@ -445,6 +488,13 @@ export type ImportSelection = Message<"wavelength.v1.ImportSelection"> & {
    * @generated from field: wavelength.v1.ProviderRef source_ref = 2;
    */
   sourceRef?: ProviderRef | undefined;
+
+  /**
+   * Replace this exact saved track's audio. Requires an explicit source_ref.
+   *
+   * @generated from field: string replace_track_id = 3;
+   */
+  replaceTrackId: string;
 };
 
 /**
@@ -452,7 +502,7 @@ export type ImportSelection = Message<"wavelength.v1.ImportSelection"> & {
  * Use `create(ImportSelectionSchema)` to create a new message.
  */
 export const ImportSelectionSchema: GenMessage<ImportSelection> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 16);
+  messageDesc(file_wavelength_v1_ingestion, 18);
 
 /**
  * @generated from message wavelength.v1.CreateImportRequest
@@ -490,7 +540,7 @@ export type CreateImportRequest = Message<"wavelength.v1.CreateImportRequest"> &
  * Use `create(CreateImportRequestSchema)` to create a new message.
  */
 export const CreateImportRequestSchema: GenMessage<CreateImportRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 17);
+  messageDesc(file_wavelength_v1_ingestion, 19);
 
 /**
  * @generated from message wavelength.v1.GetImportRequest
@@ -507,7 +557,7 @@ export type GetImportRequest = Message<"wavelength.v1.GetImportRequest"> & {
  * Use `create(GetImportRequestSchema)` to create a new message.
  */
 export const GetImportRequestSchema: GenMessage<GetImportRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 18);
+  messageDesc(file_wavelength_v1_ingestion, 20);
 
 /**
  * @generated from message wavelength.v1.ListImportsRequest
@@ -529,7 +579,7 @@ export type ListImportsRequest = Message<"wavelength.v1.ListImportsRequest"> & {
  * Use `create(ListImportsRequestSchema)` to create a new message.
  */
 export const ListImportsRequestSchema: GenMessage<ListImportsRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 19);
+  messageDesc(file_wavelength_v1_ingestion, 21);
 
 /**
  * @generated from message wavelength.v1.ListImportsResponse
@@ -551,7 +601,7 @@ export type ListImportsResponse = Message<"wavelength.v1.ListImportsResponse"> &
  * Use `create(ListImportsResponseSchema)` to create a new message.
  */
 export const ListImportsResponseSchema: GenMessage<ListImportsResponse> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 20);
+  messageDesc(file_wavelength_v1_ingestion, 22);
 
 /**
  * @generated from message wavelength.v1.CancelImportRequest
@@ -568,7 +618,7 @@ export type CancelImportRequest = Message<"wavelength.v1.CancelImportRequest"> &
  * Use `create(CancelImportRequestSchema)` to create a new message.
  */
 export const CancelImportRequestSchema: GenMessage<CancelImportRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 21);
+  messageDesc(file_wavelength_v1_ingestion, 23);
 
 /**
  * @generated from message wavelength.v1.SourceOverride
@@ -590,7 +640,7 @@ export type SourceOverride = Message<"wavelength.v1.SourceOverride"> & {
  * Use `create(SourceOverrideSchema)` to create a new message.
  */
 export const SourceOverrideSchema: GenMessage<SourceOverride> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 22);
+  messageDesc(file_wavelength_v1_ingestion, 24);
 
 /**
  * @generated from message wavelength.v1.RetryImportRequest
@@ -612,7 +662,7 @@ export type RetryImportRequest = Message<"wavelength.v1.RetryImportRequest"> & {
  * Use `create(RetryImportRequestSchema)` to create a new message.
  */
 export const RetryImportRequestSchema: GenMessage<RetryImportRequest> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 23);
+  messageDesc(file_wavelength_v1_ingestion, 25);
 
 /**
  * @generated from message wavelength.v1.ImportItem
@@ -674,7 +724,7 @@ export type ImportItem = Message<"wavelength.v1.ImportItem"> & {
  * Use `create(ImportItemSchema)` to create a new message.
  */
 export const ImportItemSchema: GenMessage<ImportItem> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 24);
+  messageDesc(file_wavelength_v1_ingestion, 26);
 
 /**
  * @generated from message wavelength.v1.ImportJob
@@ -728,7 +778,7 @@ export type ImportJob = Message<"wavelength.v1.ImportJob"> & {
  * Use `create(ImportJobSchema)` to create a new message.
  */
 export const ImportJobSchema: GenMessage<ImportJob> = /*@__PURE__*/
-  messageDesc(file_wavelength_v1_ingestion, 25);
+  messageDesc(file_wavelength_v1_ingestion, 27);
 
 /**
  * Discovery reads external metadata; local library search stays in LibraryService.
@@ -759,6 +809,16 @@ export const DiscoveryService: GenService<{
     methodKind: "unary";
     input: typeof GetMusicReleaseRequestSchema;
     output: typeof GetMusicReleaseResponseSchema;
+  },
+  /**
+   * Resolve album track lists together for search cards and library checks.
+   *
+   * @generated from rpc wavelength.v1.DiscoveryService.GetReleases
+   */
+  getReleases: {
+    methodKind: "unary";
+    input: typeof GetMusicReleasesRequestSchema;
+    output: typeof GetMusicReleasesResponseSchema;
   },
   /**
    * @generated from rpc wavelength.v1.DiscoveryService.FindSources
