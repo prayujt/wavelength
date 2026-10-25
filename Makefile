@@ -1,4 +1,4 @@
-.PHONY: run build test check fmt smoke generate compatibility
+.PHONY: run build test check fmt smoke generate compatibility web generate-web
 run:
 	go run ./cmd/wavelength
 build:
@@ -20,3 +20,11 @@ generate:
 compatibility: build
 	uv run scripts/client-compatibility.py
 	uv run scripts/validate-subsonic.py
+
+web:
+	npm --prefix web ci
+	npm --prefix web run check
+	npm --prefix web run build
+
+generate-web:
+	npm --prefix web run generate

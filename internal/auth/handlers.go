@@ -33,7 +33,13 @@ func (m *Manager) Handler() http.Handler {
 	})
 }
 func (m *Manager) login(w http.ResponseWriter, r *http.Request) {
-	m.startLogin(w, r, "")
+	returnTo := r.URL.Query().Get("return_to")
+	// The web app has one landing page; never accept an arbitrary redirect URL.
+	if returnTo != "" && returnTo != "/" {
+		jsonError(w, 400, "invalid return destination")
+		return
+	}
+	m.startLogin(w, r, returnTo)
 }
 func (m *Manager) startLogin(w http.ResponseWriter, r *http.Request, returnTo string) {
 	token, state, nonce, verifier := secret(), secret(), secret(), oauth2.GenerateVerifier()
@@ -111,7 +117,7 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	sessionToken := secret()
 	session := Session{TokenHash: digest(sessionToken), CSRF: secret(), User: user, ExpiresAt: time.Now().Add(12 * time.Hour)}
-	if flow.ReturnTo != "" {
+	if flow.ReturnTo != "" && flow.ReturnTo != "/" {
 		if err = m.resumeOAuth(r, flow.ReturnTo, session); err != nil {
 			jsonError(w, 400, "invalid authorization request")
 			return
@@ -122,7 +128,7 @@ func (m *Manager) callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	m.setCookie(w, m.sessionCookie, sessionToken, session.ExpiresAt, 12*60*60)
-	if strings.HasPrefix(flow.ReturnTo, "/oauth/authorize?request=") {
+	if flow.ReturnTo == "/" || strings.HasPrefix(flow.ReturnTo, "/oauth/authorize?request=") {
 		http.Redirect(w, r, flow.ReturnTo, http.StatusSeeOther)
 	} else {
 		http.Redirect(w, r, "/auth/me", http.StatusSeeOther)

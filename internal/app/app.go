@@ -4,6 +4,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/prayujt/wavelength/internal/auth"
@@ -47,6 +48,12 @@ func Run(ctx context.Context, c config.Config) error {
 		return fmt.Errorf("initialize authentication: %w", err)
 	}
 	options := []httpserver.Option{httpserver.WithAuth(manager)}
+	if c.WebDir != "" {
+		if _, err := os.Stat(filepath.Join(c.WebDir, "index.html")); err != nil {
+			return fmt.Errorf("open web app: %w", err)
+		}
+		options = append(options, httpserver.WithWeb(os.DirFS(c.WebDir)))
+	}
 	if lib != nil {
 		data := userdata.New(database.StateStore{DB: db}, lib)
 		source := youtube.New()

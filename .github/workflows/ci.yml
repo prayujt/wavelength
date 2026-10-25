@@ -3,6 +3,33 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - run: npm ci
+        working-directory: web
+      - run: npm run generate && git diff --exit-code -- src/gen
+        working-directory: web
+      - run: npm run check && npm run format:check && npm run build
+        working-directory: web
+      - run: npx playwright install --with-deps --only-shell chromium
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: go test -race -timeout 90s ./internal/auth -run '^TestWebBrowser$'
+        env:
+          WAVELENGTH_WEB_TESTS: "1"
   check:
     runs-on: ubuntu-latest
     steps:

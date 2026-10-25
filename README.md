@@ -1,9 +1,10 @@
 # Wavelength
 
 A self-hosted music server written in Go, with an embedded SQLite catalog,
-Subsonic client compatibility, a native protobuf API, and authenticated MCP. It
+Subsonic client compatibility, a Svelte web player, a native protobuf API, and
+authenticated MCP. It
 discovers music, acquires tagged audio, and serves its persistent catalog. It runs
-as one binary and does not need an external database. A music player UI is not included.
+as one binary and does not need an external database. The container includes the web app.
 
 ## Run with Docker
 
@@ -28,6 +29,19 @@ writable music mount. Playback alone works with a read-only mount. Imports creat
 Pushes to `main` publish `docker.prayujt.com/wavelength:latest` and a tag containing
 the full commit SHA. Images are built with [ko](https://ko.build/) on an Alpine
 runtime base. See the [build workflow](.github/workflows/build.yml).
+
+## Web player
+
+Configure [OIDC sign-in](docs/oidc.md) and open your public Wavelength URL. The web
+app browses your library, plays music, manages playlists, discovers new music, and
+tracks imports with recording selection, cancellation, and retries. It uses typed
+Connect RPC clients and your browser session; no API token is needed in the UI.
+
+The Svelte 5 + TypeScript client lives in [`web/`](web/README.md). The container
+serves its static build on the native listener. Local Go builds can serve it with
+`WAVELENGTH_WEB_DIR=./web/dist` after `npm --prefix web ci` and
+`npm --prefix web run build`. See the [web development guide](web/README.md) for
+the development proxy and browser checks.
 
 ## Subsonic clients
 
@@ -83,7 +97,7 @@ strong, unambiguous candidates; other imports pause for a source selection. Jobs
 private to their requester, while imported tracks enter the shared catalog. Optional
 playlist imports preserve track order and append once every item succeeds.
 
-Acquisition requires an OIDC user and the `wavelength:ingest` delegated permission.
+Acquisition requires an OIDC user. Delegated clients also need `wavelength:ingest`.
 The container includes the required media tools; no metadata-provider credentials
 are needed. See [ingestion](docs/ingestion.md) for requests, job states, storage,
 recovery, and runtime requirements.
@@ -158,6 +172,7 @@ Configuration is read from environment variables at startup.
 | --- | --- |
 | `WAVELENGTH_MUSIC_DIR` | Music directory; unset starts without a library. |
 | `WAVELENGTH_DATA_DIR` | Persistent data directory; `./data`, or `/data` in the image. |
+| `WAVELENGTH_WEB_DIR` | Built web assets; unset disables serving them, `/web` in the image. |
 | `WAVELENGTH_ADDR` | Native listener; `127.0.0.1:8080`, or `0.0.0.0:8080` in the image. |
 | `WAVELENGTH_TOKEN` | Native API bearer token; required for non-loopback binding unless OIDC is configured. |
 | `WAVELENGTH_SUBSONIC_PASSWORD` | Enables the Subsonic listener; requires a music directory. |

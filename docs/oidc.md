@@ -67,9 +67,11 @@ only loopback binding is allowed and the native API is locally anonymous.
 ## Browser endpoints
 
 - `GET /auth/login`: begins authorization-code login with state, nonce and S256 PKCE.
+  The web app uses `?return_to=/` to return to its landing page after sign-in; this
+  fixed destination is the only accepted override.
 - `GET /auth/callback`: exchanges the one-use authorization code, verifies the signed
   ID token's issuer/audience/expiry/nonce, and creates a local session. Redirects to
-  `/auth/me` for now; there is no UI homepage yet.
+  `/auth/me` by default, or `/` when login requested the web landing page.
 - `GET /auth/me`: returns `user`, `csrf_token`, and `expires_at`; returns 401 when not
   signed in. The user is keyed by `(issuer, subject)`, not email.
 - `POST /auth/logout`: requires the session, correct Origin, and `X-CSRF-Token`.
@@ -77,7 +79,8 @@ only loopback binding is allowed and the native API is locally anonymous.
   browser out of the identity provider or revoke other devices' sessions.
 
 All native Connect RPC methods and `/media/` streams accept the session cookie.
-A same-origin future UI can use ordinary fetch calls and audio elements:
+The Svelte client uses generated Connect clients with the same cookie and CSRF
+header. A same-origin browser can also use ordinary fetch calls and audio elements:
 
 ```js
 const response = await fetch('/auth/me');

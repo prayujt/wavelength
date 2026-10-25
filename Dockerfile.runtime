@@ -1,3 +1,10 @@
+FROM --platform=$BUILDPLATFORM node:24-alpine AS web
+WORKDIR /web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci
+COPY web/ ./
+RUN npm run check && npm run build
+
 FROM alpine:3.24
 
 WORKDIR /app
@@ -10,6 +17,9 @@ RUN apk add --no-cache ca-certificates ffmpeg python3 py3-pip deno && \
 ENV PATH="/opt/yt-dlp/bin:$PATH"
 
 ENV WAVELENGTH_ADDR=0.0.0.0:8080 \
-    WAVELENGTH_DATA_DIR=/data
+    WAVELENGTH_DATA_DIR=/data \
+    WAVELENGTH_WEB_DIR=/web
+
+COPY --from=web /web/dist /web
 
 EXPOSE 8080 8081
