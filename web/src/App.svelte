@@ -2,13 +2,21 @@
   import { onMount } from 'svelte';
   import { ArrowRight, AudioLines, RefreshCw } from '@lucide/svelte';
   import { session } from './lib/session.svelte';
+  import SharedPlayer from './views/SharedPlayer.svelte';
+  const shareToken = window.location.pathname.match(
+    /^\/s\/([A-Za-z0-9_-]+)$/,
+  )?.[1];
   import Shell from './components/Shell.svelte';
   onMount(() => {
-    void session.load();
+    if (!shareToken) void session.load();
   });
 </script>
 
-{#if session.status === 'signed_in'}<Shell />{:else}<main class="welcome">
+{#if shareToken}<SharedPlayer
+    token={shareToken}
+  />{:else if session.status === 'signed_in'}<Shell />{:else}<main
+    class="welcome"
+  >
     <section class="login-card">
       <a class="login-brand" href="/"
         ><AudioLines size={32} /><span>Wavelength</span></a

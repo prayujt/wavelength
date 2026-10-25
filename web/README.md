@@ -2,7 +2,7 @@
 
 A Svelte 5 + TypeScript client for Wavelength's Connect RPC API. It includes OIDC
 sign-in, library browsing, dedicated artist/album pages, artwork, playback and a
-saved queue, stored lyrics, playlists, and managed downloads. Cmd/Ctrl+K searches
+saved queue, stored lyrics, playlists, managed downloads, and revocable sharing. Cmd/Ctrl+K searches
 the library and external music catalog together, with explicit Play or Review
 download actions. Bookmarks and listening history remain available
 through the API; they do not have screens yet.
@@ -38,11 +38,24 @@ catalog entries without provenance are not guessed to be the same recording.
 Artwork is read from existing embedded tags or an adjacent cover on demand. The
 lyrics panel reads saved lyrics through `GetLyrics`; timed LRC lines highlight and
 follow playback automatically. Scrolling pauses following, and the Follow lyrics
-button resumes it. Lines can seek the player; untimed lyrics remain readable text.
+button resumes it. Opening the panel immediately centers the current timed line,
+including while paused. Lines can seek the player; untimed lyrics remain readable text.
 Opening either does not run a scan or fetch new metadata.
 
 The sidebar uses compact grouped navigation with light/dark themes. The theme
 button follows your system preference initially and remembers explicit changes.
+
+## Sharing and external playback
+
+Use a saved song’s menu to create a public share page or a temporary direct audio
+link for another player. Album and playlist Share buttons capture their current
+songs. Choose an expiry, create the link, and copy it before closing the dialog.
+The **Links** page lists your shares and playback grants and lets you revoke them.
+
+Recipients open `/s/<token>` without signing in. Its player has access only to the
+shared songs and their artwork. Direct `/play/<token>/audio.<ext>` links return
+audio bytes and support seeking. See [sharing](../docs/sharing.md) for lifetimes,
+permissions, and RPC/MCP usage.
 
 ## Development
 
@@ -64,7 +77,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:5173`. Vite proxies auth, Connect, and media requests to
+Open `http://127.0.0.1:5173`. Vite proxies auth, Connect, share metadata, and media requests to
 `http://127.0.0.1:8080`. Set `WAVELENGTH_BACKEND_URL` when starting Vite if the
 backend listens elsewhere. Use the same hostname throughout; `localhost` and
 `127.0.0.1` are different browser origins. Production also requires one public

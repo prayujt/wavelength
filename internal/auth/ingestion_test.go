@@ -103,14 +103,14 @@ func (ingestMedia) Prepare(_ context.Context, path string, t discovery.Track) (l
 func acquisitionFixture(t *testing.T, source *ingestSource) *httptest.Server {
 	t.Helper()
 	issuer := provider(t, "")
-	server, _ := app(t, issuer.URL, t.TempDir(), t.TempDir(), func(db *sql.DB, lib *library.Library, data *userdata.Service) transportmcp.Acquisition {
+	server, _ := app(t, issuer.URL, t.TempDir(), t.TempDir(), func(db *sql.DB, lib *library.Library, data *userdata.Service) transportmcp.Features {
 		d := discovery.New(ingestMetadata{}, source)
 		root, path := lib.SourceRoot()
 		service, err := ingest.New(context.Background(), ingest.Root{ID: root, Path: path}, t.TempDir(), ingest.Dependencies{Store: database.IngestStore{DB: db}, Discovery: d, Downloader: source, Media: ingestMedia{}, Playlists: data})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return transportmcp.Acquisition{Discovery: d, Ingest: service}
+		return transportmcp.Features{Discovery: d, Ingest: service}
 	})
 	return server
 }
@@ -158,7 +158,7 @@ func TestAcquisitionFlowsThroughOAuthMCPAndAllNativeProtocols(t *testing.T) {
 	bob := grant(t, s, registration, auth.ScopeRead+" "+auth.ScopeIngest, "subject-2")
 	mcpAlice, mcpRead, mcpBob := mcpClient(t, s, alice.Access), mcpClient(t, s, readonly.Access), mcpClient(t, s, bob.Access)
 	listing, err := mcpAlice.ListTools(context.Background(), nil)
-	if err != nil || len(listing.Tools) != 32 {
+	if err != nil || len(listing.Tools) != 36 {
 		t.Fatal(listing, err)
 	}
 	for _, tool := range listing.Tools {

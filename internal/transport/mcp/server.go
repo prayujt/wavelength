@@ -12,10 +12,16 @@ import (
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
 )
 
+type Features struct {
+	Links     *sharing.Service
+	Discovery *discovery.Service
+	Ingest    *ingest.Service
+}
 type object = map[string]any
 type empty struct{}
 type pageInput struct {
@@ -37,9 +43,9 @@ type albumsInput struct {
 	Offset   int    `json:"offset,omitempty"`
 }
 
-func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager, acquisition ...Acquisition) http.Handler {
+func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager, features ...Features) http.Handler {
 	s := mcp.NewServer(&mcp.Implementation{Name: "wavelength", Version: "1.0.0"}, &mcp.ServerOptions{
-		Instructions: "Manage the authenticated listener's music library and personal collections. Library tools search local tracks. When available, search_music discovers external metadata and import_music starts a durable download job; poll get_import for results. Playback links require authentication and never contain credentials.",
+		Instructions: "Manage the authenticated listener's music library and personal collections. Library tools search local tracks. When available, search_music discovers external metadata and import_music starts a durable download job; poll get_import for results. get_playback_info returns private URLs requiring authentication. create_playback_link creates temporary bearer audio URLs for external players; create_share explicitly creates a public player link. Treat both new URLs as secrets.",
 	})
 	add(s, "get_current_user", "Show the signed-in Wavelength listener.", false, false, func(ctx context.Context, _ empty) (object, error) {
 		u, ok := auth.UserFromContext(ctx)
@@ -138,8 +144,11 @@ func Handler(lib *library.Library, data *userdata.Service, manager *auth.Manager
 		return object{"lyrics": lyrics}, err
 	})
 	registerPersonal(s, data)
-	if len(acquisition) > 0 {
-		registerAcquisition(s, acquisition[0])
+	if len(features) > 0 && features[0].Links != nil {
+		registerSharing(s, features[0].Links)
+	}
+	if len(features) > 0 && features[0].Discovery != nil && features[0].Ingest != nil {
+		registerAcquisition(s, features[0])
 	}
 	stream := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
 		Stateless: true, JSONResponse: true, MaxRequestBodyBytes: 1 << 20, PropagateRequestCancellation: true,
@@ -182,11 +191,13 @@ func toolError(err error) *mcp.CallToolResult {
 		message = "The import request conflicts with an existing request or job state."
 	case errors.Is(err, ingest.ErrCapacity):
 		message = "The import queue is full. Try again later."
+	case errors.Is(err, sharing.ErrUnavailable):
+		message = "Playback and sharing links require a configured public URL."
 	case errors.Is(err, discovery.ErrUnavailable):
 		message = "The external music provider is unavailable. Try again later."
-	case errors.Is(err, userdata.ErrInvalid), errors.Is(err, ingest.ErrInvalid), errors.Is(err, discovery.ErrInvalid):
+	case errors.Is(err, sharing.ErrInvalid), errors.Is(err, userdata.ErrInvalid), errors.Is(err, ingest.ErrInvalid), errors.Is(err, discovery.ErrInvalid):
 		message = "Invalid input. Check IDs, limits, positions and timestamps."
-	case errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, ingest.ErrNotFound), errors.Is(err, discovery.ErrNotFound):
+	case errors.Is(err, sharing.ErrNotFound), errors.Is(err, state.ErrNotFound), errors.Is(err, library.ErrNotFound), errors.Is(err, ingest.ErrNotFound), errors.Is(err, discovery.ErrNotFound):
 		message = "The requested item was not found."
 	case errors.Is(err, context.Canceled):
 		message = "Operation cancelled."

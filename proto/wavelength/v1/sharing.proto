@@ -1,0 +1,45 @@
+syntax = "proto3";
+package wavelength.v1;
+option go_package = "github.com/prayujt/wavelength/gen/wavelength/v1;wavelengthv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Access links grant only the selected tracks, without disclosing account credentials.
+service SharingService {
+  // Requires a named identity and wavelength:stream. Default lifetime: one hour.
+  rpc CreatePlaybackLink(CreatePlaybackLinkRequest) returns (CreateAccessLinkResponse);
+  // Requires wavelength:write and wavelength:stream; captures the supplied track order.
+  rpc CreateShare(CreateShareRequest) returns (CreateAccessLinkResponse);
+  rpc ListAccessLinks(ListAccessLinksRequest) returns (ListAccessLinksResponse);
+  // Owners can revoke either kind. Revoking a share also blocks its derived playback links.
+  rpc RevokeAccessLink(RevokeAccessLinkRequest) returns (RevokeAccessLinkResponse);
+}
+message AccessLink {
+  string id = 1;
+  string kind = 2;
+  string name = 3;
+  repeated string track_ids = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp expires_at = 6;
+  google.protobuf.Timestamp revoked_at = 7;
+}
+message CreatePlaybackLinkRequest {
+  string track_id = 1;
+  // Zero selects one hour. Otherwise 60..86400 seconds.
+  int32 expires_in_seconds = 2;
+}
+message CreateShareRequest {
+  string name = 1;
+  repeated string track_ids = 2;
+  // Omit for no expiry.
+  google.protobuf.Timestamp expires_at = 3;
+}
+// The bearer URL is returned only on creation; persisted records contain its hash.
+message CreateAccessLinkResponse { AccessLink link = 1; string url = 2; }
+message ListAccessLinksRequest {
+  // "share" (default) or "playback". Results belong only to the caller.
+  string kind = 1; int32 limit = 2; int32 offset = 3;
+}
+message ListAccessLinksResponse { repeated AccessLink links = 1; }
+message RevokeAccessLinkRequest { string id = 1; }
+message RevokeAccessLinkResponse {}

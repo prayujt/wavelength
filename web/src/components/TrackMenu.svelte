@@ -1,6 +1,6 @@
 <script lang="ts">
   import { create } from '@bufbuild/protobuf';
-  import { Download, Ellipsis, RefreshCw } from '@lucide/svelte';
+  import { Download, Ellipsis, RefreshCw, Share2, Link } from '@lucide/svelte';
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import {
     ExternalTrackSchema,
@@ -10,6 +10,8 @@
   import { api } from '../lib/session.svelte';
   import { go } from '../lib/navigation';
   import { errorMessage } from '../lib/api';
+  import AccessLinkDialog from './AccessLinkDialog.svelte';
+  let linkKind = $state<'share' | 'playback'>();
   import SourcePicker from './SourcePicker.svelte';
   import Notice from './Notice.svelte';
   let {
@@ -94,8 +96,17 @@
     onclick={() => (open = !open)}><Ellipsis size={17} /></button
   >
   {#if open}<div class="track-menu-options">
-      {#if id}<button onclick={replace}
-          ><RefreshCw size={14} /> Replace audio</button
+      {#if id}<button
+          onclick={() => {
+            open = false;
+            linkKind = 'share';
+          }}><Share2 size={14} /> Share song</button
+        ><button
+          onclick={() => {
+            open = false;
+            linkKind = 'playback';
+          }}><Link size={14} /> Playback link</button
+        ><button onclick={replace}><RefreshCw size={14} /> Replace audio</button
         >{:else if downloadOptions}<button
           onclick={() => {
             open = false;
@@ -114,4 +125,11 @@
       if (!busy) choosing = undefined;
     }}
     {choose}
+  />{/if}
+
+{#if linkKind}<AccessLinkDialog
+    name={title}
+    trackIds={[id]}
+    kind={linkKind}
+    close={() => (linkKind = undefined)}
   />{/if}

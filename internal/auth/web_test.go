@@ -80,14 +80,14 @@ func TestWebBrowser(t *testing.T) {
 	}
 	issuer := provider(t, "")
 	source := &ingestSource{audio: audio}
-	s, _ := appWithOptions(t, issuer.URL, t.TempDir(), music, []httpserver.Option{httpserver.WithWeb(os.DirFS(filepath.Join(web, "dist")))}, func(db *sql.DB, lib *library.Library, data *userdata.Service) transportmcp.Acquisition {
+	s, _ := appWithOptions(t, issuer.URL, t.TempDir(), music, []httpserver.Option{httpserver.WithWeb(os.DirFS(filepath.Join(web, "dist")))}, func(db *sql.DB, lib *library.Library, data *userdata.Service) transportmcp.Features {
 		d := discovery.New(ingestMetadata{}, source)
 		root, path := lib.SourceRoot()
 		service, err := ingest.New(context.Background(), ingest.Root{ID: root, Path: path}, t.TempDir(), ingest.Dependencies{Store: database.IngestStore{DB: db}, Discovery: d, Downloader: source, Media: ingestMedia{}, Playlists: data})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return transportmcp.Acquisition{Discovery: d, Ingest: service}
+		return transportmcp.Features{Discovery: d, Ingest: service}
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
