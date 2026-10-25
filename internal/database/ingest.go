@@ -107,8 +107,67 @@ func (s IngestStore) List(ctx context.Context, root, owner string, limit, offset
 	}
 	return out, count, tx.Commit()
 }
-func (s IngestStore) Next(ctx context.Context, root string) (ingest.Job, error) {
-	return readJob(s.DB.QueryRowContext(ctx, "SELECT body FROM ingest_jobs WHERE root_id=? AND (state IN ('queued','running') OR (state='cancelled' AND json_extract(body,'$.cleaned')=0)) ORDER BY CASE WHEN state='cancelled' THEN 1 ELSE 0 END,created_at,id LIMIT 1", root))
+func (s IngestStore) Next(ctx context.Context, root string, excluded ...string) (ingest.Job, error) {
+	query := "SELECT body FROM ingest_jobs WHERE root_id=? AND (state IN ('queued','running') OR (state='cancelled' AND json_extract(body,'$.cleaned')=0))"
+	args := []any{root}
+	if len(excluded) > 0 {
+		query += " AND id NOT IN (" + strings.TrimSuffix(strings.Repeat("?,", len(excluded)), ",") + ")"
+		for _, id := range excluded {
+			args = append(args, id)
+		}
+	}
+	query += " ORDER BY CASE WHEN state='cancelled' THEN 1 ELSE 0 END,created_at,id LIMIT 1"
+	return readJob(s.DB.QueryRowContext(ctx, query, args...))
+}
+
+// QueueStats reads committed job/item counts without exposing owner or track labels.
+func (s IngestStore) QueueStats(ctx context.Context, root string) (ingest.QueueStats, error) {
+	stats := ingest.QueueStats{Jobs: map[string]float64{}, Items: map[string]float64{}}
+	tx, err := s.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return stats, err
+	}
+	defer tx.Rollback()
+	queries := []struct {
+		query  string
+		values map[string]float64
+	}{
+		{"SELECT state,count(*) FROM ingest_jobs WHERE root_id=? GROUP BY state", stats.Jobs},
+		{"SELECT json_extract(item.value,'$.state'),count(*) FROM ingest_jobs,json_each(ingest_jobs.body,'$.items') AS item WHERE root_id=? GROUP BY json_extract(item.value,'$.state')", stats.Items},
+	}
+	for _, q := range queries {
+		rows, err := tx.QueryContext(ctx, q.query, root)
+		if err != nil {
+			return stats, err
+		}
+		for rows.Next() {
+			var state string
+			var count float64
+			if err := rows.Scan(&state, &count); err != nil {
+				rows.Close()
+				return stats, err
+			}
+			q.values[state] = count
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return stats, err
+		}
+	}
+	if err := tx.QueryRowContext(ctx, "SELECT count(*),coalesce(sum(size),0),coalesce(sum(duration),0) FROM tracks WHERE root_id=?", root).Scan(&stats.LibraryTracks, &stats.LibraryBytes, &stats.LibraryDuration); err != nil {
+		return stats, err
+	}
+	var oldest sql.NullString
+	if err := tx.QueryRowContext(ctx, "SELECT min(coalesce(json_extract(body,'$.queued_at'),created_at)) FROM ingest_jobs WHERE root_id=? AND state='queued'", root).Scan(&oldest); err != nil {
+		return stats, err
+	}
+	if oldest.Valid {
+		if t, err := time.Parse(time.RFC3339Nano, oldest.String); err == nil {
+			stats.OldestQueuedAt = t
+		}
+	}
+	return stats, tx.Commit()
 }
 func (s IngestStore) Update(ctx context.Context, id string, change func(*ingest.Job) error) (ingest.Job, error) {
 	tx, err := s.DB.BeginTx(ctx, nil)

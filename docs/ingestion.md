@@ -165,8 +165,15 @@ is a conflict. A job accepts 1–200 tracks or one release of up to 200 tracks. 
 queue permits 100 unfinished queued/running jobs. Searches return up to 50 results
 per entity kind; artist release coverage is limited to the provider's lookup results.
 
-Jobs survive client disconnection and process restarts. One worker processes them
-in the single application instance. States are `queued`, `running`, `completed`,
+Jobs survive client disconnection and process restarts. A bounded pool processes them
+in the single application instance. `WAVELENGTH_INGEST_CONCURRENCY` defaults to two
+concurrent item attempts, with a supported range of one to eight. Both separate jobs
+and items within an album can run concurrently, sharing the same global limit.
+Duplicate metadata references serialize before the second attempt rechecks and
+reuses the committed track. Provider rate limits still apply. The yt-dlp command
+budget includes one additional slot for interactive searches. Increase concurrency
+with CPU/memory and provider capacity in mind; this is not multi-replica job ownership.
+States are `queued`, `running`, `completed`,
 `failed`, `partial`, `needs_selection`, and `cancelled`. Item stages additionally
 show `resolving`, `downloading`, `tagging`, and `publishing`. Read snapshots through
 GetImport, or subscribe to `RealtimeService.Subscribe` for owner-scoped job updates
@@ -205,6 +212,83 @@ A cancelled import stops its active subprocess group, preserves already publishe
 tracks, and cleans unpublished assets. Cancellation cleanup is recorded and resumed
 after a crash. Retrying while the old worker is still stopping can return a conflict;
 retry after it exits. Other users cannot inspect, cancel or retry your jobs.
+
+Cancellation stops every active item in that job and leaves other jobs running.
+Shutdown waits for all workers before closing source handles and the database.
+Interrupted jobs resume from their recorded items after restart. Playlist publication
+waits for all items and always uses request order, regardless of completion order.
+
+## Prometheus metrics
+
+Set `WAVELENGTH_METRICS_ADDR=127.0.0.1:9090` for `GET /metrics` on a separate operational
+listener. It is disabled by default and is not mounted on native/UI, OAuth, or
+Subsonic listeners. Metrics are unauthenticated: bind loopback locally or restrict
+the port to trusted scrapers with network policy. They contain bounded categories,
+not track IDs, playlist names, user identities, URLs, provider keys, or error text.
+
+The per-instance registry includes:
+
+| Metrics | Meaning |
+| --- | --- |
+| `wavelength_downloads_total{outcome}` | Audio download attempts, including failures and repeated attempts. |
+| `wavelength_tracks_published_total{kind}` | Successfully published imports and replacements. |
+| `wavelength_audio_published_bytes_total{kind}`, `wavelength_audio_file_size_bytes` | Tagged MP3 output bytes and size distribution; network transfer is separate. |
+| `wavelength_ingest_operations_total{operation,outcome}` | Create, retry and cancel calls. |
+| `wavelength_ingest_item_attempts_total{outcome}` | Completed, reused, failed, ambiguous, cancelled or interrupted item attempts. |
+| `wavelength_ingest_item_duration_seconds`, `wavelength_ingest_job_duration_seconds` | Active execution time per attempt; retries are distinct observations. |
+| `wavelength_ingest_queue_wait_seconds`, `wavelength_ingest_oldest_queued_job_age_seconds` | Submission/retry-to-start latency and oldest queued age. Recovery/cleanup does not generate queue-wait samples. |
+| `wavelength_ingest_item_queue_wait_seconds`, `wavelength_ingest_worker_wait_duration_seconds{kind}` | Per-item backlog latency, including time behind earlier batch items; global worker-slot and duplicate-reference lock waits. |
+| `wavelength_ingest_jobs{state}`, `wavelength_ingest_items{state}` | Current persisted inventory by state, read from SQLite during the scrape. |
+| `wavelength_ingest_items_active`, `wavelength_ingest_jobs_active`, `wavelength_ingest_concurrency_limit` | Busy item slots, active jobs, and the configured global item limit. |
+| `wavelength_ingest_stage_duration_seconds{stage,outcome}`, `wavelength_ingest_stage_active{stage}` | Latency and activity for metadata search/lookups, source search, ranking, download/conversion, probing, tagging, artwork, lyrics, tag writing and publication. |
+| `wavelength_source_candidates`, `wavelength_source_selections_total{decision}` | Search shortlist sizes and automatic, explicit or manual-required decisions. |
+| `wavelength_provider_requests_total`, `wavelength_provider_request_duration_seconds` | iTunes, YouTube, Jev, artwork and LRCLIB attempts, HTTP status categories or command outcomes, and latency. |
+| `wavelength_provider_wait_duration_seconds{provider,kind}` | Rate-limit, retry-backoff and command/API-slot waits. |
+| `wavelength_provider_cache_lookups_total`, `wavelength_jev_tokens_total` | Jev/album-artist cache effectiveness and Jev-reported input/output tokens. |
+| `wavelength_library_tracks`, `wavelength_library_audio_bytes`, `wavelength_library_audio_duration_seconds` | Shared catalog totals. |
+| `wavelength_ingest_queue_scrape_error` | A failed operational snapshot; failed reads do not publish misleading zero inventories. |
+| `wavelength_http_*` | Request counts, inflight requests, full request latency, time to headers and request/response sizes by listener, method and status. HTTP/2 and streaming interfaces are preserved. |
+| `go_*`, `process_*`, `go_sql_*` | Go runtime, process and SQLite connection-pool statistics. |
+
+Latency histograms use seconds and include success, error, timeout and cancellation
+outcomes. Metadata stage timings include provider waits; provider HTTP timings end at
+response headers, while source commands run through completion. Tagging is an aggregate
+containing probe/artwork/lyrics/tag-write stages, so those observations are not additive.
+HTTP duration includes stream lifetime; use time-to-headers for streaming responsiveness.
+Counters reset on process restart; use `rate()`/`increase()`. Queue and catalog gauges
+read persisted state and survive restarts. Pending unexpanded album jobs have no item
+inventory until their track list is resolved. Cache metrics count cache probes, including
+the second check after waiting for a Jev slot, rather than unique logical requests.
+
+Example queries:
+
+```promql
+# Downloads per minute and failed attempts over the last hour
+sum(rate(wavelength_downloads_total{outcome="ok"}[5m])) * 60
+sum(increase(wavelength_downloads_total{outcome="error"}[1h]))
+
+# p95 active download/conversion latency and worker utilization
+histogram_quantile(0.95, sum by (le) (rate(wavelength_ingest_stage_duration_seconds_bucket{stage="download",outcome="ok"}[5m])))
+wavelength_ingest_items_active / wavelength_ingest_concurrency_limit
+
+# Waiting work and p95 provider rate-limit wait
+sum(wavelength_ingest_items{state="queued"})
+histogram_quantile(0.95, sum by (le,provider) (rate(wavelength_provider_wait_duration_seconds_bucket{kind="rate_limit"}[5m])))
+```
+
+For a Kubernetes scraper using pod annotations, set the metrics bind address to
+`0.0.0.0:9090`, declare container port `metrics: 9090`, and annotate the pod template:
+
+```yaml
+prometheus.io/scrape: "true"
+prometheus.io/port: "9090"
+prometheus.io/path: /metrics
+```
+
+Keep the metrics port out of public Services/Gateway routes. Extend the existing
+ingress NetworkPolicy with a rule allowing TCP 9090 only from the scraper's namespace
+and pod selector, such as namespace `monitoring` with pod label `app: prometheus`.
+No Prometheus Operator or ServiceMonitor is required for annotation-based discovery.
 
 An optional target playlist must belong to the requester. Once every item succeeds,
 their IDs are appended in the requested order. The playlist update stores a receipt

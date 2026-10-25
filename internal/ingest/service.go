@@ -14,33 +14,44 @@ import (
 
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/realtime"
+	"github.com/prayujt/wavelength/internal/telemetry"
 )
 
 type Dependencies struct {
-	Events     *realtime.Hub
-	Store      Store
-	Discovery  *discovery.Service
-	Downloader Downloader
-	Media      Media
-	Playlists  Playlists
+	Events      *realtime.Hub
+	Store       Store
+	Discovery   *discovery.Service
+	Downloader  Downloader
+	Media       Media
+	Playlists   Playlists
+	Concurrency int
+	Metrics     *telemetry.Metrics
 }
 type Service struct {
-	deps         Dependencies
-	root         Root
-	files        *os.Root
-	staging      string
-	ctx          context.Context
-	cancel       context.CancelFunc
-	done         chan struct{}
-	wake         chan struct{}
-	control      sync.Mutex
-	activeMu     sync.Mutex
-	activeID     string
-	activeCancel context.CancelFunc
+	deps     Dependencies
+	root     Root
+	files    *os.Root
+	staging  string
+	ctx      context.Context
+	cancel   context.CancelFunc
+	done     chan struct{}
+	wake     chan struct{}
+	control  sync.Mutex
+	activeMu sync.Mutex
+	active   map[string]context.CancelFunc
+	slots    chan struct{}
+	keysMu   sync.Mutex
+	keys     map[discovery.Ref]*itemLock
 }
 
 // New resumes only recorded jobs. Neither startup nor recovery walks the source library.
 func New(ctx context.Context, root Root, staging string, deps Dependencies) (*Service, error) {
+	if deps.Concurrency == 0 {
+		deps.Concurrency = 1
+	}
+	if deps.Concurrency < 1 || deps.Concurrency > 8 {
+		return nil, ErrInvalid
+	}
 	if deps.Events == nil {
 		deps.Events = realtime.NewHub()
 	}
@@ -61,7 +72,7 @@ func New(ctx context.Context, root Root, staging string, deps Dependencies) (*Se
 		return nil, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	s := &Service{deps: deps, root: root, files: files, staging: staging, ctx: ctx, cancel: cancel, done: make(chan struct{}), wake: make(chan struct{}, 1)}
+	s := &Service{deps: deps, root: root, files: files, staging: staging, ctx: ctx, cancel: cancel, done: make(chan struct{}), wake: make(chan struct{}, 1), active: make(map[string]context.CancelFunc), slots: make(chan struct{}, deps.Concurrency), keys: make(map[discovery.Ref]*itemLock)}
 	go s.run()
 	return s, nil
 }
@@ -92,7 +103,8 @@ func validate(r Request) error {
 	}
 	return nil
 }
-func (s *Service) Create(ctx context.Context, owner string, r Request) (Job, error) {
+func (s *Service) Create(ctx context.Context, owner string, r Request) (result Job, err error) {
+	defer func() { s.deps.Metrics.Operation("create", err) }()
 	if owner == "" {
 		return Job{}, ErrInvalid
 	}
@@ -122,7 +134,7 @@ func (s *Service) Create(ctx context.Context, owner string, r Request) (Job, err
 	}
 	hash := sha256.Sum256(raw)
 	now := time.Now().UTC()
-	j := Job{ID: rand.Text(), RootID: s.root.ID, Owner: owner, Request: r, RequestHash: hex.EncodeToString(hash[:]), State: Queued, Items: []Item{}, CreatedAt: now, UpdatedAt: now, Expanded: r.ReleaseRef.Empty()}
+	j := Job{ID: rand.Text(), RootID: s.root.ID, Owner: owner, Request: r, RequestHash: hex.EncodeToString(hash[:]), State: Queued, Items: []Item{}, CreatedAt: now, UpdatedAt: now, QueuedAt: now, Expanded: r.ReleaseRef.Empty()}
 	for _, i := range r.Items {
 		j.Items = append(j.Items, Item{Selection: i, Preview: s.deps.Discovery.Preview(i.MetadataRef), State: Queued, Warnings: []string{}})
 	}
@@ -151,7 +163,8 @@ func (s *Service) owned(j *Job, owner string) error {
 	}
 	return nil
 }
-func (s *Service) Cancel(ctx context.Context, owner, id string) (Job, error) {
+func (s *Service) Cancel(ctx context.Context, owner, id string) (result Job, err error) {
+	defer func() { s.deps.Metrics.Operation("cancel", err) }()
 	s.control.Lock()
 	defer s.control.Unlock()
 	j, err := s.updateJob(ctx, id, func(j *Job) error {
@@ -175,9 +188,9 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (Job, error) {
 		return j, err
 	}
 	s.activeMu.Lock()
-	active := s.activeID == id
+	cancel, active := s.active[id]
 	if active {
-		s.activeCancel()
+		cancel()
 	}
 	s.activeMu.Unlock()
 	if !active {
@@ -188,7 +201,8 @@ func (s *Service) Cancel(ctx context.Context, owner, id string) (Job, error) {
 	s.notify()
 	return j, nil
 }
-func (s *Service) Retry(ctx context.Context, owner, id string, overrides []Override) (Job, error) {
+func (s *Service) Retry(ctx context.Context, owner, id string, overrides []Override) (result Job, err error) {
+	defer func() { s.deps.Metrics.Operation("retry", err) }()
 	s.control.Lock()
 	defer s.control.Unlock()
 	old, err := s.Get(ctx, owner, id)
@@ -196,7 +210,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, overrides []Overr
 		return old, err
 	}
 	s.activeMu.Lock()
-	active := s.activeID == id
+	_, active := s.active[id]
 	s.activeMu.Unlock()
 	if active {
 		return old, ErrConflict
@@ -235,6 +249,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, overrides []Overr
 			}
 		}
 		j.State = Queued
+		j.QueuedAt = time.Now().UTC()
 		j.Cleaned = false
 		j.Error = ""
 		return nil

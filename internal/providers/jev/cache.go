@@ -27,12 +27,15 @@ func (c *Client) cached(key [32]byte) ([]discovery.Candidate, bool) {
 	defer c.mu.Unlock()
 	entry, ok := c.cache[key]
 	if !ok {
+		c.metrics.Cache("jev", false)
 		return nil, false
 	}
 	if time.Since(entry.created) >= cacheTTL {
+		c.metrics.Cache("jev", false)
 		delete(c.cache, key)
 		return nil, false
 	}
+	c.metrics.Cache("jev", true)
 	return clone(entry.candidates), true
 }
 

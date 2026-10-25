@@ -15,14 +15,21 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/telemetry"
 )
 
 type Client struct {
-	binary string
-	slots  chan struct{}
+	metrics *telemetry.Metrics
+	binary  string
+	slots   chan struct{}
 }
 
-func New() *Client { return &Client{binary: "yt-dlp", slots: make(chan struct{}, 2)} }
+func (c *Client) SetMetrics(metrics *telemetry.Metrics) { c.metrics = metrics }
+
+func New() *Client { return NewWithConcurrency(2) }
+func NewWithConcurrency(limit int) *Client {
+	return &Client{binary: "yt-dlp", slots: make(chan struct{}, max(1, limit))}
+}
 
 // Command output is diagnostic data, not an unbounded in-memory log.
 type boundedOutput struct {
@@ -41,11 +48,14 @@ func (b *boundedOutput) Write(p []byte) (int, error) {
 	return n, nil
 }
 func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
+	waited := time.Now()
 	select {
 	case c.slots <- struct{}{}:
 	case <-ctx.Done():
+		c.metrics.Wait("youtube", "command_slot", time.Since(waited))
 		return nil, ctx.Err()
 	}
+	c.metrics.Wait("youtube", "command_slot", time.Since(waited))
 	defer func() { <-c.slots }()
 	cmd := exec.CommandContext(ctx, c.binary, args...)
 	// yt-dlp starts FFmpeg and JavaScript helpers; cancel the whole process group.
@@ -61,7 +71,21 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 	var stdout, stderr boundedOutput
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
+	operation := "download"
+	for _, arg := range args {
+		if arg == "--flat-playlist" {
+			operation = "search"
+			break
+		}
+	}
+	started := time.Now()
+	runErr := cmd.Run()
+	metricErr := runErr
+	if ctx.Err() != nil {
+		metricErr = ctx.Err()
+	}
+	c.metrics.Provider("youtube", operation, 0, metricErr, time.Since(started))
+	if err := runErr; err != nil {
 		return nil, fmt.Errorf("yt-dlp: %w: %.500s", err, stderr.String())
 	}
 	if stdout.truncated {

@@ -17,10 +17,26 @@ import (
 	"github.com/bogem/id3v2/v2"
 	"github.com/prayujt/wavelength/internal/discovery"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/telemetry"
 )
 
 // AudioMedia validates only the newly acquired file. It never scans a directory.
-type AudioMedia struct{ http *http.Client }
+type AudioMedia struct {
+	http    *http.Client
+	metrics *telemetry.Metrics
+}
+
+func (m *AudioMedia) SetMetrics(metrics *telemetry.Metrics) { m.metrics = metrics }
+func (m *AudioMedia) request(req *http.Request, provider string) (*http.Response, error) {
+	start := time.Now()
+	response, err := m.http.Do(req)
+	code := 0
+	if response != nil {
+		code = response.StatusCode
+	}
+	m.metrics.Provider(provider, "fetch", code, err, time.Since(start))
+	return response, err
+}
 
 func NewAudioMedia() *AudioMedia {
 	return &AudioMedia{http: &http.Client{Timeout: 10 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
@@ -42,7 +58,7 @@ func (m *AudioMedia) cover(ctx context.Context, raw string) ([]byte, string, err
 	if err != nil {
 		return nil, "", err
 	}
-	response, err := m.http.Do(req)
+	response, err := m.request(req, "artwork")
 	if err != nil {
 		return nil, "", err
 	}
@@ -67,7 +83,7 @@ func (m *AudioMedia) lyrics(ctx context.Context, t discovery.Track) (string, err
 		return "", err
 	}
 	req.Header.Set("User-Agent", "Wavelength/1.0 (+https://github.com/prayujt/wavelength)")
-	response, err := m.http.Do(req)
+	response, err := m.request(req, "lrclib")
 	if err != nil {
 		return "", err
 	}
@@ -98,7 +114,9 @@ func (m *AudioMedia) lyrics(ctx context.Context, t discovery.Track) (string, err
 	return l.Plain, nil
 }
 func (m *AudioMedia) Prepare(ctx context.Context, path string, t discovery.Track) (library.Track, []string, error) {
+	doneProbe := m.metrics.Stage("audio_probe")
 	out, err := probeAudio(ctx, path)
+	doneProbe(err)
 	if err != nil {
 		return out, nil, err
 	}
@@ -129,14 +147,18 @@ func (m *AudioMedia) Prepare(ctx context.Context, path string, t discovery.Track
 		tag.AddTextFrame("TPOS", id3v2.EncodingUTF8, strconv.Itoa(t.DiscNumber))
 	}
 	if t.ArtworkURL != "" {
+		done := m.metrics.Stage("artwork")
 		data, kind, err := m.cover(ctx, t.ArtworkURL)
+		done(err)
 		if err != nil {
 			warnings = append(warnings, "cover artwork was unavailable")
 		} else {
 			tag.AddAttachedPicture(id3v2.PictureFrame{Encoding: id3v2.EncodingUTF8, MimeType: kind, PictureType: id3v2.PTFrontCover, Description: "Cover", Picture: data})
 		}
 	}
+	doneLyrics := m.metrics.Stage("lyrics")
 	lyrics, err := m.lyrics(ctx, t)
+	doneLyrics(err)
 	if err != nil {
 		warnings = append(warnings, "lyrics were unavailable")
 	} else if lyrics != "" {
@@ -145,7 +167,10 @@ func (m *AudioMedia) Prepare(ctx context.Context, path string, t discovery.Track
 	if err = ctx.Err(); err != nil {
 		return out, nil, err
 	}
-	if err = tag.Save(); err != nil {
+	doneTags := m.metrics.Stage("tag_write")
+	err = tag.Save()
+	doneTags(err)
+	if err != nil {
 		return out, nil, err
 	}
 	file, err := os.OpenFile(path, os.O_RDWR, 0)

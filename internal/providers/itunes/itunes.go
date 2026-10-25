@@ -15,16 +15,20 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/telemetry"
 	"golang.org/x/time/rate"
 )
 
 type Client struct {
+	metrics *telemetry.Metrics
 	http    *http.Client
 	base    string
 	limiter *rate.Limiter
 	mu      sync.Mutex
 	artists map[int64]cachedAlbumArtist
 }
+
+func (c *Client) SetMetrics(metrics *telemetry.Metrics) { c.metrics = metrics }
 
 type cachedAlbumArtist struct {
 	name    string
@@ -68,15 +72,21 @@ func release(e entry) discovery.Release {
 func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, error) {
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {
+			started := time.Now()
 			timer := time.NewTimer(time.Duration(1<<attempt) * time.Second)
 			select {
 			case <-ctx.Done():
 				timer.Stop()
+				c.metrics.Wait("itunes", "retry_backoff", time.Since(started))
 				return nil, ctx.Err()
 			case <-timer.C:
 			}
+			c.metrics.Wait("itunes", "retry_backoff", time.Since(started))
 		}
-		if err := c.limiter.Wait(ctx); err != nil {
+		waited := time.Now()
+		waitErr := c.limiter.Wait(ctx)
+		c.metrics.Wait("itunes", "rate_limit", time.Since(waited))
+		if err := waitErr; err != nil {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}
@@ -87,7 +97,13 @@ func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, e
 			return nil, err
 		}
 		req.Header.Set("User-Agent", "Wavelength/1.0 (+https://github.com/prayujt/wavelength)")
+		started := time.Now()
 		response, err := c.http.Do(req)
+		code := 0
+		if response != nil {
+			code = response.StatusCode
+		}
+		c.metrics.Provider("itunes", strings.TrimPrefix(path, "/"), code, err, time.Since(started))
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
@@ -178,7 +194,9 @@ func (c *Client) albumArtist(ctx context.Context, id int64) (string, error) {
 	c.mu.Lock()
 	cached, ok := c.artists[id]
 	c.mu.Unlock()
-	if ok && time.Now().Before(cached.expires) {
+	hit := ok && time.Now().Before(cached.expires)
+	c.metrics.Cache("itunes_album_artist", hit)
+	if hit {
 		return cached.name, nil
 	}
 	entries, err := c.get(ctx, "/lookup", url.Values{"id": {strconv.FormatInt(id, 10)}, "entity": {"album"}})

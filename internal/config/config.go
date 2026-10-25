@@ -10,15 +10,17 @@ import (
 )
 
 type Config struct {
-	MusicDir  string   `env:"WAVELENGTH_MUSIC_DIR"`
-	DataDir   string   `env:"WAVELENGTH_DATA_DIR" envDefault:"./data"`
-	WebDir    string   `env:"WAVELENGTH_WEB_DIR"`
-	Addr      string   `env:"WAVELENGTH_ADDR" envDefault:"127.0.0.1:8080"`
-	Token     string   `env:"WAVELENGTH_TOKEN"`
-	PublicURL string   `env:"WAVELENGTH_PUBLIC_URL"`
-	OIDC      OIDC     `envPrefix:"WAVELENGTH_OIDC_"`
-	Subsonic  Subsonic `envPrefix:"WAVELENGTH_SUBSONIC_"`
-	Jev       Jev      `envPrefix:"WAVELENGTH_JEV_"`
+	MusicDir          string   `env:"WAVELENGTH_MUSIC_DIR"`
+	DataDir           string   `env:"WAVELENGTH_DATA_DIR" envDefault:"./data"`
+	WebDir            string   `env:"WAVELENGTH_WEB_DIR"`
+	Addr              string   `env:"WAVELENGTH_ADDR" envDefault:"127.0.0.1:8080"`
+	Token             string   `env:"WAVELENGTH_TOKEN"`
+	PublicURL         string   `env:"WAVELENGTH_PUBLIC_URL"`
+	OIDC              OIDC     `envPrefix:"WAVELENGTH_OIDC_"`
+	Subsonic          Subsonic `envPrefix:"WAVELENGTH_SUBSONIC_"`
+	Jev               Jev      `envPrefix:"WAVELENGTH_JEV_"`
+	MetricsAddr       string   `env:"WAVELENGTH_METRICS_ADDR"`
+	IngestConcurrency int      `env:"WAVELENGTH_INGEST_CONCURRENCY" envDefault:"2"`
 }
 
 type Jev struct {
@@ -58,6 +60,14 @@ func Load() (Config, error) {
 }
 
 func (c Config) validate() error {
+	if c.IngestConcurrency < 1 || c.IngestConcurrency > 8 {
+		return errors.New("WAVELENGTH_INGEST_CONCURRENCY must be between 1 and 8")
+	}
+	if c.MetricsAddr != "" {
+		if _, _, err := net.SplitHostPort(c.MetricsAddr); err != nil {
+			return errors.New("invalid WAVELENGTH_METRICS_ADDR")
+		}
+	}
 	if !c.Subsonic.Enabled() && (c.Subsonic.Addr != "" || c.Subsonic.User != "") {
 		return errors.New("WAVELENGTH_SUBSONIC_PASSWORD is required to enable the legacy listener")
 	}
