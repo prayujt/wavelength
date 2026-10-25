@@ -100,8 +100,19 @@ per entity kind; artist release coverage is limited to the provider's lookup res
 Jobs survive client disconnection and process restarts. One worker processes them
 in the single application instance. States are `queued`, `running`, `completed`,
 `failed`, `partial`, `needs_selection`, and `cancelled`. Item stages additionally
-show `resolving`, `downloading`, `tagging`, and `publishing`. Read progress through
-GetImport; a long-lived streaming connection is not required.
+show `resolving`, `downloading`, `tagging`, and `publishing`. Read snapshots through
+GetImport, or subscribe to `RealtimeService.Subscribe` for owner-scoped job updates
+and shared publication messages. Subscribe before reading initial snapshots and
+refresh them after each ready message, including reconnects. The stream requires
+a signed-in user with `wavelength:read`, sends heartbeats, and reconnects every
+five minutes to reauthorize. It supports Connect, gRPC-Web, and gRPC; proxies must
+forward streaming responses without buffering. Job completion is persisted before
+notifications are emitted, and jobs continue when clients disconnect.
+
+Completed items include local album and artist IDs for navigation. Older job
+records remain readable; clients can use their track ID when those fields are
+absent. Artist search includes representative artwork from matching provider IDs
+already present in song/album results, without a lookup for each artist.
 
 An item downloads into the data directory, validates its MP3 audio, writes metadata,
 and optionally embeds artwork and lyrics. Missing artwork/lyrics produce warnings,

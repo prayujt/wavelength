@@ -115,7 +115,7 @@ func (s *Service) cleanCancelled(j Job) error {
 			}
 		}
 	}
-	_, err := s.deps.Store.Update(s.ctx, j.ID, func(j *Job) error {
+	_, err := s.updateJob(s.ctx, j.ID, func(j *Job) error {
 		if j.State == Cancelled {
 			j.Cleaned = true
 		}

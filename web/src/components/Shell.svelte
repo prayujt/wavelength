@@ -22,6 +22,8 @@
   import { api, session } from '../lib/session.svelte';
   import { PlayerState } from '../lib/player.svelte';
   import { DownloadSelection } from '../lib/downloads.svelte';
+  import { DiscoveryState } from '../lib/discovery.svelte';
+  import { RealtimeState } from '../lib/realtime.svelte';
   import { errorMessage } from '../lib/api';
   import { duration, initials } from '../lib/format';
   import { go, link, readRoute } from '../lib/navigation';
@@ -39,6 +41,8 @@
   import DownloadReview from './DownloadReview.svelte';
   const player = new PlayerState();
   const basket = new DownloadSelection();
+  const discovery = new DiscoveryState();
+  const realtime = new RealtimeState();
   let address = $state(window.location.hash);
   const route = $derived(readRoute(address));
   let adding = $state<Track>();
@@ -115,6 +119,7 @@
     }
   }
   onMount(() => {
+    const stopRealtime = realtime.start(basket);
     if (matchMedia('(max-width: 760px)').matches) sidebar = false;
     const sync = () => {
       address = window.location.hash;
@@ -131,6 +136,7 @@
         if (!controller.signal.aborted) error = errorMessage(cause);
       });
     return () => {
+      stopRealtime();
       controller.abort();
       window.removeEventListener('hashchange', sync);
     };
@@ -256,24 +262,36 @@
             {player}
             add={(track) => (adding = track)}
             initialTab={libraryTab}
+            initialTrackID={route.query.get('track') || ''}
+            {realtime}
           />{:else if route.page === 'artist' || route.page === 'album'}<LibraryDetail
             kind={route.page}
             id={route.id}
             {player}
             add={(track) => (adding = track)}
+            {realtime}
           />{:else if route.page === 'discover' && ['artist', 'release'].includes(route.id)}<DiscoveryDetail
             kind={route.id}
             provider={route.query.get('provider') || ''}
             id={route.query.get('id') || ''}
             {basket}
             {player}
+            {realtime}
+            searchContext={{
+              q: route.query.get('q') || '',
+              category: route.query.get('category') || 'all',
+            }}
           />{:else if route.page === 'discover'}<Discover
             {basket}
             {player}
             initialQuery={route.query.get('q') || ''}
+            initialCategory={route.query.get('category') || 'all'}
+            {discovery}
+            {realtime}
           />{:else if route.page === 'imports'}<Imports
             {player}
             initialID={route.id}
+            {realtime}
           />{:else if route.page === 'playlists'}<Playlists
             {player}
             add={(track) => (adding = track)}
@@ -310,6 +328,7 @@
 {#if searchOpen}<CommandPalette
     {player}
     {basket}
+    {realtime}
     close={() => (searchOpen = false)}
   />{/if}
 {#if basket.reviewing}<DownloadReview

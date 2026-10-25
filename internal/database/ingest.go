@@ -190,6 +190,11 @@ func (s IngestStore) Publish(ctx context.Context, root ingest.Root, jobID string
 	}
 	item.State = ingest.Completed
 	item.TrackID = t.ID
+	group := t.AlbumIdentity()
+	item.AlbumID, item.ArtistID = group.AlbumID, group.ArtistID
+	if item.Metadata == nil {
+		item.Metadata = &discovery.Track{Ref: item.MetadataRef, Title: t.Title, Artist: t.Artist, Album: t.Album, AlbumArtist: t.AlbumArtist, Duration: t.Duration}
+	}
 	item.Reused = reused
 	item.Error = ""
 	if err = saveJob(ctx, tx, &j); err != nil {

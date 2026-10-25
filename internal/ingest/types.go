@@ -56,6 +56,8 @@ type Item struct {
 	State     string           `json:"state"`
 	Error     string           `json:"error,omitempty"`
 	TrackID   string           `json:"track_id,omitempty"`
+	AlbumID   string           `json:"album_id,omitempty"`
+	ArtistID  string           `json:"artist_id,omitempty"`
 	Reused    bool             `json:"reused"`
 	Metadata  *discovery.Track `json:"metadata,omitempty"`
 	Prepared  *Prepared        `json:"prepared,omitempty"`

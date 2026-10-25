@@ -17,6 +17,7 @@
   --warning-bg: #fff9ec;
   --warning-text: #906b20;
   --primary: #303139;
+  --primary-hover: #41424c;
   --primary-text: #ffffff;
   --shadow: 0 16px 64px #18182020;
 }
@@ -38,7 +39,8 @@
   --danger: #ed969d;
   --warning-bg: #322b1e;
   --warning-text: #ddc083;
-  --primary: #dedee5;
-  --primary-text: #202128;
+  --primary: #6e60ae;
+  --primary-hover: #7a6bbd;
+  --primary-text: #ffffff;
   --shadow: 0 16px 64px #0008;
 }

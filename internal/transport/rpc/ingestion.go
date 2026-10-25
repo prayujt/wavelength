@@ -46,7 +46,7 @@ func musicRelease(r discovery.Release) *pb.MusicRelease {
 	return out
 }
 func musicArtist(a discovery.Artist) *pb.MusicArtist {
-	out := &pb.MusicArtist{Ref: refMessage(a.Ref), Name: a.Name}
+	out := &pb.MusicArtist{Ref: refMessage(a.Ref), Name: a.Name, ArtworkUrl: a.ArtworkURL}
 	for _, r := range a.Releases {
 		out.Releases = append(out.Releases, musicRelease(r))
 	}
@@ -59,6 +59,7 @@ func importJob(j ingest.Job) *pb.ImportJob {
 		if i.Metadata != nil {
 			item.Metadata = externalTrack(*i.Metadata)
 		}
+		item.AlbumId, item.ArtistId = i.AlbumID, i.ArtistID
 		out.Items = append(out.Items, item)
 	}
 	return out

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
+  import { onMount, tick, untrack } from 'svelte';
   import {
     ArrowDownToLine,
     ArrowUpRight,
@@ -12,6 +12,7 @@
   } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
   import type { SearchMusicResponse } from '../gen/wavelength/v1/ingestion_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { DownloadSelection } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
@@ -22,9 +23,14 @@
   let {
     player,
     basket,
+    realtime,
     close,
-  }: { player: PlayerState; basket: DownloadSelection; close: () => void } =
-    $props();
+  }: {
+    player: PlayerState;
+    basket: DownloadSelection;
+    realtime: RealtimeState;
+    close: () => void;
+  } = $props();
   let query = $state('');
   let tracks = $state<Track[]>([]);
   let albums = $state<Album[]>([]);
@@ -133,6 +139,7 @@
         kind: 'album',
         run: () => {
           window.location.hash = link('discover/release', {
+            q: query.trim(),
             provider: album.ref?.provider || '',
             id: album.ref?.id || '',
           });
@@ -142,12 +149,14 @@
       rows.push({
         key: `external-artist-${artist.ref?.id}`,
         group: 'Discover',
+        artwork: artist.artworkUrl,
         title: artist.name,
         detail: 'Artist',
         action: 'Browse albums',
         kind: 'artist',
         run: () => {
           window.location.hash = link('discover/artist', {
+            q: query.trim(),
             provider: artist.ref?.provider || '',
             id: artist.ref?.id || '',
           });
@@ -215,6 +224,15 @@
       clearTimeout(localTimer);
       clearTimeout(externalTimer);
     };
+  });
+  $effect(() => {
+    if (realtime.resetVersion)
+      untrack(() => {
+        if (external)
+          void basket
+            .lookup(external.tracks)
+            .catch((cause) => (externalError = errorMessage(cause)));
+      });
   });
   async function choose(result: Result) {
     close();

@@ -35,7 +35,11 @@ message MusicRelease {
   ProviderRef ref = 1; string title = 2; string artist = 3;
   string artwork_url = 4; repeated ExternalTrack tracks = 5;
 }
-message MusicArtist { ProviderRef ref = 1; string name = 2; repeated MusicRelease releases = 3; }
+message MusicArtist {
+  ProviderRef ref = 1; string name = 2; repeated MusicRelease releases = 3;
+  // Representative catalog artwork, when the provider supplies it.
+  string artwork_url = 4;
+}
 message SourceCandidate {
   ProviderRef ref = 1; string title = 2; string uploader = 3;
   double duration_seconds = 4;
@@ -77,6 +81,7 @@ message ImportItem {
   ProviderRef metadata_ref = 1; ProviderRef source_ref = 2;
   string state = 3; string error = 4; string track_id = 5; bool reused = 6;
   ExternalTrack metadata = 7; repeated string warnings = 8;
+  string album_id = 9; string artist_id = 10;
 }
 message ImportJob {
   string id = 1;

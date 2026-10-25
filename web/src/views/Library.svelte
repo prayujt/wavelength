@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { ArrowRight, Library, Search } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
@@ -14,10 +15,14 @@
     player,
     add,
     initialTab = 'tracks',
+    initialTrackID = '',
+    realtime,
   }: {
     player: PlayerState;
     add: (track: Track) => void;
     initialTab?: string;
+    initialTrackID?: string;
+    realtime: RealtimeState;
   } = $props();
   let tab = $state('tracks');
   let query = $state('');
@@ -39,6 +44,9 @@
       controller.abort();
     };
   });
+  $effect(() => {
+    if (realtime.libraryVersion) untrack(() => void load(offset));
+  });
   async function load(nextOffset = 0) {
     const generation = ++request;
     loading = true;
@@ -46,8 +54,16 @@
     try {
       const input = { query, offset: nextOffset, limit: pageSize };
       const options = { signal: controller.signal };
-      const result =
-        tab === 'tracks'
+      const focused =
+        initialTrackID && !query
+          ? await api.library.getTrack({ id: initialTrackID }, options)
+          : undefined;
+      const result = focused
+        ? {
+            tracks: focused.track ? [focused.track] : [],
+            total: focused.track ? 1 : 0,
+          }
+        : tab === 'tracks'
           ? await api.library.listTracks(input, options)
           : tab === 'albums'
             ? await api.library.listAlbums(input, options)
@@ -99,6 +115,7 @@
   </form>
 </div>
 <Notice message={error} />
+{#if initialTrackID}<a class="back-link" href="#library">Show all songs</a>{/if}
 {#if loading}<div class="loading-state" role="status">
     <span class="spinner"></span> Loading library…
   </div>

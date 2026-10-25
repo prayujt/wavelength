@@ -1,0 +1,25 @@
+syntax = "proto3";
+package wavelength.v1;
+option go_package = "github.com/prayujt/wavelength/gen/wavelength/v1;wavelengthv1";
+
+import "wavelength/v1/ingestion.proto";
+
+// Notifications for signed-in clients. Subscribe before reading a snapshot.
+// Events are not replayed; read fresh state after each ready event on reconnect.
+service RealtimeService {
+  rpc Subscribe(SubscribeRequest) returns (stream RealtimeEvent);
+}
+message SubscribeRequest {}
+message StreamReady {}
+message StreamHeartbeat {}
+message LibraryUpdate { ImportedTrack track = 1; }
+message RealtimeEvent {
+  oneof payload {
+    StreamReady ready = 1;
+    // Only the job's owner receives this snapshot.
+    ImportJob import_updated = 2;
+    // Published tracks belong to the shared library.
+    LibraryUpdate library_updated = 3;
+    StreamHeartbeat heartbeat = 4;
+  }
+}

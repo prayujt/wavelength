@@ -19,11 +19,22 @@ through the API; they do not have screens yet.
    failed items can be retried, and unfinished work can be cancelled.
 5. Play completed songs directly from the job or find them in the library.
 
+Search results, category, selection, and scroll position survive artist/album
+browsing. The URL retains the submitted search and category for reloads. Completed
+download artwork and titles link into the local library, with artist links too.
+
+One authenticated `RealtimeService.Subscribe` stream updates job progress and
+existing-download badges across pages and browser tabs. Reconnects refresh the
+visible snapshots; Downloads also retains a manual Refresh button. This uses the
+same generated Connect transport, session cookie, and CSRF header as other RPCs.
+
 Existing-import checks use provider provenance, never fuzzy title matching. Older
 catalog entries without provenance are not guessed to be the same recording.
 Artwork is read from existing embedded tags or an adjacent cover on demand. The
-lyrics panel reads saved lyrics through `GetLyrics`; timed LRC lines can seek the
-player. Opening either does not run a scan or fetch new metadata.
+lyrics panel reads saved lyrics through `GetLyrics`; timed LRC lines highlight and
+follow playback automatically. Scrolling pauses following, and the Follow lyrics
+button resumes it. Lines can seek the player; untimed lyrics remain readable text.
+Opening either does not run a scan or fetch new metadata.
 
 The sidebar uses compact grouped navigation with light/dark themes. The theme
 button follows your system preference initially and remembers explicit changes.

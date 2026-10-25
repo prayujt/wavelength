@@ -1,5 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
+declare global {
+  interface Window {
+    testMusicEvent: (event: object) => void;
+    testEndMusicStream: () => void;
+  }
+}
+
 const artwork = '/media/tracks/track-1/artwork';
 const track = {
   id: 'track-1',
@@ -41,11 +48,61 @@ const importedJob = {
       metadata: external,
       state: 'completed',
       trackId: track.id,
+      albumId: album.id,
+      artistId: artist.id,
     },
   ],
 };
 
 async function signedIn(page: Page, existing = false) {
+  await page.addInitScript(() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input, init) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url;
+      if (!url.endsWith('/wavelength.v1.RealtimeService/Subscribe'))
+        return originalFetch(input, init);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          let closed = false;
+          const send = (value: object, flags = 0) => {
+            const bytes = new TextEncoder().encode(JSON.stringify(value));
+            const frame = new Uint8Array(5 + bytes.length);
+            frame[0] = flags;
+            new DataView(frame.buffer).setUint32(1, bytes.length);
+            frame.set(bytes, 5);
+            controller.enqueue(frame);
+          };
+          window.testMusicEvent = (event) => send(event);
+          window.testEndMusicStream = () => {
+            send({}, 2);
+            closed = true;
+            controller.close();
+          };
+          init?.signal?.addEventListener(
+            'abort',
+            () => {
+              if (!closed) {
+                closed = true;
+                controller.close();
+              }
+            },
+            {
+              once: true,
+            },
+          );
+          send({ ready: {} });
+        },
+      });
+      return new Response(body, {
+        headers: { 'Content-Type': 'application/connect+json' },
+      });
+    };
+  });
   await page.context().addCookies([
     {
       name: 'wavelength_session',
@@ -86,7 +143,14 @@ async function signedIn(page: Page, existing = false) {
   wave.write('data', 36);
   wave.writeUInt32LE(48000, 40);
   await page.route('**/media/tracks/track-1', (route) =>
-    route.fulfill({ contentType: 'audio/wav', body: wave }),
+    route.fulfill({
+      contentType: 'audio/wav',
+      headers: {
+        'Accept-Ranges': 'bytes',
+        'Content-Length': String(wave.length),
+      },
+      body: wave,
+    }),
   );
   let created = false;
   await page.route(/\/wavelength\.v1\./, async (route) => {
@@ -125,7 +189,11 @@ async function signedIn(page: Page, existing = false) {
       Search: {
         tracks: [external],
         artists: [
-          { ref: { provider: 'itunes', id: '456' }, name: 'The Morning' },
+          {
+            ref: { provider: 'itunes', id: '456' },
+            name: 'The Morning',
+            artworkUrl: artwork,
+          },
         ],
         releases: [
           {
@@ -258,7 +326,8 @@ test('artwork loads and artist/album pages have persistent navigation', async ({
 
 test('download review preserves source and playlist choices and opens job progress', async ({
   page,
-}) => {
+}, info) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' });
   await signedIn(page);
   await findNewMusic(page);
   await page
@@ -268,6 +337,13 @@ test('download review preserves source and playlist choices and opens job progre
   await page.getByRole('button', { name: 'Review download' }).click();
   const dialog = page.getByRole('dialog', { name: 'Review download' });
   await expect(dialog).toContainText('New Light — Official Audio');
+  await dialog.getByRole('button', { name: 'Download 1 song' }).hover();
+  await page.screenshot({ path: info.outputPath('review-light.png') });
+  await dialog.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Toggle color theme' }).click();
+  await page.getByRole('button', { name: 'Review download' }).click();
+  await dialog.getByRole('button', { name: 'Download 1 song' }).hover();
+  await page.screenshot({ path: info.outputPath('review-dark.png') });
   await dialog
     .getByRole('combobox', { name: 'Download playlist' })
     .selectOption('playlist-1');
@@ -460,4 +536,176 @@ test('missing artwork falls back to a cover instead of a broken image', async ({
   ).toBeVisible();
   await expect(page.locator('.track-title .cover svg')).toBeVisible();
   await expect(page.locator('.track-title img')).toHaveCount(0);
+});
+
+test('Discover restores search, category and selection after artist and album navigation', async ({
+  page,
+}) => {
+  await signedIn(page);
+  let searches = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith('/wavelength.v1.DiscoveryService/Search'))
+      searches++;
+  });
+  await findNewMusic(page);
+  await page.getByRole('checkbox', { name: 'Select New Light' }).check();
+  await page.getByRole('button', { name: 'Artists', exact: true }).click();
+  const artistResult = page.locator('.artist-chip');
+  await expect(artistResult.locator('img')).toBeVisible();
+  await expect(artistResult.locator('img')).toHaveJSProperty('naturalWidth', 1);
+  await artistResult.click();
+  await page.getByRole('link', { name: /Next Chapter.*The Morning/ }).click();
+  await page.locator('.back-link').click();
+  await expect(
+    page.getByRole('textbox', { name: 'Search for new music' }),
+  ).toHaveValue('The Morning');
+  await expect(
+    page.getByRole('button', { name: 'Artists', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  expect(searches).toBe(1);
+  await page.getByRole('button', { name: 'Songs', exact: true }).click();
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeChecked();
+  await page.reload();
+  await expect(
+    page.getByRole('textbox', { name: 'Search for new music' }),
+  ).toHaveValue('The Morning');
+  await expect(
+    page.getByRole('button', { name: 'Songs', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('streamed publication updates search badges and reconnect refreshes missed changes', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await findNewMusic(page);
+  await page.evaluate(
+    ({ ref, id }) =>
+      window.testMusicEvent({
+        libraryUpdated: { track: { metadataRef: ref, trackId: id } },
+      }),
+    { ref, id: track.id },
+  );
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeDisabled();
+  await expect(page.locator('.discovery-track')).toContainText('In library');
+  await page.reload();
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeEnabled();
+  await page.route('**/wavelength.v1.IngestionService/LookupImports', (route) =>
+    route.fulfill({
+      json: { tracks: [{ metadataRef: ref, trackId: track.id }] },
+    }),
+  );
+  await page.evaluate(() => window.testEndMusicStream());
+  await expect(
+    page.getByRole('checkbox', { name: 'Select New Light' }),
+  ).toBeDisabled();
+});
+
+test('streamed job progress updates without polling and completed songs link to the library', async ({
+  page,
+}) => {
+  await signedIn(page);
+  const pending = {
+    ...importedJob,
+    state: 'running',
+    items: [{ ...importedJob.items[0], state: 'downloading', trackId: '' }],
+  };
+  let reads = 0;
+  await page.route('**/wavelength.v1.IngestionService/ListImports', (route) => {
+    reads++;
+    return route.fulfill({ json: { imports: [pending], total: 1 } });
+  });
+  await page.goto('/#imports');
+  await expect(
+    page.getByRole('heading', { name: 'Download progress' }),
+  ).toBeVisible();
+  const initialReads = reads;
+  await page.evaluate(
+    (job) => window.testMusicEvent({ importUpdated: job }),
+    importedJob,
+  );
+  await expect(
+    page.getByRole('heading', { name: 'Download complete' }),
+  ).toBeVisible();
+  await page.waitForTimeout(2200);
+  expect(reads).toBe(initialReads);
+  await expect(
+    page.getByRole('link', { name: 'Open New Light in library' }),
+  ).toHaveAttribute('href', '#album/album-1');
+  await page.locator('.track-link').click();
+  await expect(
+    page.getByRole('heading', { name: 'Small Hours', exact: true }),
+  ).toBeVisible();
+});
+
+test('timed lyrics follow playback and allow manual browsing before resuming', async ({
+  page,
+}, info) => {
+  await page.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
+  await signedIn(page);
+  await page.route('**/wavelength.v1.LibraryService/GetLyrics', (route) =>
+    route.fulfill({
+      json: {
+        lyrics: Array.from(
+          { length: 60 },
+          (_, index) =>
+            `[00:${(index * 0.04).toFixed(2)}]Lyric line ${index + 1}`,
+        ).join('\n'),
+      },
+    }),
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Play First Light' }).click();
+  await page.getByRole('button', { name: 'Show lyrics', exact: true }).click();
+  await expect
+    .poll(() =>
+      page
+        .locator('audio')
+        .evaluate((audio: HTMLAudioElement) => audio.readyState),
+    )
+    .toBeGreaterThan(0);
+  const lyrics = page.getByRole('complementary', { name: 'Lyrics' });
+  await expect(
+    lyrics.getByRole('button', { name: 'Following lyrics' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('audio').evaluate((audio: HTMLAudioElement) => {
+    audio.pause();
+    audio.currentTime = 2;
+    audio.dispatchEvent(new Event('timeupdate'));
+  });
+  await expect(lyrics.locator('[aria-current="true"]')).toHaveText(
+    'Lyric line 51',
+  );
+  const scroll = lyrics.locator('.lyrics-scroll');
+  await expect
+    .poll(() => scroll.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(100);
+  await scroll.dispatchEvent('wheel', { deltaY: -200 });
+  await expect(
+    lyrics.getByRole('button', { name: 'Follow lyrics', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
+  await scroll.evaluate((element) => (element.scrollTop = 0));
+  await page.locator('audio').evaluate((audio: HTMLAudioElement) => {
+    audio.currentTime = 2.2;
+    audio.dispatchEvent(new Event('timeupdate'));
+  });
+  await expect(lyrics.locator('[aria-current="true"]')).toHaveText(
+    'Lyric line 56',
+  );
+  await expect
+    .poll(() => scroll.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await lyrics
+    .getByRole('button', { name: 'Follow lyrics', exact: true })
+    .click();
+  await expect
+    .poll(() => scroll.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(100);
+  await page.screenshot({ path: info.outputPath('lyrics-dark.png') });
 });

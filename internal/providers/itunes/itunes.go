@@ -109,12 +109,16 @@ func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, e
 }
 func (c *Client) Search(ctx context.Context, query string, limit int) (discovery.Results, error) {
 	out := discovery.Results{Tracks: []discovery.Track{}, Releases: []discovery.Release{}, Artists: []discovery.Artist{}}
+	artwork := make(map[int64]string)
 	for _, entity := range []string{"song", "album", "musicArtist"} {
 		entries, err := c.get(ctx, "/search", url.Values{"term": {query}, "media": {"music"}, "entity": {entity}, "limit": {strconv.Itoa(limit)}})
 		if err != nil {
 			return out, err
 		}
 		for _, e := range entries {
+			if e.ArtistID > 0 && e.Artwork != "" {
+				artwork[e.ArtistID] = strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1)
+			}
 			switch e.Kind {
 			case "track":
 				if e.TrackID > 0 {
@@ -123,7 +127,7 @@ func (c *Client) Search(ctx context.Context, query string, limit int) (discovery
 			case "collection":
 				out.Releases = append(out.Releases, release(e))
 			case "artist":
-				out.Artists = append(out.Artists, discovery.Artist{Ref: ref(e.ArtistID), Name: e.Artist, Releases: []discovery.Release{}})
+				out.Artists = append(out.Artists, discovery.Artist{Ref: ref(e.ArtistID), Name: e.Artist, ArtworkURL: artwork[e.ArtistID], Releases: []discovery.Release{}})
 			}
 		}
 	}
@@ -224,9 +228,15 @@ func (c *Client) Artist(ctx context.Context, r discovery.Ref) (discovery.Artist,
 		if e.Kind == "artist" && ref(e.ArtistID) == r {
 			out.Ref = r
 			out.Name = e.Artist
+			if e.Artwork != "" {
+				out.ArtworkURL = strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1)
+			}
 		}
 		if e.Kind == "collection" {
 			out.Releases = append(out.Releases, release(e))
+			if out.ArtworkURL == "" {
+				out.ArtworkURL = release(e).ArtworkURL
+			}
 		}
 	}
 	if out.Ref.Empty() {

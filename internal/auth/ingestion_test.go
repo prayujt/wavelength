@@ -32,10 +32,17 @@ var audioRef = discovery.Ref{Provider: "youtube", ID: "BaW_jenozKc"}
 type ingestMetadata struct{}
 
 func (ingestMetadata) Track(_ context.Context, ref discovery.Ref) (discovery.Track, error) {
+	if ref.ID == "456" {
+		return discovery.Track{Ref: ref, Title: "Streamed Tone", Artist: "Streamed Artist", Album: "Streamed Album", AlbumArtist: "Streamed Artist", Duration: .25}, nil
+	}
 	return discovery.Track{Ref: ref, Title: "Imported Tone", Artist: "Imported Artist", Album: "Imported Album", AlbumArtist: "Imported Artist", Duration: .25}, nil
 }
-func (m ingestMetadata) Search(ctx context.Context, _ string, _ int) (discovery.Results, error) {
-	track, _ := m.Track(ctx, externalRef)
+func (m ingestMetadata) Search(ctx context.Context, query string, _ int) (discovery.Results, error) {
+	ref := externalRef
+	if query == "Streamed Artist" {
+		ref = discovery.Ref{Provider: "itunes", ID: "456"}
+	}
+	track, _ := m.Track(ctx, ref)
 	return discovery.Results{Tracks: []discovery.Track{track}, Releases: []discovery.Release{}, Artists: []discovery.Artist{}}, nil
 }
 func (m ingestMetadata) Release(ctx context.Context, ref discovery.Ref) (discovery.Release, error) {

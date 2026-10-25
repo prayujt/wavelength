@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import {
     CheckCircle2,
     Download,
@@ -13,6 +13,7 @@
     ImportJob,
     ProviderRef,
   } from '../gen/wavelength/v1/ingestion_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { api } from '../lib/session.svelte';
   import { errorMessage } from '../lib/api';
@@ -21,8 +22,15 @@
   import Cover from '../components/Cover.svelte';
   import Notice from '../components/Notice.svelte';
   import SourcePicker from '../components/SourcePicker.svelte';
-  let { initialID = '', player }: { initialID?: string; player: PlayerState } =
-    $props();
+  let {
+    initialID = '',
+    player,
+    realtime,
+  }: {
+    initialID?: string;
+    player: PlayerState;
+    realtime: RealtimeState;
+  } = $props();
   let jobs = $state<ImportJob[]>([]);
   let selected = $state<ImportJob>();
   let total = $state(0);
@@ -33,9 +41,10 @@
   let error = $state('');
   let overrides = $state<Record<number, ProviderRef>>({});
   let choosing = $state<{ track: ExternalTrack; index: number }>();
-  let controller: AbortController;
-  let timer: ReturnType<typeof setTimeout>;
+  const controller = new AbortController();
   let request = 0;
+  let refreshQueued = false;
+  const seenUpdates = new Set<string>();
   const active = (job: ImportJob) => ['queued', 'running'].includes(job.state);
   const completed = $derived(
     selected?.items.filter((item) => item.state === 'completed').length || 0,
@@ -52,18 +61,15 @@
     failed: 'Download failed',
   };
   onMount(() => {
-    controller = new AbortController();
     void load();
     return () => {
       ++request;
       controller.abort();
-      clearTimeout(timer);
     };
   });
   async function load(nextOffset = offset) {
     const generation = ++request;
     refreshing = true;
-    clearTimeout(timer);
     try {
       const result = await api.ingestion.listImports(
         { limit: 20, offset: nextOffset },
@@ -81,10 +87,10 @@
         detail = result.imports.find(active) || result.imports[0];
       if (generation !== request) return;
       if (nextOffset !== offset) overrides = {};
-      jobs = result.imports;
+      jobs = result.imports.map((job) => realtime.latest(job));
       total = result.total;
       offset = nextOffset;
-      selected = detail;
+      selected = detail ? realtime.latest(detail) : undefined;
     } catch (cause) {
       if (generation === request && !controller.signal.aborted)
         error = errorMessage(cause);
@@ -92,14 +98,33 @@
       if (generation === request) {
         loading = false;
         refreshing = false;
-        if (
-          !controller.signal.aborted &&
-          (jobs.some(active) || (selected && active(selected)))
-        )
-          timer = setTimeout(() => void load(), 2000);
+        if (refreshQueued && !controller.signal.aborted) {
+          refreshQueued = false;
+          void load();
+        }
       }
     }
   }
+  $effect(() => {
+    if (realtime.resetVersion) untrack(() => void load());
+  });
+  $effect(() => {
+    const updates = realtime.imports;
+    untrack(() => {
+      let unknown = false;
+      for (const job of Object.values(updates)) {
+        if (seenUpdates.has(job.id)) continue;
+        seenUpdates.add(job.id);
+        if (!jobs.some((known) => known.id === job.id)) unknown = true;
+      }
+      jobs = jobs.map((job) => realtime.latest(job));
+      if (selected) selected = realtime.latest(selected);
+      if (unknown) {
+        if (refreshing) refreshQueued = true;
+        else void load();
+      }
+    });
+  });
   async function mutate(kind: 'cancel' | 'retry') {
     if (!selected || busy) return;
     busy = true;
@@ -147,6 +172,9 @@
     <p class="subtitle">Progress, recording choices, and completed music.</p>
   </div>
   <div class="entity-actions">
+    <span class="muted small-text" role="status"
+      >{realtime.connected ? 'Live updates' : 'Reconnecting…'}</span
+    >
     <button
       class="button secondary"
       onclick={() => load()}
@@ -219,15 +247,42 @@
           </p>{/if}{#each selected.items as item, index}<div
             class="import-item"
           >
-            <Cover
-              name={item.metadata?.album || item.metadata?.title || 'Download'}
-              artwork={item.metadata?.artworkUrl}
-              small
-            />
+            {#if item.state === 'completed' && item.trackId}<a
+                class="import-artwork-link"
+                aria-label={`Open ${item.metadata?.title || 'song'} in library`}
+                href={item.albumId
+                  ? link(`album/${encodeURIComponent(item.albumId)}`)
+                  : link('library', { track: item.trackId })}
+                ><Cover
+                  name={item.metadata?.album || 'Download'}
+                  artwork={`/media/tracks/${encodeURIComponent(item.trackId)}/artwork`}
+                  small
+                /></a
+              >{:else}<Cover
+                name={item.metadata?.album ||
+                  item.metadata?.title ||
+                  'Download'}
+                artwork={item.metadata?.artworkUrl}
+                small
+              />{/if}
             <div class="track-info">
-              <strong>{item.metadata?.title || `Song ${index + 1}`}</strong
-              ><span>{item.metadata?.artist || item.metadataRef?.id}</span
-              ><small class:accent={item.state === 'completed'}
+              {#if item.state === 'completed' && item.trackId}<a
+                  class="track-link"
+                  href={item.albumId
+                    ? link(`album/${encodeURIComponent(item.albumId)}`)
+                    : link('library', { track: item.trackId })}
+                  ><strong>{item.metadata?.title || `Song ${index + 1}`}</strong
+                  ></a
+                >{:else}<strong
+                  >{item.metadata?.title || `Song ${index + 1}`}</strong
+                >{/if}
+              {#if item.state === 'completed' && item.artistId}<a
+                  class="track-artist-link"
+                  href={link(`artist/${encodeURIComponent(item.artistId)}`)}
+                  >{item.metadata?.artist}</a
+                >{:else}<span
+                  >{item.metadata?.artist || item.metadataRef?.id}</span
+                >{/if}<small class:accent={item.state === 'completed'}
                 >{overrides[index]
                   ? 'New recording selected'
                   : phases[item.state] || stateLabel(item.state)}{item.reused

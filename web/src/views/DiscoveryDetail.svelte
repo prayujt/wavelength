@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { create } from '@bufbuild/protobuf';
   import { ArrowLeft, Check, Download, Play } from '@lucide/svelte';
   import {
@@ -7,6 +7,7 @@
     type MusicArtist,
     type MusicRelease,
   } from '../gen/wavelength/v1/ingestion_pb';
+  import type { RealtimeState } from '../lib/realtime.svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { DownloadSelection } from '../lib/downloads.svelte';
   import { api } from '../lib/session.svelte';
@@ -22,12 +23,16 @@
     id,
     basket,
     player,
+    realtime,
+    searchContext,
   }: {
     kind: string;
     provider: string;
     id: string;
     basket: DownloadSelection;
     player: PlayerState;
+    realtime: RealtimeState;
+    searchContext: Record<string, string>;
   } = $props();
   let artist = $state<MusicArtist>();
   let release = $state<MusicRelease>();
@@ -69,6 +74,15 @@
     void load();
     return () => controller.abort();
   });
+  $effect(() => {
+    if (realtime.resetVersion)
+      untrack(() => {
+        if (release)
+          void basket
+            .lookup(release.tracks)
+            .catch((cause) => (error = errorMessage(cause)));
+      });
+  });
   async function playSaved() {
     try {
       const results = await Promise.all(
@@ -85,7 +99,8 @@
   }
 </script>
 
-<a class="back-link" href="#discover"><ArrowLeft size={14} /> Discover</a
+<a class="back-link" href={link('discover', searchContext)}
+  ><ArrowLeft size={14} /> Discover</a
 ><Notice message={error} />
 {#if loading}<div class="loading-state" role="status">
     <span class="spinner"></span> Loading {kind === 'artist'
@@ -94,7 +109,9 @@
   </div>{:else if artist || release}<header class="entity-header">
     <Cover
       name={artist?.name || release?.title || ''}
-      artwork={release?.artworkUrl || artist?.releases[0]?.artworkUrl}
+      artwork={release?.artworkUrl ||
+        artist?.artworkUrl ||
+        artist?.releases[0]?.artworkUrl}
     />
     <div>
       <p class="entity-type">
@@ -139,6 +156,7 @@
       {#each artist?.releases || [] as item}<a
           class="music-card"
           href={link('discover/release', {
+            ...searchContext,
             provider: item.ref?.provider || '',
             id: item.ref?.id || '',
           })}

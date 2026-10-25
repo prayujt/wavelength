@@ -5,6 +5,7 @@ import {
   type Interceptor,
 } from '@connectrpc/connect';
 import { createConnectTransport } from '@connectrpc/connect-web';
+import { RealtimeService } from '../gen/wavelength/v1/realtime_pb';
 import {
   LibraryService,
   UserDataService,
@@ -39,6 +40,7 @@ export function createAPI(
     user: createClient(UserDataService, transport),
     discovery: createClient(DiscoveryService, transport),
     ingestion: createClient(IngestionService, transport),
+    realtime: createClient(RealtimeService, transport),
   };
 }
 

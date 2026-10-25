@@ -50,9 +50,10 @@ type Release struct {
 	Tracks     []Track `json:"tracks"`
 }
 type Artist struct {
-	Ref      Ref       `json:"ref"`
-	Name     string    `json:"name"`
-	Releases []Release `json:"releases"`
+	Ref        Ref       `json:"ref"`
+	Name       string    `json:"name"`
+	ArtworkURL string    `json:"artwork_url,omitempty"`
+	Releases   []Release `json:"releases"`
 }
 type Results struct {
 	Tracks   []Track   `json:"tracks"`

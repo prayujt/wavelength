@@ -21,11 +21,11 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 		result := []entry{}
 		switch {
 		case r.URL.Path == "/search" && q.Get("entity") == "song":
-			result = []entry{{Kind: "track", TrackID: 123, Artist: "Artist", Title: "Song", Millis: 180000}}
+			result = []entry{{Kind: "track", TrackID: 123, ArtistID: 789, Artist: "Artist", Title: "Song", Millis: 180000, Artwork: "https://example.test/100x100bb.jpg"}}
 		case r.URL.Path == "/search" && q.Get("entity") == "album":
 			result = []entry{{Kind: "collection", AlbumID: 456, Album: "Album", Artist: "Album artist"}}
 		case r.URL.Path == "/search":
-			result = []entry{{Kind: "artist", ArtistID: 789, Artist: "Artist"}}
+			result = []entry{{Kind: "artist", ArtistID: 789, Artist: "Artist"}, {Kind: "artist", ArtistID: 790, Artist: "Artist"}}
 		case q.Get("id") == "456":
 			result = []entry{{Kind: "collection", AlbumID: 456, Album: "Album", Artist: "Various Artists"}, {Kind: "track", AlbumID: 456, TrackID: 123, Title: "Song", Artist: "Track artist", Millis: 180000, Number: 2, Disc: 1, Genre: "Country"}}
 		case q.Get("id") == "789":
@@ -36,8 +36,11 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 	defer server.Close()
 	c := &Client{http: server.Client(), base: server.URL, limiter: rate.NewLimiter(rate.Inf, 1)}
 	results, err := c.Search(context.Background(), "Artist", 5)
-	if err != nil || len(results.Tracks) != 1 || len(results.Releases) != 1 || len(results.Artists) != 1 {
+	if err != nil || len(results.Tracks) != 1 || len(results.Releases) != 1 || len(results.Artists) != 2 {
 		t.Fatal(results, err)
+	}
+	if results.Artists[0].ArtworkURL != "https://example.test/600x600bb.jpg" || results.Artists[1].ArtworkURL != "" {
+		t.Fatal("artist artwork must match provider identity", results.Artists)
 	}
 	release, err := c.Release(context.Background(), discovery.Ref{Provider: "itunes", ID: "456"})
 	if err != nil || len(release.Tracks) != 1 || release.Tracks[0].AlbumArtist != "Various Artists" || release.Tracks[0].Artist != "Track artist" || release.Tracks[0].Duration != 180 {

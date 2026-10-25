@@ -43,7 +43,7 @@ func (s *Service) process(id string) error {
 	s.activeCancel = cancel
 	s.activeMu.Unlock()
 	defer func() { cancel(); s.activeMu.Lock(); s.activeID = ""; s.activeCancel = nil; s.activeMu.Unlock() }()
-	j, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	j, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return ErrCancelled
 		}
@@ -67,7 +67,7 @@ func (s *Service) process(id string) error {
 			}
 			return s.failJob(ctx, id, "release metadata could not be resolved", lookupErr)
 		}
-		j, err = s.deps.Store.Update(ctx, id, func(j *Job) error {
+		j, err = s.updateJob(ctx, id, func(j *Job) error {
 			if j.State == Cancelled {
 				return ErrCancelled
 			}
@@ -121,7 +121,7 @@ func (s *Service) process(id string) error {
 }
 func (s *Service) failJob(ctx context.Context, id, message string, cause error) error {
 	slog.Warn("import failed", "import", id, "error", cause)
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return nil
 		}
@@ -132,7 +132,7 @@ func (s *Service) failJob(ctx context.Context, id, message string, cause error) 
 	return err
 }
 func (s *Service) changeItem(ctx context.Context, id string, index int, change func(*Item)) error {
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err := s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return ErrCancelled
 		}
@@ -168,7 +168,7 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 			return s.itemFailure(ctx, j, n, "existing catalog track has no readable source file", err)
 		}
 		file.Close()
-		_, err = s.deps.Store.Publish(ctx, s.root, j.ID, n, Prepared{})
+		_, err = s.publish(ctx, j, n, Prepared{})
 		return err
 	} else if !errors.Is(err, ErrNotFound) {
 		return err
@@ -265,7 +265,7 @@ func (s *Service) processItem(ctx context.Context, j Job, n int) error {
 	if err := s.publishFile(ctx, j.ID, n, *item.Prepared); err != nil {
 		return s.itemFailure(ctx, j, n, "prepared audio could not be published", err)
 	}
-	t, err := s.deps.Store.Publish(ctx, s.root, j.ID, n, *item.Prepared)
+	t, err := s.publish(ctx, j, n, *item.Prepared)
 	if err != nil {
 		return err
 	}
@@ -280,7 +280,7 @@ func (s *Service) finish(ctx context.Context, id string) error {
 	defer s.control.Unlock()
 	// The worker owns the ID; read the current record inside Update after any cancellation.
 	var final Job
-	_, err := s.deps.Store.Update(ctx, id, func(j *Job) error { final = *j; return nil })
+	_, err := s.updateJob(ctx, id, func(j *Job) error { final = *j; return nil })
 	if err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (s *Service) finish(ctx context.Context, id string) error {
 			slog.Warn("import playlist failed", "import", id, "error", err)
 		}
 	}
-	_, err = s.deps.Store.Update(ctx, id, func(j *Job) error {
+	_, err = s.updateJob(ctx, id, func(j *Job) error {
 		if j.State == Cancelled {
 			return nil
 		}

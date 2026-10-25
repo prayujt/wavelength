@@ -415,10 +415,12 @@ func (x *MusicRelease) GetTracks() []*ExternalTrack {
 }
 
 type MusicArtist struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ref           *ProviderRef           `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Releases      []*MusicRelease        `protobuf:"bytes,3,rep,name=releases,proto3" json:"releases,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Ref      *ProviderRef           `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
+	Name     string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Releases []*MusicRelease        `protobuf:"bytes,3,rep,name=releases,proto3" json:"releases,omitempty"`
+	// Representative catalog artwork, when the provider supplies it.
+	ArtworkUrl    string `protobuf:"bytes,4,opt,name=artwork_url,json=artworkUrl,proto3" json:"artwork_url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -472,6 +474,13 @@ func (x *MusicArtist) GetReleases() []*MusicRelease {
 		return x.Releases
 	}
 	return nil
+}
+
+func (x *MusicArtist) GetArtworkUrl() string {
+	if x != nil {
+		return x.ArtworkUrl
+	}
+	return ""
 }
 
 type SourceCandidate struct {
@@ -1373,6 +1382,8 @@ type ImportItem struct {
 	Reused        bool                   `protobuf:"varint,6,opt,name=reused,proto3" json:"reused,omitempty"`
 	Metadata      *ExternalTrack         `protobuf:"bytes,7,opt,name=metadata,proto3" json:"metadata,omitempty"`
 	Warnings      []string               `protobuf:"bytes,8,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	AlbumId       string                 `protobuf:"bytes,9,opt,name=album_id,json=albumId,proto3" json:"album_id,omitempty"`
+	ArtistId      string                 `protobuf:"bytes,10,opt,name=artist_id,json=artistId,proto3" json:"artist_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1461,6 +1472,20 @@ func (x *ImportItem) GetWarnings() []string {
 		return x.Warnings
 	}
 	return nil
+}
+
+func (x *ImportItem) GetAlbumId() string {
+	if x != nil {
+		return x.AlbumId
+	}
+	return ""
+}
+
+func (x *ImportItem) GetArtistId() string {
+	if x != nil {
+		return x.ArtistId
+	}
+	return ""
 }
 
 type ImportJob struct {
@@ -1600,11 +1625,13 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\x06artist\x18\x03 \x01(\tR\x06artist\x12\x1f\n" +
 	"\vartwork_url\x18\x04 \x01(\tR\n" +
 	"artworkUrl\x124\n" +
-	"\x06tracks\x18\x05 \x03(\v2\x1c.wavelength.v1.ExternalTrackR\x06tracks\"\x88\x01\n" +
+	"\x06tracks\x18\x05 \x03(\v2\x1c.wavelength.v1.ExternalTrackR\x06tracks\"\xa9\x01\n" +
 	"\vMusicArtist\x12,\n" +
 	"\x03ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\x03ref\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x127\n" +
-	"\breleases\x18\x03 \x03(\v2\x1b.wavelength.v1.MusicReleaseR\breleases\"\xe6\x01\n" +
+	"\breleases\x18\x03 \x03(\v2\x1b.wavelength.v1.MusicReleaseR\breleases\x12\x1f\n" +
+	"\vartwork_url\x18\x04 \x01(\tR\n" +
+	"artworkUrl\"\xe6\x01\n" +
 	"\x0fSourceCandidate\x12,\n" +
 	"\x03ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\x03ref\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1a\n" +
@@ -1662,7 +1689,7 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"source_ref\x18\x02 \x01(\v2\x1a.wavelength.v1.ProviderRefR\tsourceRef\"a\n" +
 	"\x12RetryImportRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
-	"\toverrides\x18\x02 \x03(\v2\x1d.wavelength.v1.SourceOverrideR\toverrides\"\xbb\x02\n" +
+	"\toverrides\x18\x02 \x03(\v2\x1d.wavelength.v1.SourceOverrideR\toverrides\"\xf3\x02\n" +
 	"\n" +
 	"ImportItem\x12=\n" +
 	"\fmetadata_ref\x18\x01 \x01(\v2\x1a.wavelength.v1.ProviderRefR\vmetadataRef\x129\n" +
@@ -1673,7 +1700,10 @@ const file_wavelength_v1_ingestion_proto_rawDesc = "" +
 	"\btrack_id\x18\x05 \x01(\tR\atrackId\x12\x16\n" +
 	"\x06reused\x18\x06 \x01(\bR\x06reused\x128\n" +
 	"\bmetadata\x18\a \x01(\v2\x1c.wavelength.v1.ExternalTrackR\bmetadata\x12\x1a\n" +
-	"\bwarnings\x18\b \x03(\tR\bwarnings\"\xcc\x02\n" +
+	"\bwarnings\x18\b \x03(\tR\bwarnings\x12\x19\n" +
+	"\balbum_id\x18\t \x01(\tR\aalbumId\x12\x1b\n" +
+	"\tartist_id\x18\n" +
+	" \x01(\tR\bartistId\"\xcc\x02\n" +
 	"\tImportJob\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05state\x18\x02 \x01(\tR\x05state\x12\x14\n" +

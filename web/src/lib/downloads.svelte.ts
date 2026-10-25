@@ -2,6 +2,7 @@ import type {
   ExternalTrack,
   ProviderRef,
   SourceCandidate,
+  ImportedTrack,
 } from '../gen/wavelength/v1/ingestion_pb';
 import { api } from './session.svelte';
 
@@ -15,6 +16,7 @@ export class DownloadSelection {
   reviewing = $state(false);
   playlistId = $state('');
   private requestId = '';
+  private importVersion = 0;
   duration = $derived(
     this.tracks.reduce((sum, track) => sum + track.durationSeconds, 0),
   );
@@ -72,14 +74,23 @@ export class DownloadSelection {
     const metadataRefs = tracks.flatMap((track) =>
       track.ref ? [track.ref] : [],
     );
+    const version = this.importVersion;
     const result = await api.ingestion.lookupImports(
       { metadataRefs },
       { signal },
     );
     if (signal?.aborted) return;
     const imported = { ...this.imported };
-    for (const ref of metadataRefs) delete imported[refKey(ref)];
-    for (const match of result.tracks)
+    if (version === this.importVersion)
+      for (const ref of metadataRefs) delete imported[refKey(ref)];
+    this.imported = imported;
+    this.markImported(result.tracks);
+  }
+
+  markImported(matches: ImportedTrack[]) {
+    this.importVersion++;
+    const imported = { ...this.imported };
+    for (const match of matches)
       imported[refKey(match.metadataRef)] = match.trackId;
     this.imported = imported;
     const remaining = this.tracks.filter((track) => !this.localID(track));

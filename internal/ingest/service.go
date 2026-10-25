@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
+	"github.com/prayujt/wavelength/internal/realtime"
 )
 
 type Dependencies struct {
+	Events     *realtime.Hub
 	Store      Store
 	Discovery  *discovery.Service
 	Downloader Downloader
@@ -39,6 +41,9 @@ type Service struct {
 
 // New resumes only recorded jobs. Neither startup nor recovery walks the source library.
 func New(ctx context.Context, root Root, staging string, deps Dependencies) (*Service, error) {
+	if deps.Events == nil {
+		deps.Events = realtime.NewHub()
+	}
 	if err := deps.Store.EnsureRoot(ctx, root); err != nil {
 		return nil, err
 	}
@@ -108,6 +113,7 @@ func (s *Service) Create(ctx context.Context, owner string, r Request) (Job, err
 	}
 	j, err = s.deps.Store.Create(ctx, j)
 	if err == nil {
+		s.changed(j)
 		s.notify()
 	}
 	return j, err
@@ -133,7 +139,7 @@ func (s *Service) owned(j *Job, owner string) error {
 func (s *Service) Cancel(ctx context.Context, owner, id string) (Job, error) {
 	s.control.Lock()
 	defer s.control.Unlock()
-	j, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	j, err := s.updateJob(ctx, id, func(j *Job) error {
 		if err := s.owned(j, owner); err != nil {
 			return err
 		}
@@ -195,7 +201,7 @@ func (s *Service) Retry(ctx context.Context, owner, id string, overrides []Overr
 			return old, err
 		}
 	}
-	j, err := s.deps.Store.Update(ctx, id, func(j *Job) error {
+	j, err := s.updateJob(ctx, id, func(j *Job) error {
 		if err := s.owned(j, owner); err != nil {
 			return err
 		}
