@@ -50,6 +50,11 @@ their pages in song lists, downloads, the queue, and now playing.
 The sidebar uses compact grouped navigation with light/dark themes. The theme
 button follows your system preference initially and remembers explicit changes.
 
+A local song's options menu also offers **Delete from library**. The confirmation
+explains that deletion removes its audio/lyrics and references for every listener,
+including playlist entries and links. Cancel performs no mutation. Live deletion
+events refresh library/playlist/download views and remove the song from the player.
+
 ## Sharing music
 
 Use a saved song’s menu or an album/playlist Share button to create a public player

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { Code, ConnectError } from '@connectrpc/connect';
   import { onMount, untrack } from 'svelte';
   import { ArrowRight, Library, Search } from '@lucide/svelte';
   import type { Album, Artist, Track } from '../gen/wavelength/v1/library_pb';
@@ -92,7 +93,13 @@
       const options = { signal: controller.signal };
       const focused =
         initialTrackID && !appliedQuery
-          ? await api.library.getTrack({ id: initialTrackID }, options)
+          ? await api.library
+              .getTrack({ id: initialTrackID }, options)
+              .catch((cause) => {
+                if (ConnectError.from(cause).code === Code.NotFound)
+                  return { track: undefined };
+                throw cause;
+              })
           : undefined;
       const result = focused
         ? {

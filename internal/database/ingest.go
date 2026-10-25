@@ -253,6 +253,9 @@ func (s IngestStore) Publish(ctx context.Context, root ingest.Root, jobID string
 		return library.Track{}, err
 	}
 	defer tx.Rollback()
+	if err = rejectDeletedTracks(ctx, tx, []string{p.Track.ID}); err != nil {
+		return library.Track{}, err
+	}
 	j, err := readJob(tx.QueryRowContext(ctx, "SELECT body FROM ingest_jobs WHERE id=? AND root_id=?", jobID, root.ID))
 	if err != nil {
 		return library.Track{}, err

@@ -12,7 +12,11 @@ service RealtimeService {
 message SubscribeRequest {}
 message StreamReady {}
 message StreamHeartbeat {}
-message LibraryUpdate { ImportedTrack track = 1; }
+message LibraryUpdate {
+  ImportedTrack track = 1;
+  // Removed from the shared library; discard local queue and discovery caches.
+  string deleted_track_id = 2;
+}
 message RealtimeEvent {
   oneof payload {
     StreamReady ready = 1;

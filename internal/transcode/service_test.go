@@ -113,6 +113,15 @@ func TestStreamsAndHLSSessionsWithoutHTTP(t *testing.T) {
 	}
 	name := file.Name()
 	file.Close()
+	if err := lib.Delete(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Segment("alice", playlist.SessionID, segment); !errors.Is(err, library.ErrNotFound) {
+		t.Fatal("deleted audio remains playable from HLS", err)
+	}
+	if _, err := os.Stat(name); !os.IsNotExist(err) {
+		t.Fatal("deleted track HLS cache remains", err)
+	}
 	service.Close()
 	if _, err := os.Stat(name); !os.IsNotExist(err) {
 		t.Fatalf("HLS files survived shutdown: %v", err)

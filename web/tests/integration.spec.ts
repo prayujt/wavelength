@@ -446,3 +446,45 @@ test('only shared music is exposed in the UI and revoking removes its row', asyn
   await expect(page.locator('.access-link-row')).toHaveCount(count - 1);
   await expect(page.getByText('Revoked', { exact: true })).toHaveCount(0);
 });
+
+test('confirmed deletion removes local audio and refreshes another signed-in tab', async ({
+  page,
+}) => {
+  await login(page);
+  const row = page.locator('.track-row').filter({
+    has: page.getByRole('button', { name: 'First Light', exact: true }),
+  });
+  const id = await row.getAttribute('data-track-id');
+  expect(id).toBeTruthy();
+  const mirror = await page.context().newPage();
+  await mirror.goto('/');
+  const otherRow = mirror.locator(`[data-track-id="${id}"]`);
+  await expect(otherRow).toBeVisible();
+  await row
+    .getByRole('button', { name: 'More options for First Light' })
+    .click();
+  await page
+    .getByRole('button', { name: 'Delete from library', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Delete song from library' });
+  await expect(dialog).toContainText('every listener');
+  await dialog
+    .getByRole('button', { name: 'Delete song and files', exact: true })
+    .click();
+  await expect(row).toHaveCount(0);
+  await expect(otherRow).toHaveCount(0);
+  const result = await page.evaluate(async (trackID) => {
+    const me = await fetch('/auth/me').then((r) => r.json());
+    const r = await fetch('/wavelength.v1.LibraryService/GetTrack', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': me.csrf_token,
+      },
+      body: JSON.stringify({ id: trackID }),
+    });
+    return r.status;
+  }, id);
+  expect(result).toBe(404);
+  await mirror.close();
+});

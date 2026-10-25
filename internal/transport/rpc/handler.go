@@ -57,6 +57,18 @@ func failure(err error) error {
 		}
 		return connect.NewError(code, err)
 	}
+	if errors.Is(err, library.ErrBusy) {
+		return connect.NewError(connect.CodeFailedPrecondition, library.ErrBusy)
+	}
+	if errors.Is(err, library.ErrCleanupPending) {
+		return connect.NewError(connect.CodeUnavailable, library.ErrCleanupPending)
+	}
+	if errors.Is(err, library.ErrReadOnly) {
+		return connect.NewError(connect.CodeUnavailable, library.ErrReadOnly)
+	}
+	if errors.Is(err, library.ErrInvalid) {
+		return invalid("confirm the local track deletion and provide its ID")
+	}
 	if errors.Is(err, listening.ErrConflict) || errors.Is(err, ingest.ErrConflict) {
 		return connect.NewError(connect.CodeAlreadyExists, err)
 	}

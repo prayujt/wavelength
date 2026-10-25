@@ -1743,3 +1743,103 @@ test('restored playback begins a session only when resumed and retries a failed 
   expect(starts[0].requestId).toBe(starts[1].requestId);
   await expect.poll(() => reports.length).toBeGreaterThan(0);
 });
+
+test('deleting a local song requires confirmation and refreshes the shared library', async ({
+  page,
+}) => {
+  await signedIn(page);
+  let deleted = false;
+  let calls = 0;
+  await page.route('**/wavelength.v1.LibraryService/ListTracks', (route) =>
+    route.fulfill({
+      json: { tracks: deleted ? [] : [track], total: deleted ? 0 : 1 },
+    }),
+  );
+  await page.route(
+    '**/wavelength.v1.LibraryService/DeleteTrack',
+    async (route) => {
+      calls++;
+      expect(route.request().postDataJSON()).toEqual({
+        id: track.id,
+        confirm: true,
+      });
+      expect(route.request().headers()['x-csrf-token']).toBe('test-csrf');
+      deleted = true;
+      await route.fulfill({ json: {} });
+      await page.evaluate(
+        (id) =>
+          window.testMusicEvent({ libraryUpdated: { deletedTrackId: id } }),
+        track.id,
+      );
+    },
+  );
+  await page.goto('/');
+  const row = page.locator(`[data-track-id="${track.id}"]`);
+  await row
+    .getByRole('button', { name: `More options for ${track.title}` })
+    .click();
+  await page
+    .getByRole('button', { name: 'Delete from library', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Delete song from library' });
+  await expect(dialog).toContainText('every listener');
+  expect(calls).toBe(0);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  expect(calls).toBe(0);
+  await expect(row).toBeVisible();
+  await row
+    .getByRole('button', { name: `More options for ${track.title}` })
+    .click();
+  await page
+    .getByRole('button', { name: 'Delete from library', exact: true })
+    .click();
+  await dialog
+    .getByRole('button', { name: 'Delete song and files', exact: true })
+    .click();
+  await expect(row).toHaveCount(0);
+  expect(calls).toBe(1);
+});
+
+for (const location of ['#album/album-1', '#library?track=track-1']) {
+  test(`deletion clears a focused view at ${location}`, async ({ page }) => {
+    await signedIn(page);
+    let deleted = false;
+    for (const method of ['GetTrack', 'GetAlbum'])
+      await page.route(`**/wavelength.v1.LibraryService/${method}`, (route) =>
+        deleted
+          ? route.fulfill({
+              status: 404,
+              json: { code: 'not_found', message: 'Item deleted' },
+            })
+          : route.fulfill({
+              json:
+                method === 'GetTrack' ? { track } : { album, tracks: [track] },
+            }),
+      );
+    await page.route(
+      '**/wavelength.v1.LibraryService/DeleteTrack',
+      async (route) => {
+        deleted = true;
+        await route.fulfill({ json: {} });
+        await page.evaluate(
+          (id) =>
+            window.testMusicEvent({ libraryUpdated: { deletedTrackId: id } }),
+          track.id,
+        );
+      },
+    );
+    await page.goto('/' + location);
+    const row = page.locator(`[data-track-id="${track.id}"]`);
+    await row
+      .getByRole('button', { name: `More options for ${track.title}` })
+      .click();
+    await page
+      .getByRole('button', { name: 'Delete from library', exact: true })
+      .click();
+    await page
+      .getByRole('dialog', { name: 'Delete song from library' })
+      .getByRole('button', { name: 'Delete song and files', exact: true })
+      .click();
+    await expect(row).toHaveCount(0);
+  });
+}

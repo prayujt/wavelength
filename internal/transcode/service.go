@@ -33,6 +33,9 @@ type Service struct {
 func New(ctx context.Context, lib source) *Service {
 	ctx, cancel := context.WithCancel(ctx)
 	service := &Service{lib: lib, ctx: ctx, cancel: cancel, jobs: map[string]*hlsJob{}, done: make(chan struct{})}
+	if observed, ok := lib.(interface{ ObserveDeletions(func(string)) }); ok {
+		observed.ObserveDeletions(service.PurgeTrack)
+	}
 	go func() {
 		<-ctx.Done()
 		service.Close()

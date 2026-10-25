@@ -13,6 +13,7 @@ export class PlayerState {
   error = $state('');
   track = $derived(this.tracks[this.index]);
   audio?: HTMLAudioElement;
+  private deletedIDs = new Set<string>();
   private generation = 0;
   private pendingPosition = 0;
   private recorded = false;
@@ -37,7 +38,9 @@ export class PlayerState {
         }),
       );
       if (generation !== this.generation || !this.audio) return;
-      this.tracks = tracks.filter((track): track is Track => !!track);
+      this.tracks = tracks.filter(
+        (track): track is Track => !!track && !this.deletedIDs.has(track.id),
+      );
       const index = this.tracks.findIndex(
         (track) => track.id === queue.currentTrackId,
       );
@@ -208,7 +211,11 @@ export class PlayerState {
     // Preserve write order when track changes and progress updates happen together.
     this.saves = this.saves
       .then(async () => {
-        if (this.audio && session.status === 'signed_in')
+        if (
+          this.audio &&
+          session.status === 'signed_in' &&
+          !request.trackIds.some((id) => this.deletedIDs.has(id))
+        )
           await api.user.saveQueue(request);
       })
       .catch((error) => {
@@ -216,6 +223,24 @@ export class PlayerState {
       });
   }
 
+  discardTrack(id: string) {
+    this.deletedIDs.add(id);
+    const current = this.track?.id;
+    this.tracks = this.tracks.filter((track) => track.id !== id);
+    if (current === id) {
+      ++this.generation;
+      this.index = -1;
+      this.loading = this.playing = false;
+      this.position = this.length = 0;
+      this.listening = new ListeningReporter();
+      this.audio?.pause();
+      this.audio?.removeAttribute('src');
+      this.audio?.load();
+    } else {
+      this.index = this.tracks.findIndex((track) => track.id === current);
+      this.save();
+    }
+  }
   dispose() {
     this.finishListen('stopped');
     ++this.generation;

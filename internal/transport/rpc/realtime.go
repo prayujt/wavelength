@@ -58,6 +58,8 @@ func (s *realtimeService) Subscribe(ctx context.Context, _ *connect.Request[pb.S
 					return failure(err)
 				}
 				event.Payload = &pb.RealtimeEvent_ImportUpdated{ImportUpdated: importJob(job)}
+			case realtime.TrackDeleted:
+				event.Payload = &pb.RealtimeEvent_LibraryUpdated{LibraryUpdated: &pb.LibraryUpdate{DeletedTrackId: change.TrackID}}
 			case realtime.TrackPublished:
 				event.Payload = &pb.RealtimeEvent_LibraryUpdated{LibraryUpdated: &pb.LibraryUpdate{Track: &pb.ImportedTrack{MetadataRef: refMessage(change.Ref), TrackId: change.TrackID}}}
 			default:

@@ -53,6 +53,9 @@ func (s GrantStore) Create(ctx context.Context, g sharing.Grant) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err = rejectDeletedTracks(ctx, tx, g.TrackIDs); err != nil {
+		return err
+	}
 	// Expired grants and their child playback credentials have no history to retain.
 	if _, err = tx.ExecContext(ctx, "DELETE FROM media_grants WHERE expires_at>0 AND expires_at<=?", millis(g.CreatedAt)); err != nil {
 		return err

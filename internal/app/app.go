@@ -4,8 +4,10 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/config"
@@ -17,6 +19,7 @@ import (
 	"github.com/prayujt/wavelength/internal/providers/itunes"
 	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
+	"github.com/prayujt/wavelength/internal/realtime"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/telemetry"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
@@ -92,6 +95,27 @@ func Run(ctx context.Context, c config.Config) error {
 			return fmt.Errorf("initialize ingestion: %w", err)
 		}
 		defer imports.Close()
+		lib.ObserveDeletions(func(id string) { imports.Events().Publish(realtime.Event{Change: realtime.TrackDeleted{TrackID: id}}) })
+		// Retry only recorded deletions. This is not a filesystem watcher or scan.
+		cleanupCtx, stopCleanup := context.WithCancel(ctx)
+		cleanupDone := make(chan struct{})
+		go func() {
+			defer close(cleanupDone)
+			timer := time.NewTicker(30 * time.Second)
+			defer timer.Stop()
+			for {
+				if err := lib.RecoverDeletions(cleanupCtx); err != nil && cleanupCtx.Err() == nil {
+					slog.Warn("library deletion cleanup pending", "error", err)
+				}
+				select {
+				case <-cleanupCtx.Done():
+					return
+				case <-timer.C:
+				}
+			}
+		}()
+		defer func() { stopCleanup(); <-cleanupDone }()
+
 		options = append(options, httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, transportmcp.Features{Discovery: discovery, Ingest: imports, Links: links, Listening: listening.New(database.ListeningStore{DB: db}, lib)}))
 	}
 	servers := []server{{name: "native", http: httpserver.NewWithMetrics(c.Addr, db.PingContext, metrics, options...)}}
