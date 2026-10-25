@@ -119,14 +119,19 @@ func TestModelCannotOverrideExistingMismatchChecks(t *testing.T) {
 
 func TestUncertainRecordingDoesNotBecomeSuitableFromSourcePreference(t *testing.T) {
 	track, candidates := fixtures()
-	response := strings.Replace(rankedResponse(), `"match_1":{"type":"noul","noul":0.99}`, `"match_1":{"type":"noul","noul":0.94}`, 1)
+	response := strings.Replace(rankedResponse(), `"match_1":{"type":"noul","noul":0.99}`, `"match_1":{"type":"noul","noul":0.89}`, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = io.WriteString(w, response) }))
 	defer server.Close()
 	c := New("test", "")
 	c.endpoint = server.URL
 	ranked, err := c.Rank(context.Background(), track, candidates)
-	if err != nil || ranked[0].Ref != candidates[1].Ref || ranked[0].Score < Policy().MinimumScore || ranked[0].Suitable {
-		t.Fatal("source preference bypassed recording certainty", ranked, err)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range ranked {
+		if candidate.Ref == candidates[1].Ref && (candidate.Score > .89 || candidate.Suitable) {
+			t.Fatal("source preference bypassed recording certainty", candidate)
+		}
 	}
 	if _, ok := discovery.New(nil, nil, discovery.WithRanking(c, Policy())).Select(ranked); ok {
 		t.Fatal("uncertain recording was selected automatically")
@@ -245,5 +250,25 @@ func TestOversizedInputFailsBeforeCallingProvider(t *testing.T) {
 	candidates[0].Evidence = json.RawMessage(`{"description":"` + strings.Repeat("x", maxRequestSize) + `"}`)
 	if _, err := New("test", "").Rank(context.Background(), track, candidates); err == nil {
 		t.Fatal("oversized request accepted")
+	}
+}
+
+func TestRecordingThresholdAcceptsStrongNinetiesAndKeepsSourcePreference(t *testing.T) {
+	for _, probability := range []string{"0.90", "0.91", "0.94"} {
+		t.Run(probability, func(t *testing.T) {
+			track, candidates := fixtures()
+			response := strings.Replace(rankedResponse(), `"match_1":{"type":"noul","noul":0.99}`, `"match_1":{"type":"noul","noul":`+probability+`}`, 1)
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { io.WriteString(w, response) }))
+			defer server.Close()
+			client := New("test", "")
+			client.endpoint = server.URL
+			ranked, err := client.Rank(context.Background(), track, candidates)
+			if err != nil || ranked[0].Ref != candidates[1].Ref || !ranked[0].Suitable || strings.Contains(ranked[0].Reason, "uncertain") || strings.Contains(ranked[0].Reason, "below 90") {
+				t.Fatal(ranked, err)
+			}
+			if _, ok := discovery.New(nil, nil, discovery.WithRanking(client, Policy())).Select(ranked); probability == "0.94" && !ok {
+				t.Fatal("clear artist source should be selected")
+			}
+		})
 	}
 }

@@ -56,19 +56,19 @@
     : 'Ctrl K';
   const groups = [
     {
-      label: 'Browse',
-      items: [
-        { label: 'Discover', page: 'discover', tab: '', icon: Compass },
-        { label: 'Downloads', page: 'imports', tab: '', icon: Download },
-      ],
-    },
-    {
       label: 'Your library',
       items: [
         { label: 'Songs', page: 'library', tab: '', icon: Music2 },
         { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
         { label: 'Artists', page: 'library', tab: 'artists', icon: Users },
         { label: 'Playlists', page: 'playlists', tab: '', icon: ListMusic },
+      ],
+    },
+    {
+      label: 'Browse',
+      items: [
+        { label: 'Discover', page: 'discover', tab: '', icon: Compass },
+        { label: 'Downloads', page: 'imports', tab: '', icon: Download },
       ],
     },
   ];
@@ -224,7 +224,7 @@
       <Notice
         message={error}
         dismiss={() => (error = '')}
-      />{#key address}{#if route.page === 'library'}<LibraryView
+      />{#key route.page === 'imports' ? 'imports' : address}{#if route.page === 'library'}<LibraryView
             {player}
             add={(track) => (adding = track)}
             initialTab={libraryTab}
@@ -243,6 +243,7 @@
             {basket}
             {player}
             {realtime}
+            {discovery}
             searchContext={{
               q: route.query.get('q') || '',
               category: route.query.get('category') || 'all',

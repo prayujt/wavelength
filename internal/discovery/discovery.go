@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -45,6 +46,7 @@ type Track struct {
 }
 type Release struct {
 	Ref        Ref     `json:"ref"`
+	ArtistRef  Ref     `json:"artist_ref"`
 	Title      string  `json:"title"`
 	Artist     string  `json:"artist"`
 	ArtworkURL string  `json:"artwork_url"`
@@ -84,10 +86,12 @@ type Sources interface {
 	Candidates(context.Context, Track) ([]Candidate, error)
 }
 type Service struct {
-	metadata Metadata
-	sources  Sources
-	ranker   Ranker
-	policy   SelectionPolicy
+	metadata  Metadata
+	sources   Sources
+	ranker    Ranker
+	policy    SelectionPolicy
+	previewMu sync.Mutex
+	previews  map[Ref]Track
 }
 
 func New(metadata Metadata, sources Sources, options ...Option) *Service {
@@ -107,7 +111,11 @@ func (s *Service) Search(ctx context.Context, query string, limit int) (Results,
 	}
 	lookup, cancel := context.WithTimeout(ctx, 45*time.Second)
 	defer cancel()
-	return s.metadata.Search(lookup, query, limit)
+	results, err := s.metadata.Search(lookup, query, limit)
+	if err == nil {
+		s.remember(results.Tracks)
+	}
+	return results, err
 }
 func (s *Service) Track(ctx context.Context, ref Ref) (Track, error) {
 	if !ref.ValidMetadata() {
@@ -118,6 +126,9 @@ func (s *Service) Track(ctx context.Context, ref Ref) (Track, error) {
 	t, err := s.metadata.Track(lookup, ref)
 	if err == nil && (t.Ref != ref || t.Title == "" || t.Artist == "" || t.Duration <= 0) {
 		return Track{}, fmt.Errorf("%w: incomplete track metadata", ErrUnavailable)
+	}
+	if err == nil {
+		s.remember([]Track{t})
 	}
 	return t, err
 }
@@ -130,6 +141,9 @@ func (s *Service) Release(ctx context.Context, ref Ref) (Release, error) {
 	r, err := s.metadata.Release(lookup, ref)
 	if err == nil {
 		err = validateRelease(ref, r)
+	}
+	if err == nil {
+		s.remember(r.Tracks)
 	}
 	return r, err
 }
@@ -178,6 +192,9 @@ func (s *Service) Releases(ctx context.Context, refs []Ref) ([]Release, error) {
 		if err := validateRelease(release.Ref, release); err != nil {
 			return nil, err
 		}
+	}
+	for _, release := range releases {
+		s.remember(release.Tracks)
 	}
 	return releases, nil
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 
 	"github.com/prayujt/wavelength/internal/discovery"
-	"github.com/prayujt/wavelength/internal/library"
 )
 
 // Lookup identifies imports by provenance. Similar titles or other editions are
@@ -19,23 +18,7 @@ func (s *Service) Lookup(ctx context.Context, refs []discovery.Ref) (map[discove
 			return nil, ErrInvalid
 		}
 	}
-	found := make(map[discovery.Ref]string)
-	seen := make(map[discovery.Ref]bool)
-	for _, ref := range refs {
-		if seen[ref] {
-			continue
-		}
-		seen[ref] = true
-		track, err := s.deps.Store.Lookup(ctx, s.root.ID, ref)
-		if errors.Is(err, ErrNotFound) || errors.Is(err, library.ErrNotFound) {
-			continue
-		}
-		if err != nil {
-			return nil, err
-		}
-		found[ref] = track.ID
-	}
-	return found, nil
+	return s.deps.Store.LookupMany(ctx, s.root.ID, refs)
 }
 
 func (s *Service) Origins(ctx context.Context, ids []string) (map[discovery.Ref]string, error) {

@@ -39,7 +39,7 @@ func externalTrack(t discovery.Track) *pb.ExternalTrack {
 	return &pb.ExternalTrack{Ref: refMessage(t.Ref), Title: t.Title, Artist: t.Artist, Album: t.Album, AlbumArtist: t.AlbumArtist, Genre: t.Genre, ReleaseDate: t.ReleaseDate, TrackNumber: int32(t.TrackNumber), DiscNumber: int32(t.DiscNumber), DurationSeconds: t.Duration, ArtworkUrl: t.ArtworkURL}
 }
 func musicRelease(r discovery.Release) *pb.MusicRelease {
-	out := &pb.MusicRelease{Ref: refMessage(r.Ref), Title: r.Title, Artist: r.Artist, ArtworkUrl: r.ArtworkURL}
+	out := &pb.MusicRelease{Ref: refMessage(r.Ref), ArtistRef: refMessage(r.ArtistRef), Title: r.Title, Artist: r.Artist, ArtworkUrl: r.ArtworkURL}
 	for _, t := range r.Tracks {
 		out.Tracks = append(out.Tracks, externalTrack(t))
 	}
@@ -58,6 +58,8 @@ func importJob(j ingest.Job) *pb.ImportJob {
 		item := &pb.ImportItem{MetadataRef: refMessage(i.MetadataRef), SourceRef: refMessage(i.SourceRef), State: i.State, Error: i.Error, TrackId: i.TrackID, Reused: i.Reused, Warnings: i.Warnings}
 		if i.Metadata != nil {
 			item.Metadata = externalTrack(*i.Metadata)
+		} else if i.Preview != nil {
+			item.Metadata = externalTrack(*i.Preview)
 		}
 		item.AlbumId, item.ArtistId = i.AlbumID, i.ArtistID
 		out.Items = append(out.Items, item)

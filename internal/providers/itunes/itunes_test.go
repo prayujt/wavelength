@@ -6,7 +6,9 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/prayujt/wavelength/internal/discovery"
 	"golang.org/x/time/rate"
@@ -27,7 +29,7 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 		case r.URL.Path == "/search":
 			result = []entry{{Kind: "artist", ArtistID: 789, Artist: "Artist"}, {Kind: "artist", ArtistID: 790, Artist: "Artist"}}
 		case q.Get("id") == "456":
-			result = []entry{{Kind: "collection", AlbumID: 456, Album: "Album", Artist: "Various Artists"}, {Kind: "track", AlbumID: 456, TrackID: 123, Title: "Song", Artist: "Track artist", Millis: 180000, Number: 2, Disc: 1, Genre: "Country"}}
+			result = []entry{{Kind: "collection", AlbumID: 456, ArtistID: 789, Album: "Album", Artist: "Various Artists"}, {Kind: "track", AlbumID: 456, TrackID: 123, Title: "Song", Artist: "Track artist", Millis: 180000, Number: 2, Disc: 1, Genre: "Country"}}
 		case q.Get("id") == "789":
 			result = []entry{{Kind: "artist", ArtistID: 789, Artist: "Artist"}, {Kind: "collection", AlbumID: 456, Album: "Album", Artist: "Artist"}}
 		}
@@ -43,7 +45,7 @@ func TestSearchAndReleaseUseProviderIDsAndAlbumArtist(t *testing.T) {
 		t.Fatal("artist artwork must match provider identity", results.Artists)
 	}
 	release, err := c.Release(context.Background(), discovery.Ref{Provider: "itunes", ID: "456"})
-	if err != nil || len(release.Tracks) != 1 || release.Tracks[0].AlbumArtist != "Various Artists" || release.Tracks[0].Artist != "Track artist" || release.Tracks[0].Duration != 180 {
+	if err != nil || len(release.Tracks) != 1 || release.Tracks[0].AlbumArtist != "Various Artists" || release.Tracks[0].Artist != "Track artist" || release.Tracks[0].Duration != 180 || release.ArtistRef != ref(789) {
 		t.Fatal(release, err)
 	}
 	artist, err := c.Artist(context.Background(), discovery.Ref{Provider: "itunes", ID: "789"})
@@ -94,5 +96,28 @@ func TestBatchReleasesKeepExactMembershipAndRequestOrder(t *testing.T) {
 	}
 	if albums[0].Ref != ref(456) || len(albums[0].Tracks) != 2 || albums[0].Tracks[0].Ref != ref(1) || albums[0].Tracks[1].AlbumArtist != "First" || albums[1].Ref != ref(789) || albums[1].Tracks[0].Ref != ref(3) {
 		t.Fatal(albums)
+	}
+}
+
+func TestSearchRequestsIndependentEntitiesTogether(t *testing.T) {
+	var started atomic.Int32
+	ready := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if started.Add(1) == 3 {
+			close(ready)
+		}
+		select {
+		case <-ready:
+		case <-r.Context().Done():
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{"results": []entry{}})
+	}))
+	defer server.Close()
+	client := &Client{http: server.Client(), base: server.URL, limiter: rate.NewLimiter(rate.Inf, 1)}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if _, err := client.Search(ctx, "Artist", 5); err != nil || started.Load() != 3 {
+		t.Fatal("search entities did not run together", err, started.Load())
 	}
 }

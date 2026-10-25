@@ -62,6 +62,7 @@ type Item struct {
 	ArtistID  string           `json:"artist_id,omitempty"`
 	Reused    bool             `json:"reused"`
 	Metadata  *discovery.Track `json:"metadata,omitempty"`
+	Preview   *discovery.Track `json:"preview,omitempty"`
 	Prepared  *Prepared        `json:"prepared,omitempty"`
 	Automatic bool             `json:"automatic"`
 	Warnings  []string         `json:"warnings,omitempty"`
@@ -91,6 +92,7 @@ type Store interface {
 	Next(context.Context, string) (Job, error)
 	Update(context.Context, string, func(*Job) error) (Job, error)
 	Lookup(context.Context, string, discovery.Ref) (library.Track, error)
+	LookupMany(context.Context, string, []discovery.Ref) (map[discovery.Ref]string, error)
 	Origin(context.Context, string, string) (discovery.Ref, error)
 	Publish(context.Context, Root, string, int, Prepared) (library.Track, error)
 }

@@ -59,7 +59,11 @@ func track(e entry) discovery.Track {
 	return discovery.Track{Ref: ref(e.TrackID), Title: e.Title, Artist: e.Artist, Album: e.Album, ReleaseDate: e.Date, TrackNumber: e.Number, DiscNumber: e.Disc, Duration: float64(e.Millis) / 1000, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Genre: e.Genre}
 }
 func release(e entry) discovery.Release {
-	return discovery.Release{Ref: ref(e.AlbumID), Title: e.Album, Artist: e.Artist, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Tracks: []discovery.Track{}}
+	r := discovery.Release{Ref: ref(e.AlbumID), Title: e.Album, Artist: e.Artist, ArtworkURL: strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1), Tracks: []discovery.Track{}}
+	if e.ArtistID > 0 {
+		r.ArtistRef = ref(e.ArtistID)
+	}
+	return r
 }
 func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, error) {
 	for attempt := 0; attempt < 3; attempt++ {
@@ -110,13 +114,25 @@ func (c *Client) get(ctx context.Context, path string, q url.Values) ([]entry, e
 }
 func (c *Client) Search(ctx context.Context, query string, limit int) (discovery.Results, error) {
 	out := discovery.Results{Tracks: []discovery.Track{}, Releases: []discovery.Release{}, Artists: []discovery.Artist{}}
+	entities := []string{"song", "album", "musicArtist"}
+	type result struct {
+		entries []entry
+		err     error
+	}
+	results := make([]result, len(entities))
+	var requests sync.WaitGroup
+	for i, entity := range entities {
+		requests.Go(func() {
+			results[i].entries, results[i].err = c.get(ctx, "/search", url.Values{"term": {query}, "media": {"music"}, "entity": {entity}, "limit": {strconv.Itoa(limit)}})
+		})
+	}
+	requests.Wait()
 	artwork := make(map[int64]string)
-	for _, entity := range []string{"song", "album", "musicArtist"} {
-		entries, err := c.get(ctx, "/search", url.Values{"term": {query}, "media": {"music"}, "entity": {entity}, "limit": {strconv.Itoa(limit)}})
-		if err != nil {
-			return out, err
+	for _, result := range results {
+		if result.err != nil {
+			return out, result.err
 		}
-		for _, e := range entries {
+		for _, e := range result.entries {
 			if e.ArtistID > 0 && e.Artwork != "" {
 				artwork[e.ArtistID] = strings.Replace(e.Artwork, "100x100bb", "600x600bb", 1)
 			}

@@ -1,4 +1,7 @@
-import type { SearchMusicResponse } from '../gen/wavelength/v1/ingestion_pb';
+import type {
+  MusicArtist,
+  SearchMusicResponse,
+} from '../gen/wavelength/v1/ingestion_pb';
 
 // Keep the last result set while browsing its artists and albums.
 export class DiscoveryState {
@@ -6,5 +9,6 @@ export class DiscoveryState {
   searched = $state('');
   category = $state('all');
   results = $state<SearchMusicResponse>();
+  artists = new Map<string, MusicArtist>();
   scroll = 0;
 }

@@ -40,6 +40,7 @@ message ExternalTrack {
 message MusicRelease {
   ProviderRef ref = 1; string title = 2; string artist = 3;
   string artwork_url = 4; repeated ExternalTrack tracks = 5;
+  ProviderRef artist_ref = 6;
 }
 message MusicArtist {
   ProviderRef ref = 1; string name = 2; repeated MusicRelease releases = 3;
