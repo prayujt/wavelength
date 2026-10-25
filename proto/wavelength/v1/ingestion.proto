@@ -1,0 +1,83 @@
+syntax = "proto3";
+package wavelength.v1;
+option go_package = "github.com/prayujt/wavelength/gen/wavelength/v1;wavelengthv1";
+
+import "google/protobuf/timestamp.proto";
+
+// Discovery reads external metadata; local library search stays in LibraryService.
+service DiscoveryService {
+  rpc Search(SearchMusicRequest) returns (SearchMusicResponse);
+  rpc GetArtist(GetMusicArtistRequest) returns (GetMusicArtistResponse);
+  rpc GetRelease(GetMusicReleaseRequest) returns (GetMusicReleaseResponse);
+  rpc FindSources(FindSourcesRequest) returns (FindSourcesResponse);
+}
+// Jobs belong to the authenticated user. Completed tracks enter the shared catalog.
+service IngestionService {
+  rpc CreateImport(CreateImportRequest) returns (ImportJob);
+  rpc GetImport(GetImportRequest) returns (ImportJob);
+  rpc ListImports(ListImportsRequest) returns (ListImportsResponse);
+  rpc CancelImport(CancelImportRequest) returns (ImportJob);
+  rpc RetryImport(RetryImportRequest) returns (ImportJob);
+}
+message ProviderRef { string provider = 1; string id = 2; }
+message ExternalTrack {
+  ProviderRef ref = 1;
+  string title = 2; string artist = 3; string album = 4; string album_artist = 5;
+  string genre = 6; string release_date = 7; int32 track_number = 8;
+  int32 disc_number = 9; double duration_seconds = 10; string artwork_url = 11;
+}
+message MusicRelease {
+  ProviderRef ref = 1; string title = 2; string artist = 3;
+  string artwork_url = 4; repeated ExternalTrack tracks = 5;
+}
+message MusicArtist { ProviderRef ref = 1; string name = 2; repeated MusicRelease releases = 3; }
+message SourceCandidate {
+  ProviderRef ref = 1; string title = 2; string uploader = 3;
+  double duration_seconds = 4;
+  // A heuristic match score, not a probability or a user rating.
+  double score = 5; bool suitable = 6; string reason = 7;
+}
+message SearchMusicRequest { string query = 1; int32 limit = 2; }
+message SearchMusicResponse {
+  repeated ExternalTrack tracks = 1; repeated MusicRelease releases = 2;
+  repeated MusicArtist artists = 3;
+}
+message GetMusicArtistRequest { ProviderRef ref = 1; }
+message GetMusicArtistResponse { MusicArtist artist = 1; }
+message GetMusicReleaseRequest { ProviderRef ref = 1; }
+message GetMusicReleaseResponse { MusicRelease release = 1; }
+message FindSourcesRequest { ProviderRef metadata_ref = 1; }
+message FindSourcesResponse { repeated SourceCandidate candidates = 1; }
+message ImportSelection {
+  ProviderRef metadata_ref = 1;
+  // Omit to select only a strong, unambiguous match automatically.
+  ProviderRef source_ref = 2;
+}
+message CreateImportRequest {
+  // Required idempotency key, scoped to the authenticated user and library root.
+  string request_id = 1;
+  // Supply 1..200 items, or a release_ref, but never both.
+  repeated ImportSelection items = 2;
+  ProviderRef release_ref = 3;
+  // Optional owned playlist. Its ordered tracks are appended once all items succeed.
+  string playlist_id = 4;
+}
+message GetImportRequest { string id = 1; }
+message ListImportsRequest { int32 limit = 1; int32 offset = 2; }
+message ListImportsResponse { repeated ImportJob imports = 1; int32 total = 2; }
+message CancelImportRequest { string id = 1; }
+message SourceOverride { int32 index = 1; ProviderRef source_ref = 2; }
+message RetryImportRequest { string id = 1; repeated SourceOverride overrides = 2; }
+message ImportItem {
+  ProviderRef metadata_ref = 1; ProviderRef source_ref = 2;
+  string state = 3; string error = 4; string track_id = 5; bool reused = 6;
+  ExternalTrack metadata = 7; repeated string warnings = 8;
+}
+message ImportJob {
+  string id = 1;
+  // queued, running, completed, failed, partial, cancelled, or needs_selection.
+  string state = 2;
+  string error = 3; repeated ImportItem items = 4;
+  google.protobuf.Timestamp created_at = 5; google.protobuf.Timestamp updated_at = 6;
+  ProviderRef release_ref = 7; string playlist_id = 8;
+}

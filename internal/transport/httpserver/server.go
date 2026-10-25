@@ -74,12 +74,18 @@ func WithNative(lib *library.Library, manager *auth.Manager) Option {
 }
 
 // WithPersonal shares feature services and OIDC identities across native RPC and MCP.
-func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Manager) Option {
+func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Manager, acquisition ...transportmcp.Acquisition) Option {
 	return func(mux *http.ServeMux) {
 		path, handler := rpc.UserDataHandler(data, manager)
 		mux.Handle(path, handler)
+		if len(acquisition) > 0 {
+			path, handler := rpc.DiscoveryHandler(acquisition[0].Discovery, manager)
+			mux.Handle(path, handler)
+			path, handler = rpc.IngestionHandler(acquisition[0].Ingest, manager)
+			mux.Handle(path, handler)
+		}
 		if manager.OAuthEnabled() {
-			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager))
+			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager, acquisition...))
 		}
 	}
 }

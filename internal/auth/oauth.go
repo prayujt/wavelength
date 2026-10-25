@@ -21,9 +21,10 @@ const (
 	ScopeRead   = "wavelength:read"
 	ScopeWrite  = "wavelength:write"
 	ScopeStream = "wavelength:stream"
+	ScopeIngest = "wavelength:ingest"
 )
 
-var oauthScopes = []string{ScopeRead, ScopeWrite, ScopeStream}
+var oauthScopes = []string{ScopeRead, ScopeWrite, ScopeStream, ScopeIngest}
 var pkceVerifier = regexp.MustCompile(`^[A-Za-z0-9._~-]{43,128}$`)
 
 // Wavelength is the resource and a small OAuth authorization server. OIDC remains
@@ -252,7 +253,7 @@ func (m *Manager) registerClient(w http.ResponseWriter, r *http.Request) {
 }
 func scopes(value string) ([]string, bool) {
 	if value == "" {
-		return []string{ScopeRead, ScopeWrite}, true
+		return []string{ScopeRead, ScopeWrite, ScopeIngest}, true
 	}
 	result := []string{}
 	for _, scope := range strings.Fields(value) {
@@ -671,7 +672,7 @@ func (m *Manager) ProtectMCP(next http.Handler) http.Handler {
 			if errors.As(err, &failure) {
 				status = failure.StatusCode
 			}
-			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+m.MetadataURL()+`", scope="`+ScopeRead+` `+ScopeWrite+`"`)
+			w.Header().Set("WWW-Authenticate", `Bearer resource_metadata="`+m.MetadataURL()+`", scope="`+ScopeRead+` `+ScopeWrite+` `+ScopeIngest+`"`)
 			oauthError(w, status, "invalid_token")
 			return
 		}

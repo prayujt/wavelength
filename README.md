@@ -1,13 +1,13 @@
 # Wavelength
 
 A self-hosted music server written in Go, with an embedded SQLite catalog,
-Subsonic client compatibility, a native protobuf API, and authenticated MCP. It serves an existing
-music catalog and streams its source files. It runs
+Subsonic client compatibility, a native protobuf API, and authenticated MCP. It
+discovers music, acquires tagged audio, and serves its persistent catalog. It runs
 as one binary and does not need an external database. A music player UI is not included.
 
 ## Run with Docker
 
-The image includes FFmpeg and supports Linux on amd64 and arm64.
+The image includes FFmpeg/ffprobe, yt-dlp, and Deno and supports Linux on amd64 and arm64.
 
 ```sh
 export WAVELENGTH_TOKEN='choose-a-long-random-token'
@@ -16,14 +16,14 @@ docker run --rm --name wavelength \
   -p 127.0.0.1:8080:8080 \
   -e WAVELENGTH_TOKEN \
   -e WAVELENGTH_MUSIC_DIR=/music \
-  --mount type=bind,src=/absolute/path/to/music,dst=/music,readonly \
+  --mount type=bind,src=/absolute/path/to/music,dst=/music \
   --mount type=volume,src=wavelength-data,dst=/data \
   docker.prayujt.com/wavelength:latest
 ```
 
 Replace the source path with your music directory. Keep the data volume between
-runs: it holds the catalog and application state. The music mount can stay
-read-only; Wavelength does not modify the source files.
+runs: it holds the catalog and application state. Music acquisition needs a
+writable music mount. Playback alone works with a read-only mount. Imports create new files; existing source files are not rewritten.
 
 Pushes to `main` publish `docker.prayujt.com/wavelength:latest` and a tag containing
 the full commit SHA. Images are built with [ko](https://ko.build/) on an Alpine
@@ -34,7 +34,7 @@ runtime base. See the [build workflow](.github/workflows/build.yml).
 Wavelength exposes a separate Subsonic-compatible listener for existing music
 clients. It supports library browsing and search, playlists, bookmarks and playback
 queues, cover art, lyrics, downloads, audio transcoding, and audio HLS. It uses the
-same indexed library and storage as the native API.
+same catalog and storage as the native API.
 
 To enable it in the Docker command above, add these options before the image name:
 
@@ -65,18 +65,36 @@ without deleting its metadata.
 
 Automatic scans, native scan RPCs, and the `--scan-only` command have been removed.
 The Subsonic scan endpoints report an idle state and the stored track count;
-`startScan` performs no filesystem work. Ingestion is intentionally absent for now:
-a fresh database starts with an empty catalog even if the music directory has files.
+`startScan` performs no filesystem work. A fresh database starts empty even if the
+music directory contains files. New music enters through explicit ingestion jobs.
 
 SQLite also holds playlists, bookmarks, playback queues, and listening history.
 Back up the data directory as well as your music collection.
+
+## Discover and acquire music
+
+Search external iTunes metadata, inspect artists and releases, find ranked YouTube
+recordings, and import selected songs or albums. Downloads run as persistent jobs;
+poll their progress, cancel unfinished work, or retry failed items with another
+source. Completed tracks become available immediately through every interface.
+
+The same services power native RPCs and MCP tools. Automatic matching accepts only
+strong, unambiguous candidates; other imports pause for a source selection. Jobs are
+private to their requester, while imported tracks enter the shared catalog. Optional
+playlist imports preserve track order and append once every item succeeds.
+
+Acquisition requires an OIDC user and the `wavelength:ingest` delegated permission.
+The container includes the required media tools; no metadata-provider credentials
+are needed. See [ingestion](docs/ingestion.md) for requests, job states, storage,
+recovery, and runtime requirements.
 
 ## Native API
 
 The native API browses and searches tracks, artists, and albums, returns playback
 URLs, and streams audio. Its `UserDataService` manages the signed-in listener's
 playlists, queue, bookmarks, listening history, and now-playing state. The contract
-is [library.proto](proto/wavelength/v1/library.proto), with
+is [library.proto](proto/wavelength/v1/library.proto), extended by
+[discovery and ingestion](proto/wavelength/v1/ingestion.proto), with
 generated Go messages and Connect clients under `gen/`. The Connect handler serves
 Connect, gRPC, and gRPC-Web clients.
 
@@ -105,9 +123,11 @@ See [OIDC setup](docs/oidc.md). Terminate TLS at your deployment proxy.
 ## MCP for AI clients
 
 With OIDC and a music library configured, connect a remote MCP client to
-`https://music.example.com/mcp` on the native listener. The service offers 21 tools:
+`https://music.example.com/mcp` on the native listener. The service offers 30 tools:
 
-- Current user; browse/search/get tracks, artists, and albums; playback links.
+- External music search, artist/release lookup, and recording candidates.
+- Create/get/list/cancel/retry ingestion jobs.
+- Current user; browse/search/get local tracks, artists, and albums; playback links.
 - List/get/create/update/delete playlists, with explicit public sharing.
 - Read/save your queue; list/save/delete bookmarks.
 - Read listening history, record plays, and read your own now-playing state.
@@ -126,8 +146,9 @@ are needed. The same credentials work for native RPCs. See [OAuth details](docs/
 
 The official Go MCP SDK serves stateless Streamable HTTP with JSON responses,
 including legacy 2025 protocol versions. MCP returns authenticated playback links;
-audio bytes stay on HTTP/gRPC. External discovery, acquiring songs, download jobs,
-and audio-scraper migration are not implemented in either interface.
+audio bytes stay on HTTP/gRPC. New authorizations request read, personal-write, and
+ingestion permissions; audio streaming is a separate scope. Existing connections
+need a fresh authorization to gain ingestion permission.
 
 ## Configuration
 
@@ -150,7 +171,8 @@ Configuration is read from environment variables at startup.
 ## Build and develop
 
 Go 1.25+ is required by the MCP SDK. Original-file playback works without external media tools;
-install `ffmpeg` for transcoding and HLS.
+install `ffmpeg` for transcoding and HLS. Acquisition also needs `ffprobe`,
+`yt-dlp[default]==2026.10.21`, and a supported Deno runtime. The image includes these.
 
 ```sh
 export WAVELENGTH_MUSIC_DIR=/absolute/path/to/music

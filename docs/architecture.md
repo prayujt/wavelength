@@ -10,6 +10,9 @@ once by `internal/config`, using caarlos0/env/v11 with the existing environment 
 | Package | Responsibility |
 | --- | --- |
 | `library` | Persisted catalog grouping, path IDs and confined source access |
+| `discovery` | External metadata, provider references and conservative source selection |
+| `ingest` | Durable acquisition jobs, media preparation and explicit publication |
+| `providers/itunes`, `providers/youtube` | Bounded external API and yt-dlp implementations |
 | `userdata` | Playlists, bookmarks, queues and local listening history |
 | `transcode` | Encoded audio streams and managed audio HLS sessions |
 | `state` | Transactional record storage and typed serialization helpers |
@@ -51,7 +54,7 @@ are readable by other users, and all playlist writes require ownership.
 ## Catalog and storage
 
 SQLite is authoritative. Startup never imports or reconciles source files, and a
-fresh database remains empty until a future ingestion capability supplies records.
+fresh database remains empty until explicit ingestion jobs supply records.
 The scanner, metadata probing, native scan RPCs and scan-only CLI flag are removed.
 Legacy scan controls report the stored count with `scanning: false` and perform no
 work. Catalog revisions are persisted and updated by track-table triggers for
@@ -75,15 +78,21 @@ used or created. HLS uses temporary
 generated files with expiry and process cancellation.
 
 External programs are optional for original playback; FFmpeg powers conversion
-and audio HLS. Metadata ingestion and video indexing are absent.
+and audio HLS. Ingestion probes only newly downloaded audio; video indexing is absent.
 Discovery and listening history stay local.
 
 ## Adding a capability or transport
 
 Put a new capability in a focused feature package with the methods its callers need.
 Define small dependency interfaces where that package consumes storage, tracks or an
-external system, then assemble implementations in `app`. A downloader can own its
-download policy and publish explicit catalog records after storing files. The MCP
+external system, then assemble implementations in `app`. The ingestion service owns acquisition policy and publishes explicit catalog
+records after preparing source files. Its SQLite queue and provenance table preserve
+job state and deduplicate provider identities across users. Publication records the
+track and item receipt in one transaction, while a persisted prepared-file checksum
+recovers the filesystem/SQLite boundary after a crash. Recovery visits recorded
+jobs only; it never reconciles a directory. One worker owns the queue in the single
+application process. Artist/album folders remain useful to legacy folder browsers,
+but metadata and identity come from the catalog. The MCP
 transport calls the same library/userdata feature services as native RPCs, with its
 own schemas and response mapping. It does not tunnel through a legacy or native
 HTTP endpoint, enumerate files, or own a second persistence model.
@@ -91,12 +100,13 @@ HTTP endpoint, enumerate files, or own a second persistence model.
 Keep protocol DTOs, parameter parsing and status codes in the relevant transport.
 The native v1 contract covers library browsing/playback and personal collections.
 MCP exposes all of those operations except audio-byte streaming, returning an
-authenticated playback link instead. External discovery, ingestion and download
-jobs remain absent from both contracts. There is no plugin registry or parallel
+authenticated playback link instead. DiscoveryService and IngestionService expose metadata lookup, recording selection,
+and durable import jobs through native RPC and MCP. Imports require a named user
+and wavelength:ingest; attaching a playlist also requires wavelength:write. There is no plugin registry or parallel
 implementation of feature behavior inside the legacy adapter.
 
 See [OIDC](oidc.md) and [legacy compatibility](subsonic-compatibility.md) for current
-boundaries. Actual-client certification, managed ingestion, a browser UI and finer
+boundaries. Actual-client certification, a browser UI and finer
 catalog authorization remain future work. Delegated OAuth reuses the existing OIDC
 application and issues resource-bound local credentials for MCP and native clients;
 see [OIDC](oidc.md#delegated-oauth-for-mcp-and-native-clients) for scopes and lifecycle.

@@ -791,7 +791,7 @@ func TestMCPLegacyProtocolVersionsAndSessionIdentity(t *testing.T) {
 }
 
 func TestOfficialMCPOAuthClientDiscoversRegistersAndAuthorizes(t *testing.T) {
-	s, _ := oauthFixture(t)
+	s := acquisitionFixture(t, &ingestSource{audio: []byte("fixture audio")})
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	flows := 0
@@ -822,6 +822,7 @@ func TestOfficialMCPOAuthClientDiscoversRegistersAndAuthorizes(t *testing.T) {
 	tool(t, session, "get_current_user", map[string]any{}, false)
 	// The discovery challenge must request management permissions by default.
 	tool(t, session, "create_playlist", map[string]any{"name": "Created after automatic OAuth"}, false)
+	tool(t, session, "import_music", map[string]any{"request_id": "automatic-oauth", "items": []any{map[string]any{"metadata_ref": externalRef, "source_ref": audioRef}}}, false)
 	source, err := handler.TokenSource(ctx)
 	if err != nil || source == nil {
 		t.Fatal("OAuth client has no token source")
