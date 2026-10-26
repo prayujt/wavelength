@@ -1,3 +1,4 @@
+import { usePageBottomInset } from '../lib/layout';
 import React, { useState } from 'react';
 import { FlatList, ScrollView, View } from 'react-native';
 import { router } from 'expo-router';
@@ -229,6 +230,7 @@ function JobCard({ job }: { job: ImportJob }) {
 }
 
 export function ActivityScreen() {
+  const bottom = usePageBottomInset();
   const { online } = useSession();
   const [tab, setTab] = useState<'Downloads' | 'Listening'>('Downloads'),
     [outcome, setOutcome] = useState(''),
@@ -340,11 +342,13 @@ export function ActivityScreen() {
     <Screen scroll={false}>
       {tab === 'Downloads' ? (
         <FlatList
+          bounces={false}
+          overScrollMode="never"
           data={jobs}
           keyExtractor={(j) => j.id}
           ListHeaderComponent={top}
           renderItem={({ item }) => <JobCard job={item} />}
-          contentContainerStyle={{ paddingBottom: 170 }}
+          contentContainerStyle={{ paddingBottom: bottom }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             downloads.isPending ? (
@@ -373,10 +377,12 @@ export function ActivityScreen() {
         />
       ) : (
         <FlatList
+          bounces={false}
+          overScrollMode="never"
           data={sessions}
           keyExtractor={(s) => s.id}
           ListHeaderComponent={top}
-          contentContainerStyle={{ paddingBottom: 170 }}
+          contentContainerStyle={{ paddingBottom: bottom }}
           renderItem={({ item, index }) => {
             const date = item.startedAt
               ? new Date(Number(item.startedAt.seconds) * 1000).toLocaleDateString(undefined, {

@@ -5,7 +5,8 @@ import { router, useSegments } from 'expo-router';
 import { Pause, Play, SkipForward } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../lib/player';
-import { color, TAB_BAR_HEIGHT } from '../lib/theme';
+import { color, TAB_BAR_HEIGHT, PLAYER_DOCK_GAP } from '../lib/theme';
+import { hidesPlayerDock } from '../lib/layout';
 import { Artwork } from './artwork';
 import { IconButton, Press, Txt } from './ui';
 
@@ -14,7 +15,7 @@ export function PlayerDock() {
     status = useAudioPlayerStatus(player.audio),
     insets = useSafeAreaInsets(),
     segments = useSegments();
-  if (!player.track || segments.some((s) => ['player', 'queue', 'lyrics'].includes(s))) return null;
+  if (!player.track || hidesPlayerDock(segments)) return null;
   const tabs = segments.some((s) => s === '(tabs)');
   const progress = status.duration > 0 ? Math.min(1, status.currentTime / status.duration) : 0;
   return (
@@ -24,7 +25,7 @@ export function PlayerDock() {
         position: 'absolute',
         left: 12,
         right: 12,
-        bottom: (tabs ? TAB_BAR_HEIGHT + 6 : 12) + insets.bottom,
+        bottom: (tabs ? TAB_BAR_HEIGHT + PLAYER_DOCK_GAP : 12) + insets.bottom,
         alignItems: 'center',
       }}
     >

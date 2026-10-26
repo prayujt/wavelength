@@ -30,7 +30,9 @@ const shots = {
     await page.getByRole('button', { name: 'Discover album Night swimming' }).waitFor();
   },
   player: async (page) => {
-    await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.getByRole('button', { name: 'Go back', exact: true }).last().click();
     await page.getByRole('button', { name: 'Open now playing' }).click();
     await page.getByRole('button', { name: 'Pause song' }).click();
   },

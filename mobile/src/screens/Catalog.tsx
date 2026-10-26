@@ -1,3 +1,4 @@
+import { usePageBottomInset } from '../lib/layout';
 import React, { useState } from 'react';
 import { FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -25,6 +26,7 @@ const filters = ['Songs', 'Albums', 'Artists', 'Playlists'] as const;
 type Filter = (typeof filters)[number];
 type Item = Track | Album | Artist | Playlist;
 export function CatalogScreen() {
+  const bottom = usePageBottomInset();
   const params = useLocalSearchParams<{ tab?: string }>(),
     api = useAPI(),
     player = usePlayer();
@@ -65,12 +67,15 @@ export function CatalogScreen() {
   return (
     <Screen scroll={false}>
       <FlatList
+        testID="catalog-scroll"
+        bounces={false}
+        overScrollMode="never"
         key={columns}
         data={ordered}
         keyExtractor={(item) => item.id}
         numColumns={columns}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 170 }}
+        contentContainerStyle={{ paddingBottom: bottom }}
         columnWrapperStyle={
           columns > 1 ? { paddingHorizontal: 24, gap: 16, marginBottom: 26 } : undefined
         }

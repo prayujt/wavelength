@@ -1,3 +1,4 @@
+import { usePageBottomInset } from '../lib/layout';
 import React, { useEffect } from 'react';
 import { FlatList, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -389,9 +390,13 @@ function TrackCollection({
   empty?: React.ReactElement;
   onPlay(index: number): unknown;
 }) {
+  const bottom = usePageBottomInset();
   return (
     <Screen scroll={false}>
       <FlatList
+        testID="collection-scroll"
+        bounces={false}
+        overScrollMode="never"
         data={tracks}
         keyExtractor={(track, index) => `${track.id}:${index}`}
         renderItem={({ item, index }) => (
@@ -400,7 +405,7 @@ function TrackCollection({
         ListHeaderComponent={header}
         ListFooterComponent={footer}
         ListEmptyComponent={empty}
-        contentContainerStyle={{ paddingBottom: 160 }}
+        contentContainerStyle={{ paddingBottom: bottom }}
         showsVerticalScrollIndicator={false}
         initialNumToRender={12}
         maxToRenderPerBatch={12}

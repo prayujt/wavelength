@@ -14,7 +14,13 @@ const Context = createContext<Feedback>({
     return false;
   },
 });
-export function FeedbackProvider({ children }: { children: React.ReactNode }) {
+export function FeedbackProvider({
+  children,
+  noticeHeight = 0,
+}: {
+  children: React.ReactNode;
+  noticeHeight?: number;
+}) {
   const insets = useSafeAreaInsets();
   const [toast, setToast] = useState<{ message: string; tone: 'success' | 'error' } | null>(null);
   const [confirmation, setConfirmation] = useState<{
@@ -49,7 +55,10 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
       {toast && (
-        <View pointerEvents="box-none" style={[s.toastLayer, { top: insets.top + 14 }]}>
+        <View
+          pointerEvents="box-none"
+          style={[s.toastLayer, { top: insets.top + noticeHeight + 14 }]}
+        >
           <Pressable
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
