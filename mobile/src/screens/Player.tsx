@@ -62,6 +62,9 @@ export function PlayerScreen() {
   const { width, height } = useWindowDimensions(),
     [scrub, setScrub] = useState<number | null>(null),
     track = player.track;
+  const [frameHeight, setFrameHeight] = useState(height);
+  const usableHeight = Math.max(0, frameHeight - insets.top - insets.bottom);
+  const compact = usableHeight < 800;
   if (!track)
     return (
       <Screen>
@@ -75,7 +78,7 @@ export function PlayerScreen() {
       </Screen>
     );
   const tint = colors(track.albumId || track.album),
-    size = Math.min(430, width - 56, Math.max(230, height * 0.42));
+    size = Math.min(430, width - 52, Math.max(148, usableHeight * (compact ? 0.33 : 0.42)));
   const total = status.duration || track.durationSeconds,
     position = scrub ?? status.currentTime;
   async function bookmark() {
@@ -88,15 +91,22 @@ export function PlayerScreen() {
     feedback.notify('Your place is saved');
   }
   return (
-    <View style={{ flex: 1, backgroundColor: color.bg }}>
+    <View
+      testID="full-player"
+      onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)}
+      style={{ flex: 1, backgroundColor: color.bg }}
+    >
       <LinearGradient
         colors={[tint[0], color.bg, color.bg]}
         locations={[0, 0.8, 1]}
         style={{ position: 'absolute', inset: 0 }}
       />
       <ScrollView
+        testID="player-scroll"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'space-between',
           paddingTop: insets.top + 8,
           paddingBottom: Math.max(insets.bottom, 18),
           paddingHorizontal: 26,
@@ -110,7 +120,7 @@ export function PlayerScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginBottom: 25,
+            marginBottom: compact ? 14 : 25,
           }}
         >
           <IconButton
@@ -122,13 +132,13 @@ export function PlayerScreen() {
             <Txt size={9} weight="bold" style={{ letterSpacing: 2, color: tint[2] }}>
               NOW PLAYING
             </Txt>
-            <Txt size={11} numberOfLines={1} style={{ maxWidth: 230 }}>
+            <Txt size={11} numberOfLines={1} style={{ maxWidth: Math.max(100, width - 160) }}>
               {track.album}
             </Txt>
           </View>
           <IconButton icon={MoreHorizontal} label="Song options" onPress={() => menu.open(track)} />
         </View>
-        <FadeIn style={{ alignItems: 'center', marginBottom: 31 }}>
+        <FadeIn style={{ alignItems: 'center', marginBottom: compact ? 18 : 31 }}>
           <View
             style={{
               width: size,
@@ -146,13 +156,20 @@ export function PlayerScreen() {
             />
           </View>
         </FadeIn>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 19 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: compact ? 14 : 19,
+          }}
+        >
           <View style={{ flex: 1, gap: 9 }}>
             <Txt
-              size={28}
+              size={compact ? 25 : 28}
               weight="heavy"
               numberOfLines={2}
-              style={{ letterSpacing: -0.9, lineHeight: 34 }}
+              style={{ letterSpacing: -0.9, lineHeight: compact ? 30 : 34 }}
             >
               {track.title}
             </Txt>
@@ -208,8 +225,8 @@ export function PlayerScreen() {
             flexDirection: 'row',
             alignItems: 'center',
             justifyContent: 'space-between',
-            marginTop: 22,
-            marginBottom: 24,
+            marginTop: compact ? 16 : 22,
+            marginBottom: compact ? 16 : 24,
           }}
         >
           <IconButton
@@ -224,8 +241,8 @@ export function PlayerScreen() {
             label={player.playing ? 'Pause song' : 'Play song'}
             onPress={player.toggle}
             style={{
-              width: 76,
-              height: 76,
+              width: compact ? 64 : 76,
+              height: compact ? 64 : 76,
               borderRadius: 38,
               backgroundColor: color.accent,
               alignItems: 'center',
@@ -303,35 +320,24 @@ export function PlayerScreen() {
             />
           </View>
         </View>
-        <Press
-          label="Read saved lyrics"
-          onPress={() => router.push('/lyrics')}
-          style={{
-            borderRadius: 19,
-            backgroundColor: tint[0],
-            padding: 21,
-            gap: 9,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Quote size={22} color={tint[2]} />
-          <View style={{ flex: 1, gap: 5 }}>
-            <Txt size={16} weight="display">
-              A little closer to the words.
-            </Txt>
-            <Txt size={12} style={{ color: tint[2] }}>
-              Open saved lyrics
-            </Txt>
-          </View>
-          <ArrowUp size={18} color={tint[2]} />
-        </Press>
       </ScrollView>
     </View>
   );
 }
 
-export function QueueScreen() {
+export function FeedScreen() {
+  const player = usePlayer();
+  const start = useRef(player.startFeed);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      void start.current();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+  return <QueueScreen feedEntry />;
+}
+
+export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
   const bottom = usePageBottomInset();
   const player = usePlayer(),
     feedback = useFeedback();
@@ -346,9 +352,15 @@ export function QueueScreen() {
           <>
             <Header
               back
-              title="Your play feed"
-              eyebrow="YOUR QUEUE"
-              subtitle={`${player.queue.length} songs, in your order.`}
+              title={feedEntry ? 'Your play feed' : 'Play queue'}
+              eyebrow={feedEntry ? 'MADE FOR YOU' : 'YOUR QUEUE'}
+              subtitle={
+                player.startingFeed
+                  ? 'Choosing your first songs…'
+                  : feedEntry
+                    ? 'Picked from your listening history. More as you go.'
+                    : `${player.queue.length} songs, in your order.`
+              }
               right={
                 player.queue.length > 0 ? (
                   <IconButton
@@ -396,10 +408,33 @@ export function QueueScreen() {
                 icon={Repeat}
               />
             </View>
-            {(player.playFeedLoading || player.playFeedError) && (
+            {feedEntry && player.track && (
+              <View
+                style={{ paddingHorizontal: 24, flexDirection: 'row', gap: 10, marginBottom: 14 }}
+              >
+                <Button
+                  title={player.playing ? 'Pause feed' : 'Play feed'}
+                  icon={player.playing ? Pause : Play}
+                  onPress={() => player.toggle()}
+                  small
+                />
+                <IconButton icon={SkipForward} label="Next feed song" onPress={player.next} />
+                <IconButton
+                  icon={Sparkles}
+                  label="Start a new play feed"
+                  onPress={() => {
+                    void player.startFeed(true);
+                  }}
+                  disabled={player.startingFeed}
+                />
+              </View>
+            )}
+            {(player.playFeedLoading || player.playFeedError || (feedEntry && player.error)) && (
               <Txt muted size={12} style={{ marginHorizontal: 24, marginBottom: 12 }}>
                 {player.playFeedLoading
-                  ? 'Updating recommendations…'
+                  ? player.startingFeed
+                    ? 'Choosing your first songs…'
+                    : 'Updating recommendations…'
                   : 'Recommendations will retry when connected.'}
               </Txt>
             )}
@@ -477,13 +512,27 @@ export function QueueScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <Empty
-            icon={ListMusic}
-            title="Start with something you love"
-            text="Choose a playlist or a song. Autoplay will find what comes next."
-            action="Choose a playlist"
-            onPress={() => router.replace('/playlists')}
-          />
+          player.startingFeed ? (
+            <Loading rows={3} />
+          ) : feedEntry ? (
+            <Empty
+              icon={Sparkles}
+              title="Your next song is out there"
+              text={player.error || 'Start listening from your history. No queue needed.'}
+              action="Try play feed again"
+              onPress={() => {
+                void player.startFeed(true);
+              }}
+            />
+          ) : (
+            <Empty
+              icon={ListMusic}
+              title="Start with something you love"
+              text="Choose a playlist or a song. Autoplay will find what comes next."
+              action="Choose a playlist"
+              onPress={() => router.replace('/playlists')}
+            />
+          )
         }
       />
     </Screen>

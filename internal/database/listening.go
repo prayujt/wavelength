@@ -9,9 +9,53 @@ import (
 	"time"
 
 	"github.com/prayujt/wavelength/internal/listening"
+	"github.com/prayujt/wavelength/internal/playfeed"
 )
 
 type ListeningStore struct{ DB *sql.DB }
+
+// Preferences aggregates every recorded session, including listening time from
+// unfinished/stopped sessions. No recent-page or age limit discards old taste.
+func (s ListeningStore) Preferences(ctx context.Context, owner, root string) ([]playfeed.Preference, error) {
+	rows, err := s.DB.QueryContext(ctx, `WITH events AS (
+	 SELECT session_json, track_id, started_at,
+	 coalesce(json_extract(session_json,'$.ListenedMS'),0) AS listened,
+	 coalesce(json_extract(session_json,'$.Outcome'),'') AS outcome,
+	 coalesce(json_extract(session_json,'$.ChangeReason'),'') AS reason,
+	 coalesce(json_extract(session_json,'$.Track.duration'),0) AS duration
+	 FROM listening_sessions WHERE owner=? AND root_id=?
+	), classified AS (
+	 SELECT *, CASE WHEN outcome='completed' OR (outcome<>'stopped' AND duration>0 AND listened>=duration*800) THEN 1 ELSE 0 END AS completed,
+	 CASE WHEN outcome='skipped' AND reason='next' AND listened<10000 AND (duration<=0 OR listened<duration*100) THEN 1 ELSE 0 END AS early
+	 FROM events
+	)
+	SELECT session_json, count(*), sum(listened), sum(completed), sum(early),
+	 sum(CASE WHEN outcome='skipped' AND completed=0 AND early=0 THEN 1 ELSE 0 END),
+	 min(started_at), max(started_at)
+	FROM classified GROUP BY track_id ORDER BY max(started_at) DESC`, owner, root)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []playfeed.Preference{}
+	for rows.Next() {
+		var p playfeed.Preference
+		var raw string
+		var first, last int64
+		if err := rows.Scan(&raw, &p.Sessions, &p.ListenedMS, &p.Completed, &p.EarlySkips, &p.OtherSkips, &first, &last); err != nil {
+			return nil, err
+		}
+		var session listening.Session
+		if err := json.Unmarshal([]byte(raw), &session); err != nil {
+			return nil, err
+		}
+		p.Track = session.Track
+		p.Track.Path = ""
+		p.FirstPlayedAt, p.LastPlayedAt = time.UnixMilli(first).UTC(), time.UnixMilli(last).UTC()
+		out = append(out, p)
+	}
+	return out, rows.Err()
+}
 
 func scanSession(row interface{ Scan(...any) error }) (listening.Session, error) {
 	var body string

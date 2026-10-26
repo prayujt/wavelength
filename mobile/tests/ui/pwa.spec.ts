@@ -29,8 +29,8 @@ async function standalone(context: BrowserContext) {
       query === '(display-mode: standalone)' ? { ...match(query), matches: true } : match(query);
   });
 }
-async function phoneInsets(context: BrowserContext) {
-  await context.addInitScript(() => {
+async function phoneInsets(context: BrowserContext, top = 59) {
+  await context.addInitScript((top) => {
     const computed = window.getComputedStyle.bind(window);
     window.getComputedStyle = (element, pseudo) => {
       const style = computed(element, pseudo);
@@ -40,12 +40,12 @@ async function phoneInsets(context: BrowserContext) {
             key === 'paddingBottom'
               ? '34px'
               : key === 'paddingTop'
-                ? '59px'
+                ? `${top}px`
                 : Reflect.get(target, key, target),
         });
       return style;
     };
-  });
+  }, top);
 }
 async function service(
   context: BrowserContext,
@@ -77,6 +77,7 @@ async function service(
   let refreshes = 0,
     callbackURL = '';
   const artworkRequests: string[] = [];
+  const feedRequests: Record<string, unknown>[] = [];
   await context.route(origin + '/oauth/**', async (route) => {
     const url = new URL(route.request().url());
     if (options.offline) return route.abort('internetdisconnected');
@@ -129,6 +130,7 @@ async function service(
         json: { code: 'unavailable', message: 'Fixture has no stream' },
       });
     const body = request.postDataJSON();
+    if (method === 'GetPlayFeed') feedRequests.push(body);
     if (
       options.slowRemainder &&
       method === 'GetTrack' &&
@@ -176,6 +178,7 @@ async function service(
   return {
     reports,
     artworkRequests,
+    feedRequests,
     refreshes: () => refreshes,
     callback: () => callbackURL,
     offline(value: boolean) {
@@ -270,6 +273,84 @@ test('ordinary mobile browser tabs hide device downloads', async ({ page, contex
 });
 
 test.describe('Mobile polish', () => {
+  for (const phone of [
+    { width: 402, height: 874, short: 812 },
+    { width: 352, height: 765, short: 711 },
+  ]) {
+    test(`fills the iPhone screen when all CSS viewport heights are shortened (${phone.width})`, async ({
+      page,
+      context,
+    }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await standalone(context);
+      await phoneInsets(context, 62);
+      await context.addInitScript(({ short }) => {
+        Object.defineProperty(window.screen, 'width', { get: () => 402 });
+        Object.defineProperty(window.screen, 'height', { get: () => 874 });
+        Object.defineProperty(window, 'innerHeight', { get: () => short });
+        Object.defineProperty(window.visualViewport!, 'height', { get: () => short });
+        document.addEventListener('DOMContentLoaded', () => {
+          const style = document.createElement('style');
+          style.textContent = `html,body,#root{height:var(--app-height,var(--test-viewport-height,${short}px))!important} [data-app-viewport-probe]{height:var(--test-viewport-height,${short}px)!important}`;
+          document.head.appendChild(style);
+        });
+      }, phone);
+      await service(context);
+      await connect(page);
+      const bar = page.getByTestId('bottom-navigation');
+      await expect
+        .poll(async () => {
+          const r = (await bar.boundingBox())!;
+          return Math.round(r.y + r.height);
+        })
+        .toBe(phone.height);
+
+      expect(
+        await page.locator('html').evaluate((el) => Math.round(el.getBoundingClientRect().height)),
+      ).toBe(phone.height);
+      expect(
+        await page.locator('body').evaluate((el) => Math.round(el.getBoundingClientRect().height)),
+      ).toBe(phone.height);
+      // iOS can change its reported viewport after resuming. Both measurements
+      // must converge on the same screen height without an oscillating override.
+      await page.evaluate((height) => {
+        document.documentElement.style.setProperty('--test-viewport-height', `${height}px`);
+        document.dispatchEvent(new Event('visibilitychange'));
+      }, phone.height);
+      await expect
+        .poll(async () => {
+          const r = (await bar.boundingBox())!;
+          return Math.round(r.y + r.height);
+        })
+        .toBe(phone.height);
+      await page.evaluate((height) => {
+        document.documentElement.style.setProperty('--test-viewport-height', `${height}px`);
+        document.dispatchEvent(new Event('visibilitychange'));
+      }, phone.short);
+      await expect
+        .poll(async () => {
+          const r = (await bar.boundingBox())!;
+          return Math.round(r.y + r.height);
+        })
+        .toBe(phone.height);
+      await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+      await page.getByRole('button', { name: 'Play', exact: true }).click();
+      await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
+      await expect(page.getByTestId('full-player')).toBeVisible();
+      for (const label of ['Previous song', 'Next song', 'Open lyrics', 'Open play queue']) {
+        const control = page.getByRole('button', { name: label, exact: true });
+        const box = (await control.boundingBox())!;
+        expect(box.y).toBeGreaterThanOrEqual(62);
+        await expect
+          .poll(async () => {
+            const b = await control.boundingBox();
+            return b ? Math.round(b.y + b.height) : Infinity;
+          })
+          .toBeLessThanOrEqual(phone.height - 34);
+      }
+      expect(await page.getByTestId('player-scroll').evaluate((el) => el.scrollTop)).toBe(0);
+    });
+  }
   test('tab labels stay readable inside the visible iPhone viewport', async ({ page, context }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await standalone(context);
@@ -426,18 +507,28 @@ test.describe('Mobile polish', () => {
       .toBeLessThanOrEqual(52);
   });
 
-  test('Home opens the play feed instead of an inserted collection hero', async ({
+  test('Home starts a history-driven play feed without a pre-existing queue', async ({
     page,
     context,
   }) => {
     await standalone(context);
-    await service(context);
+    const backend = await service(context);
     await connect(page);
     await expect(page.getByText('FROM YOUR COLLECTION', { exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: 'Open play feed', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Your play feed', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Choose a playlist', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Pause feed', exact: true })).toBeVisible();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.currentTime || 0,
+        ),
+      )
+      .toBeGreaterThan(0.05);
+    expect(backend.feedRequests).toHaveLength(1);
+    expect(backend.feedRequests[0].seedTrackId || '').toBe('');
+    expect(backend.feedRequests[0].queuedTrackIds || []).toEqual([]);
+    expect(backend.feedRequests[0].pageSize).toBe(3);
   });
   test('compact tabs fill the viewport and keep home-indicator padding inside the bar', async ({
     page,

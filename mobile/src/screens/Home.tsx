@@ -6,11 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowUpRight, Sparkles, ListMusic, Plus } from 'lucide-react-native';
 import { useAPI, useSession } from '../lib/session';
 import { usePlaylists, useUser } from '../lib/queries';
+import { usePlayer } from '../lib/player';
 import { color } from '../lib/theme';
 import { AlbumCard, PlaylistCard } from '../components/media';
 import { Button, FadeIn, Press, Screen, Section, Txt, WaveMark } from '../components/ui';
 
 export function HomeScreen() {
+  const player = usePlayer();
   const api = useAPI(),
     session = useSession(),
     user = useUser(),
@@ -94,7 +96,10 @@ export function HomeScreen() {
       <View style={{ marginHorizontal: 24, marginBottom: 4 }}>
         <Press
           label="Open play feed"
-          onPress={() => router.push('/queue')}
+          onPress={() => {
+            void player.startFeed();
+            router.push('/feed');
+          }}
           style={{ backgroundColor: color.raised, borderRadius: 22, padding: 20, gap: 12 }}
         >
           <View

@@ -210,11 +210,17 @@ func (s *Service) generate(ctx context.Context, owner string, in Request) (Page,
 		t.Path = ""
 		state.Upcoming = append(state.Upcoming, t)
 	}
-	history, err := s.history.List(ctx, owner, s.root, listening.Query{Since: time.Now().Add(-90 * 24 * time.Hour), Limit: 500})
+	history, err := s.history.List(ctx, owner, s.root, listening.Query{Limit: 20})
 	if err != nil {
 		return page, "error", err
 	}
-	state.Preferences = preferences(history.Sessions, time.Now(), excluded)
+	// Recent event detail controls immediate repeat/skip exclusions. The model's
+	// long-term preferences include the listener's entire recorded history.
+	preferences(history.Sessions, time.Now(), excluded)
+	state.Preferences, err = s.history.Preferences(ctx, owner, s.root)
+	if err != nil {
+		return page, "error", err
+	}
 	state.AsOf = time.Now().UTC()
 	for _, session := range history.Sessions[:min(20, len(history.Sessions))] {
 		track := session.Track

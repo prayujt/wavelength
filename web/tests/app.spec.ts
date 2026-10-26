@@ -1845,6 +1845,70 @@ for (const location of ['#album/album-1', '#library?track=track-1']) {
   });
 }
 
+test('web play feed entry starts from history without a manual queue and continues in small batches', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.addInitScript(() => {
+    const playing = new WeakSet<HTMLMediaElement>();
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', {
+      get() {
+        return !playing.has(this);
+      },
+    });
+    HTMLMediaElement.prototype.play = async function () {
+      playing.add(this);
+      this.dispatchEvent(new Event('play'));
+    };
+    HTMLMediaElement.prototype.pause = function () {
+      if (playing.delete(this)) this.dispatchEvent(new Event('pause'));
+    };
+  });
+  const songs = [
+    'History One',
+    'History Two',
+    'History Three',
+    'Next Choice',
+    'Another Choice',
+  ].map((title, index) => ({ ...track, id: 'history-' + index, title }));
+  const requests: Record<string, unknown>[] = [];
+  await page.route('**/wavelength.v1.PlayFeedService/GetPlayFeed', (route) => {
+    requests.push(route.request().postDataJSON());
+    const chosen = requests.length === 1 ? songs.slice(0, 3) : songs.slice(3);
+    return route.fulfill({
+      json: {
+        feedId: 'history-feed',
+        items: chosen.map((t) => ({ id: 'item-' + t.id, track: t })),
+        nextCursor: 'history-cursor',
+        exhausted: requests.length > 1,
+      },
+    });
+  });
+  await page.goto('/');
+  await page.getByRole('link', { name: 'Play feed', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Your play feed', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.now-playing strong')).toHaveText('History One');
+  await expect(
+    page.getByRole('button', { name: 'Pause feed', exact: true }),
+  ).toBeVisible();
+  expect(requests).toHaveLength(1);
+  expect(requests[0].seedTrackId || '').toBe('');
+  expect(requests[0].queuedTrackIds || []).toEqual([]);
+  expect(requests[0].pageSize).toBe(3);
+  await page.getByRole('button', { name: 'Next song', exact: true }).click();
+  await expect.poll(() => requests.length).toBe(2);
+  expect(requests[1]).toMatchObject({
+    cursor: 'history-cursor',
+    seedTrackId: 'history-1',
+    pageSize: 2,
+  });
+  await expect(
+    page.getByRole('button', { name: /History Three/ }),
+  ).toBeVisible();
+});
+
 test('autoplay refills a short buffer, preserves manual choices and attributes explicit skips', async ({
   page,
 }) => {
