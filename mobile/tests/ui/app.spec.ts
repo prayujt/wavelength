@@ -5,6 +5,11 @@ async function preview(page: Page) {
   await page.getByRole('button', { name: 'Explore the preview' }).click();
   await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
 }
+async function startAlbum(page: Page) {
+  await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+  await page.getByRole('button', { name: 'Play', exact: true }).click();
+  await page.getByRole('button', { name: 'Go back', exact: true }).last().click();
+}
 test.beforeEach(async ({ page }) => {
   page.on('pageerror', (error) => {
     throw error;
@@ -24,7 +29,7 @@ test('welcome offers real sign-in, configurable server and an explicitly separat
 });
 test('home, album and artist navigation use real collection IDs', async ({ page }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Explore The quiet between', exact: true }).click();
+  await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
   await expect(page.getByText('5 songs ·', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'View artist Rowan Hale', exact: true }).click();
   await expect(page.getByText('2 albums in your collection')).toBeVisible();
@@ -34,7 +39,7 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   page,
 }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+  await startAlbum(page);
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
   await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
@@ -131,7 +136,7 @@ test('ambiguous downloads can choose a source and resume the existing job', asyn
 });
 test('bookmarks save a position and can be removed later', async ({ page }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+  await startAlbum(page);
   await page.getByRole('button', { name: 'Open now playing' }).click();
   await page.getByRole('button', { name: 'Bookmark this position' }).click();
   await expect(page.getByRole('alert')).toContainText('Your place is saved');
@@ -174,7 +179,7 @@ test('listening history is readable and filtered without creating fake sessions'
 });
 test('leaving the preview clears its account and queue', async ({ page }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+  await startAlbum(page);
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByRole('button', { name: 'Leave the preview' }).click();
   await expect(page.getByRole('button', { name: 'Find your wavelength' })).toBeVisible();
@@ -202,7 +207,7 @@ test('autoplay appends recommendations and an opt-out preserves the manual album
   page,
 }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+  await startAlbum(page);
   await page.getByRole('button', { name: 'Open now playing' }).click();
   await page.getByRole('button', { name: 'Pause song', exact: true }).click();
   await page.getByRole('button', { name: 'Open play queue' }).click();

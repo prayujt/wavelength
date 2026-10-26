@@ -26,18 +26,12 @@
         position: fixed;
         top: 0;
         left: 0;
-        height: 100dvh;
+        height: var(--app-height, 100dvh);
         display: flex;
         flex: 1;
       }
-      /* iOS standalone can report a shorter percentage/dynamic viewport when
-         drawing behind the status bar. Fill the whole installed-app viewport;
-         screens and the tab bar apply safe-area padding to their controls. */
-      @media (display-mode: standalone) {
-        #root {
-          height: 100vh;
-          height: 100lvh;
-        }
+      #root div {
+        overscroll-behavior-y: none;
       }
     </style>
   </head>

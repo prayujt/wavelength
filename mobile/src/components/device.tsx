@@ -230,11 +230,18 @@ export function DeviceStatus() {
         </View>
       )}
       {waiting && (
-        <View style={{ padding: 12 }}>
-          <Txt size={12}>
+        <View
+          testID="app-update-notice"
+          accessibilityLiveRegion="polite"
+          style={{ padding: 12, gap: 4 }}
+        >
+          <Txt size={13} weight="bold">
+            An update is ready.
+          </Txt>
+          <Txt size={13} style={{ lineHeight: 19 }}>
             {player.playing
-              ? 'An update is ready. Finish listening, then close all Wavelength windows to update.'
-              : 'An update is ready. Close all Wavelength windows and reopen to update. Your music stays saved.'}
+              ? 'Finish listening, then close Wavelength and reopen to update.'
+              : 'Close Wavelength and reopen to update. Your music stays saved.'}
           </Txt>
         </View>
       )}

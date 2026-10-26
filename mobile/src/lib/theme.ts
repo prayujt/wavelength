@@ -36,4 +36,6 @@ export function colors(value: string) {
   return palette[seed(value) % palette.length];
 }
 // The home-indicator inset belongs inside the bar's painted background.
-export const TAB_BAR_HEIGHT = 56;
+export const TAB_BAR_HEIGHT = 60;
+export const PLAYER_DOCK_HEIGHT = 64;
+export const PLAYER_DOCK_GAP = 6;

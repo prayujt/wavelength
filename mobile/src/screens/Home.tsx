@@ -3,37 +3,16 @@ import { ScrollView, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import {
-  ArrowDownToLine,
-  ArrowUpRight,
-  Headphones,
-  ListMusic,
-  Play,
-  Plus,
-} from 'lucide-react-native';
+import { ArrowDownToLine, ArrowUpRight, Sparkles, ListMusic, Plus } from 'lucide-react-native';
 import { useAPI, useSession } from '../lib/session';
 import { usePlaylists, useUser } from '../lib/queries';
-import { usePlayer } from '../lib/player';
-import { color, colors } from '../lib/theme';
+import { color } from '../lib/theme';
 import { AlbumCard, PlaylistCard } from '../components/media';
-import { Artwork } from '../components/artwork';
-import {
-  Button,
-  FadeIn,
-  Press,
-  Screen,
-  Section,
-  Txt,
-  WaveMark,
-  Loading,
-  Failure,
-  Empty,
-} from '../components/ui';
+import { Button, FadeIn, Press, Screen, Section, Txt, WaveMark } from '../components/ui';
 
 export function HomeScreen() {
   const api = useAPI(),
     session = useSession(),
-    player = usePlayer(),
     user = useUser(),
     playlists = usePlaylists(),
     width = useWindowDimensions().width;
@@ -41,17 +20,10 @@ export function HomeScreen() {
     queryKey: ['library', 'albums', 'home'],
     queryFn: () => api.library.listAlbums({ limit: 12 }),
   });
-  const featured = albums.data?.albums[0],
-    tint = colors(featured?.id || 'album-0');
   const hour = new Date().getHours(),
     greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
   const firstName = user.data?.user?.name.split(' ')[0];
   const cardWidth = Math.min(165, Math.max(140, width * 0.4));
-  async function playFeatured() {
-    if (!featured) return;
-    const result = await api.library.getAlbum({ id: featured.id });
-    await player.play(result.tracks);
-  }
   return (
     <Screen>
       <FadeIn>
@@ -119,6 +91,26 @@ export function HomeScreen() {
           </Txt>
         </View>
       </FadeIn>
+      <View style={{ marginHorizontal: 24, marginBottom: 4 }}>
+        <Press
+          label="Open play feed"
+          onPress={() => router.push('/queue')}
+          style={{ backgroundColor: color.raised, borderRadius: 22, padding: 20, gap: 12 }}
+        >
+          <View
+            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+          >
+            <Sparkles color={color.accent} size={26} />
+            <ArrowUpRight color={color.accent} size={22} />
+          </View>
+          <Txt weight="display" size={25}>
+            Your play feed
+          </Txt>
+          <Txt muted size={14} style={{ lineHeight: 21 }}>
+            Your queue, recommendations and the next good song.
+          </Txt>
+        </Press>
+      </View>
       <Section
         title="Your playlists"
         eyebrow="YOUR PLAYLISTS"
@@ -162,103 +154,6 @@ export function HomeScreen() {
           </View>
         )}
       </Section>
-      {albums.isPending ? (
-        <Loading rows={3} />
-      ) : albums.error ? (
-        <Failure error={albums.error} retry={albums.refetch} />
-      ) : featured ? (
-        <FadeIn delay={80} style={{ marginHorizontal: 24 }}>
-          <Press
-            label={`Explore ${featured.name}`}
-            onPress={() => router.push({ pathname: '/album/[id]', params: { id: featured.id } })}
-            style={{
-              borderRadius: 24,
-              overflow: 'hidden',
-              backgroundColor: tint[0],
-              minHeight: 235,
-            }}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                right: -30,
-                top: -20,
-                transform: [{ rotate: '14deg' }],
-              }}
-            >
-              <Artwork
-                title={featured.name}
-                id={featured.id}
-                path={featured.artworkPath}
-                size={200}
-                radius={14}
-              />
-            </View>
-            <LinearGradient
-              colors={[tint[0] + '30', tint[0] + 'CC', tint[0]]}
-              start={{ x: 0.1, y: 0 }}
-              end={{ x: 0.4, y: 1 }}
-              style={{ position: 'absolute', inset: 0 }}
-            />
-            <View style={{ padding: 24, minHeight: 235, justifyContent: 'space-between' }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: '#FFFFFF18',
-                    paddingHorizontal: 11,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                    flexDirection: 'row',
-                    gap: 6,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Headphones size={12} color={tint[2]} />
-                  <Txt size={9} weight="bold" style={{ letterSpacing: 1.2, color: tint[2] }}>
-                    FROM YOUR COLLECTION
-                  </Txt>
-                </View>
-                <ArrowUpRight size={20} color={tint[2]} />
-              </View>
-              <View style={{ marginTop: 32, gap: 11, alignItems: 'flex-start' }}>
-                <Txt
-                  size={32}
-                  weight="heavy"
-                  numberOfLines={2}
-                  style={{ letterSpacing: -1.3, lineHeight: 37, maxWidth: '85%' }}
-                >
-                  {featured.name}
-                </Txt>
-                <Txt size={13} style={{ color: tint[2] }}>
-                  {featured.artist} · {featured.trackCount} songs
-                </Txt>
-                <View style={{ marginTop: 6 }}>
-                  <Button
-                    title="Press play. Stay awhile."
-                    small
-                    icon={Play}
-                    onPress={playFeatured}
-                    style={{ backgroundColor: '#F5F3EA' }}
-                  />
-                </View>
-              </View>
-            </View>
-          </Press>
-        </FadeIn>
-      ) : (
-        <Empty
-          title="Your collection starts here"
-          text="Find a favorite, add it to your library, and make yourself at home."
-          action="Discover music"
-          onPress={() => router.push('/search')}
-        />
-      )}
       <FadeIn delay={140}>
         <View style={{ flexDirection: 'row', paddingHorizontal: 24, marginTop: 18, gap: 10 }}>
           {[
@@ -300,12 +195,9 @@ export function HomeScreen() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={{ gap: 15, paddingHorizontal: 24 }}
           >
-            {albums.data.albums
-              .slice(1)
-              .concat(albums.data.albums.slice(0, 1))
-              .map((album) => (
-                <AlbumCard key={album.id} album={album} width={cardWidth} />
-              ))}
+            {albums.data.albums.map((album) => (
+              <AlbumCard key={album.id} album={album} width={cardWidth} />
+            ))}
           </ScrollView>
         </Section>
       )}

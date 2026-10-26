@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import { useFonts } from 'expo-font';
@@ -16,6 +16,8 @@ import { FeedbackProvider } from '../components/feedback';
 import { Button, MotionProvider, Txt, WaveMark } from '../components/ui';
 import { color } from '../lib/theme';
 import { DeviceProvider, DeviceStatus } from '../components/device';
+import { AppFrame } from '../components/app-frame';
+import { useAppViewport } from '../lib/viewport';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 export const unstable_settings = { anchor: 'index' };
@@ -55,6 +57,8 @@ function Navigation() {
   );
 }
 export default function RootLayout() {
+  useAppViewport();
+  const [noticeHeight, setNoticeHeight] = useState(0);
   const [loaded, error] = useFonts({
     DMSans_400Regular,
     DMSans_500Medium,
@@ -69,13 +73,17 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <MotionProvider>
-        <FeedbackProvider>
+        <FeedbackProvider noticeHeight={noticeHeight}>
           <SessionProvider>
             <PlayerProvider>
               <DeviceProvider>
                 <StatusBar style="light" />
-                <DeviceStatus />
-                <Navigation />
+                <AppFrame>
+                  <View onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}>
+                    <DeviceStatus />
+                  </View>
+                  <Navigation />
+                </AppFrame>
               </DeviceProvider>
             </PlayerProvider>
           </SessionProvider>

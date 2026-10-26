@@ -29,6 +29,24 @@ async function standalone(context: BrowserContext) {
       query === '(display-mode: standalone)' ? { ...match(query), matches: true } : match(query);
   });
 }
+async function phoneInsets(context: BrowserContext) {
+  await context.addInitScript(() => {
+    const computed = window.getComputedStyle.bind(window);
+    window.getComputedStyle = (element, pseudo) => {
+      const style = computed(element, pseudo);
+      if ((element as HTMLElement).style?.paddingBottom.includes('safe-area-inset-bottom'))
+        return new Proxy(style, {
+          get: (target, key) =>
+            key === 'paddingBottom'
+              ? '34px'
+              : key === 'paddingTop'
+                ? '59px'
+                : Reflect.get(target, key, target),
+        });
+      return style;
+    };
+  });
+}
 async function service(
   context: BrowserContext,
   options: {
@@ -252,6 +270,132 @@ test('ordinary mobile browser tabs hide device downloads', async ({ page, contex
 });
 
 test.describe('Mobile polish', () => {
+  test('tab labels stay readable inside the visible iPhone viewport', async ({ page, context }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await standalone(context);
+    await phoneInsets(context);
+    // Reproduce Safari reporting a visible window shorter than its CSS large viewport.
+    await context.addInitScript(() =>
+      Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => 780 }),
+    );
+    await service(context);
+    await connect(page);
+    const bar = await page.getByTestId('bottom-navigation').boundingBox();
+    expect(Math.round(bar!.y + bar!.height)).toBe(780);
+    for (const name of ['Home', 'Playlists', 'Library', 'Discover']) {
+      const label = page.getByRole('tab', { name, exact: true }).getByText(name, { exact: true });
+      const rect = await label.boundingBox();
+      expect(rect!.height).toBeGreaterThanOrEqual(18);
+      expect(rect!.y + rect!.height).toBeLessThanOrEqual(bar!.y + bar!.height - 34);
+      expect(await label.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
+  });
+
+  test('update notices and feedback stay below the Dynamic Island without overlapping', async ({
+    page,
+    context,
+  }) => {
+    await standalone(context);
+    await phoneInsets(context);
+    await context.addInitScript(() => {
+      const registration = {
+        waiting: {},
+        active: { state: 'activated' },
+        addEventListener() {},
+        async update() {},
+      };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        configurable: true,
+        value: {
+          controller: {},
+          ready: Promise.resolve(registration),
+          async register() {
+            return registration;
+          },
+          async getRegistration() {
+            return registration;
+          },
+        },
+      });
+    });
+    await service(context);
+    await connect(page);
+    const notice = page.getByTestId('app-update-notice');
+    await expect(notice.getByText('An update is ready.', { exact: true })).toBeVisible();
+    expect((await notice.boundingBox())!.y).toBeGreaterThanOrEqual(59);
+    await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
+    await page.getByRole('button', { name: 'Create playlist', exact: true }).click();
+    await page.getByRole('textbox', { name: 'Playlist name' }).fill('Safe area check');
+    await page.getByRole('button', { name: 'Create playlist', exact: true }).click();
+    const toast = page.getByText('Your playlist is ready', { exact: true });
+    await expect(toast).toBeVisible();
+    await expect
+      .poll(async () => {
+        const update = await notice.boundingBox(),
+          feedback = await toast.boundingBox();
+        return !!update && !!feedback && feedback.y >= update.y + update.height;
+      })
+      .toBe(true);
+  });
+
+  test('page ends reserve only the space used by the visible player', async ({ page, context }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await standalone(context);
+    await phoneInsets(context);
+    await service(context);
+    await connect(page);
+    await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
+    const shortList = page.getByTestId('playlists-scroll');
+    await shortList.evaluate((el) => {
+      el.scrollTop = 100000;
+    });
+    expect(await shortList.evaluate((el) => el.scrollTop)).toBe(0);
+    await page.getByRole('tab', { name: 'Library', exact: true }).click();
+    await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
+    const list = page.getByTestId('catalog-scroll');
+    await expect(page.getByText('40 songs', { exact: true })).toBeVisible();
+    const last = list.getByRole('button', { name: /^More options for / }).last();
+    await expect
+      .poll(async () => {
+        await list.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        const frame = (await list.boundingBox())!,
+          row = (await last.boundingBox())!;
+        return Math.abs(frame.y + frame.height - (row.y + row.height));
+      })
+      .toBeLessThanOrEqual(40);
+    await list.evaluate((el) => {
+      el.scrollTop = 0;
+    });
+    await page.getByRole('button', { name: 'Play Weightless', exact: true }).click();
+    const dock = page.getByRole('button', { name: 'Open now playing', exact: true });
+    await expect(dock).toBeVisible();
+    await expect
+      .poll(async () => {
+        await list.evaluate((el) => {
+          el.scrollTop = el.scrollHeight;
+        });
+        const player = (await dock.boundingBox())!,
+          row = (await last.boundingBox())!;
+        return Math.abs(player.y - (row.y + row.height));
+      })
+      .toBeLessThanOrEqual(52);
+  });
+
+  test('Home opens the play feed instead of an inserted collection hero', async ({
+    page,
+    context,
+  }) => {
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    await expect(page.getByText('FROM YOUR COLLECTION', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Open play feed', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Your play feed', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Choose a playlist', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
+  });
   test('compact tabs fill the viewport and keep home-indicator padding inside the bar', async ({
     page,
     context,
@@ -285,8 +429,8 @@ test.describe('Mobile polish', () => {
     const bar = await background.boundingBox();
     expect(bar).not.toBeNull();
     expect(Math.abs(bar!.y + bar!.height - 844)).toBeLessThanOrEqual(1);
-    expect(bar!.height).toBeLessThanOrEqual(90);
-    expect(await background.evaluate((el) => getComputedStyle(el).paddingBottom)).toBe('38px');
+    expect(bar!.height).toBeLessThanOrEqual(94);
+    expect(await background.evaluate((el) => getComputedStyle(el).paddingBottom)).toBe('34px');
     await page.waitForTimeout(350);
     await page.screenshot({ path: info.outputPath('library.png') });
     await page.setViewportSize({ width: 844, height: 390 });
@@ -308,7 +452,7 @@ test.describe('Mobile polish', () => {
     await standalone(context);
     const backend = await service(context);
     await connect(page);
-    await page.getByRole('button', { name: 'Explore The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
     const start = Date.now();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect
@@ -351,7 +495,7 @@ test.describe('Mobile polish', () => {
     await standalone(context);
     await service(context);
     await connect(page);
-    await page.getByRole('button', { name: 'Explore The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect
       .poll(() => page.evaluate(() => navigator.mediaSession.metadata?.artwork.length))
@@ -610,7 +754,7 @@ test('album downloads save every song and desktop installed mode exposes the sam
   await standalone(context);
   await service(context);
   await connect(page);
-  await page.getByRole('button', { name: 'Explore The quiet between', exact: true }).click();
+  await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
   await page.getByRole('button', { name: 'Download collection to device', exact: true }).click();
   await expect(
     page.getByRole('button', { name: 'Saved on this device', exact: true }),

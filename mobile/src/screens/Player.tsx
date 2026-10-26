@@ -1,3 +1,4 @@
+import { usePageBottomInset } from '../lib/layout';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
@@ -331,19 +332,23 @@ export function PlayerScreen() {
 }
 
 export function QueueScreen() {
+  const bottom = usePageBottomInset();
   const player = usePlayer(),
     feedback = useFeedback();
   return (
     <Screen scroll={false}>
       <FlatList
+        testID="queue-scroll"
+        bounces={false}
+        overScrollMode="never"
         data={player.queue}
         keyExtractor={(track, index) => `${track.id}:${index}`}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: bottom }}
         ListHeaderComponent={
           <>
             <Header
               back
-              title="Keep a good thing going."
+              title="Your play feed"
               eyebrow="YOUR QUEUE"
               subtitle={`${player.queue.length} songs, in your order.`}
               right={
@@ -476,10 +481,10 @@ export function QueueScreen() {
         ListEmptyComponent={
           <Empty
             icon={ListMusic}
-            title="A little room for more."
-            text="Play an album or add a song to build your queue."
-            action="Browse your library"
-            onPress={() => router.replace('/library')}
+            title="Start with something you love"
+            text="Choose a playlist or a song. Autoplay will find what comes next."
+            action="Choose a playlist"
+            onPress={() => router.replace('/playlists')}
           />
         }
       />
@@ -488,6 +493,7 @@ export function QueueScreen() {
 }
 
 export function LyricsScreen() {
+  const bottom = usePageBottomInset();
   const player = usePlayer(),
     status = useAudioPlayerStatus(player.audio),
     api = useAPI(),
@@ -553,10 +559,13 @@ export function LyricsScreen() {
           />
         ) : (
           <ScrollView
+            bounces={false}
+            overScrollMode="never"
+            testID="lyrics-scroll"
             ref={scroll}
             showsVerticalScrollIndicator={false}
             onScrollBeginDrag={() => setFollow(false)}
-            contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 24, paddingBottom: 200 }}
+            contentContainerStyle={{ paddingHorizontal: 28, paddingTop: 24, paddingBottom: bottom }}
           >
             {lines.map((line, i) => (
               <View

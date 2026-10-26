@@ -24,6 +24,7 @@ import Svg, { Path } from 'react-native-svg';
 import { color, font } from '../lib/theme';
 import { errorMessage } from '../lib/api';
 import { useFeedback } from './feedback';
+import { usePageBottomInset } from '../lib/layout';
 
 export function Txt({
   style,
@@ -297,12 +298,16 @@ export function Screen({
   style?: StyleProp<ViewStyle>;
 }) {
   const inset = useSafeAreaInsets();
+  const bottom = usePageBottomInset();
   return (
     <View style={[s.screen, { paddingTop: inset.top }, style]}>
       {scroll ? (
         <ScrollView
+          testID="page-scroll"
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 160 }}
+          contentContainerStyle={{ paddingBottom: bottom }}
+          bounces={false}
+          overScrollMode="never"
           keyboardShouldPersistTaps="handled"
         >
           {children}

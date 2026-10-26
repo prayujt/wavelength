@@ -1,3 +1,4 @@
+import { usePageBottomInset } from '../lib/layout';
 import React, { useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
@@ -158,6 +159,7 @@ export function LibraryScreen() {
 }
 
 export function PlaylistsScreen() {
+  const bottom = usePageBottomInset();
   const playlists = usePlaylists(),
     [search, setSearch] = useState('');
   const items = useMemo(
@@ -170,11 +172,14 @@ export function PlaylistsScreen() {
   return (
     <Screen scroll={false}>
       <FlatList
+        testID="playlists-scroll"
+        bounces={false}
+        overScrollMode="never"
         data={items}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <PlaylistRow playlist={item} />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={{ paddingBottom: bottom }}
         refreshing={playlists.isRefetching}
         onRefresh={() => {
           void playlists.refetch();
