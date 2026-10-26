@@ -358,4 +358,24 @@ describe('play feed and playback integration', () => {
     expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
     expect(f.port.getPlayFeed).not.toHaveBeenCalled();
   });
+  it('does not resurrect a trimmed legacy feed when turning restored shuffle off', async () => {
+    const f = setup();
+    f.port.queue = async () => ({
+      trackIds: ['current', ...Array.from({ length: 10 }, (_, i) => 'old-' + i)],
+      currentTrackId: 'current',
+      positionMs: 0n,
+      recommendations: Array.from({ length: 10 }, (_, i) => ({
+        index: i + 1,
+        playFeedItemId: 'old-item-' + i,
+      })),
+      playFeedEnabled: true,
+    });
+    f.controller.connect(f.port);
+    controllers.push(f.controller);
+    await vi.waitFor(() => expect(f.controller.getSnapshot().queue).toHaveLength(4));
+    f.controller.restoreSettings({ shuffle: true });
+    f.controller.toggleShuffle();
+    expect(f.controller.getSnapshot().queue).toHaveLength(4);
+    expect(f.controller.getSnapshot().track?.id).toBe('current');
+  });
 });

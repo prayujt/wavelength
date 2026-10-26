@@ -222,10 +222,10 @@ export class PlaybackController {
         if (serial !== this.serial || this.snapshot.queue.length) return;
         const restoredIndex = tracks.findIndex((t) => t.id === queue.currentTrackId);
         const index = Math.max(0, restoredIndex);
-        this.original = tracks;
         this.restoredPosition = restoredIndex >= 0 ? Number(queue.positionMs) / 1000 : 0;
         this.patch({ queue: tracks, index, track: tracks[index] });
         this.feed.restore(references, queue.playFeedEnabled ?? true);
+        this.original = [...this.snapshot.queue];
         this.feed.schedule();
       } catch {
         /* A failed restore never overwrites a newer local queue. */
