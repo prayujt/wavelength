@@ -342,8 +342,6 @@ export function ActivityScreen() {
     <Screen scroll={false}>
       {tab === 'Downloads' ? (
         <FlatList
-          bounces={false}
-          overScrollMode="never"
           data={jobs}
           keyExtractor={(j) => j.id}
           ListHeaderComponent={top}
@@ -377,8 +375,6 @@ export function ActivityScreen() {
         />
       ) : (
         <FlatList
-          bounces={false}
-          overScrollMode="never"
           data={sessions}
           keyExtractor={(s) => s.id}
           ListHeaderComponent={top}

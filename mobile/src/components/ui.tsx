@@ -306,8 +306,6 @@ export function Screen({
           testID="page-scroll"
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: bottom }}
-          bounces={false}
-          overScrollMode="never"
           keyboardShouldPersistTaps="handled"
         >
           {children}

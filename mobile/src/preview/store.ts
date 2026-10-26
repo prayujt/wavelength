@@ -322,7 +322,7 @@ export function createPreviewFetch(): typeof fetch {
         ]);
         const available = tracks.filter((track) => !blocked.has(track.id));
         const start = Math.max(0, Number(args.cursor || 0));
-        const selected = available.slice(start, start + Math.min(25, Number(args.pageSize || 10)));
+        const selected = available.slice(start, start + Math.min(3, Number(args.pageSize || 3)));
         const next = start + selected.length;
         result = {
           feedId: 'preview-feed',

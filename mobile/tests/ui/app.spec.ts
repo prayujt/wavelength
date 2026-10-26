@@ -203,7 +203,7 @@ test('phone and tablet screens stay within the viewport with reduced motion', as
   );
 });
 
-test('autoplay appends recommendations and an opt-out preserves the manual album', async ({
+test('autoplay refills near the album end and an opt-out preserves manual choices', async ({
   page,
 }) => {
   await preview(page);
@@ -211,8 +211,11 @@ test('autoplay appends recommendations and an opt-out preserves the manual album
   await page.getByRole('button', { name: 'Open now playing' }).click();
   await page.getByRole('button', { name: 'Pause song', exact: true }).click();
   await page.getByRole('button', { name: 'Open play queue' }).click();
-  await expect(page.getByText('15 songs, in your order.')).toBeVisible();
-  await expect(page.getByText(/^Recommended ·/)).toHaveCount(10);
+  await expect(page.getByText('5 songs, in your order.')).toBeVisible();
+  await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
+  await page.getByRole('button', { name: 'Play queued Coming home', exact: true }).click();
+  await expect(page.getByText('7 songs, in your order.')).toBeVisible();
+  await expect(page.getByText(/^Recommended ·/)).toHaveCount(2);
   const autoplay = page.getByRole('button', { name: 'Autoplay', exact: true });
   await autoplay.click();
   await expect(page.getByText('5 songs, in your order.')).toBeVisible();
@@ -224,5 +227,5 @@ test('autoplay appends recommendations and an opt-out preserves the manual album
   ).toBeVisible();
   await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
   await autoplay.click();
-  await expect(page.getByText('15 songs, in your order.')).toBeVisible();
+  await expect(page.getByText('7 songs, in your order.')).toBeVisible();
 });

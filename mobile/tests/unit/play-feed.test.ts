@@ -63,24 +63,17 @@ describe('mobile play-feed queue', () => {
       { index: 3, playFeedItemId: 'old-item-2' },
     ]);
     await f.controller.refresh();
-    expect(f.state().tracks.map((t) => t.id)).toEqual([
-      'current',
-      'new-1',
-      'manual',
-      'new-2',
-      'new-3',
-    ]);
+    expect(f.state().tracks.map((t) => t.id)).toEqual(['current', 'new-1', 'manual', 'new-2']);
     expect(f.state().tracks[0]).toBe(current);
     expect(f.state().tracks[2]).toBe(pinned);
     expect(f.controller.references()).toEqual([
       { index: 1, playFeedItemId: 'item-new-1' },
       { index: 3, playFeedItemId: 'item-new-2' },
-      { index: 4, playFeedItemId: 'item-new-3' },
     ]);
     expect(f.fetch.mock.calls[0]?.[0]).toMatchObject({
       seedTrackId: 'current',
       queuedTrackIds: ['current', 'manual'],
-      pageSize: 10,
+      pageSize: 2,
       cursor: '',
     });
     f.stop();
@@ -146,14 +139,68 @@ describe('mobile play-feed queue', () => {
     await f.controller.refresh();
     const removed = f.state().tracks[1];
     f.controller.dismiss(removed);
-    f.set({ tracks: f.state().tracks.filter((t) => t !== removed), index: 0 });
+    f.set({ tracks: f.state().tracks.filter((t) => t !== removed), index: 1 });
     f.fetch.mockResolvedValueOnce(page('current', 'new-1', 'new-2', 'later'));
     await f.controller.refresh(true);
     expect(f.fetch.mock.calls.at(-1)?.[0]).toMatchObject({
       cursor: 'next-page',
-      excludedTrackIds: ['new-1'],
+      excludedTrackIds: ['new-1', 'current'],
     });
     expect(f.state().tracks.map((t) => t.id)).toEqual(['current', 'new-2', 'new-3', 'later']);
+    f.stop();
+  });
+  it('waits until one upcoming track remains, then fetches only two fresh choices', async () => {
+    vi.useFakeTimers();
+    const f = setup([song('current'), song('manual-1'), song('manual-2')]);
+    f.controller.schedule();
+    f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(f.fetch).not.toHaveBeenCalled();
+    f.set({ tracks: f.state().tracks, index: 1 });
+    f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(700);
+    expect(f.fetch).toHaveBeenCalledTimes(1);
+    expect(f.fetch.mock.calls[0]?.[0]).toMatchObject({ pageSize: 2, seedTrackId: 'manual-1' });
+    expect(f.state().tracks.map((t) => t.id)).toEqual([
+      'current',
+      'manual-1',
+      'manual-2',
+      'new-1',
+      'new-2',
+    ]);
+    f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(f.fetch).toHaveBeenCalledTimes(1);
+    f.set({ tracks: f.state().tracks, index: 3 });
+    f.fetch.mockResolvedValueOnce(page('fresh-1', 'fresh-2'));
+    f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(700);
+    expect(f.fetch).toHaveBeenCalledTimes(2);
+    expect(f.fetch.mock.calls[1]?.[0]).toMatchObject({
+      pageSize: 2,
+      cursor: 'next-page',
+      seedTrackId: 'new-1',
+    });
+    expect(
+      f
+        .state()
+        .tracks.slice(4)
+        .map((t) => t.id),
+    ).toEqual(['new-2', 'fresh-1', 'fresh-2']);
+    f.stop();
+  });
+  it('backs off failed background refills instead of requesting on every audio tick', async () => {
+    vi.useFakeTimers();
+    const f = setup();
+    f.fetch.mockRejectedValue(new Error('offline'));
+    await f.controller.refresh(true);
+    for (let i = 0; i < 10; i++) f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(f.fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(15000);
+    f.controller.maintain();
+    await vi.advanceTimersByTimeAsync(700);
+    expect(f.fetch).toHaveBeenCalledTimes(2);
     f.stop();
   });
   it('disables generated future entries without losing current/manual tracks', async () => {
@@ -189,6 +236,20 @@ describe('mobile play-feed queue', () => {
     expect(f.controller.recommendation(detail)).toBe('original-item');
     f.controller.promote(detail);
     expect(f.controller.references()).toEqual([]);
+    f.stop();
+  });
+
+  it('shrinks legacy generated buffers while preserving the current song and manual choices', () => {
+    const f = setup([
+      song('current'),
+      song('manual'),
+      ...Array.from({ length: 10 }, (_, i) => song('old-' + i)),
+    ]);
+    f.controller.restore(
+      Array.from({ length: 10 }, (_, i) => ({ index: i + 2, playFeedItemId: 'old-item-' + i })),
+    );
+    expect(f.state().tracks.map((t) => t.id)).toEqual(['current', 'manual', 'old-0', 'old-1']);
+    expect(f.controller.references()).toHaveLength(2);
     f.stop();
   });
 });

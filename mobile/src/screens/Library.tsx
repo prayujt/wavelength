@@ -173,8 +173,6 @@ export function PlaylistsScreen() {
     <Screen scroll={false}>
       <FlatList
         testID="playlists-scroll"
-        bounces={false}
-        overScrollMode="never"
         data={items}
         keyExtractor={(p) => p.id}
         renderItem={({ item }) => <PlaylistRow playlist={item} />}

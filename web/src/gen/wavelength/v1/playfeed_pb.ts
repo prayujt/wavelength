@@ -33,7 +33,8 @@ export type GetPlayFeedRequest = Message<"wavelength.v1.GetPlayFeedRequest"> & {
   cursor: string;
 
   /**
-   * Default 10, maximum 25. Already-issued pages retain their original size.
+   * Default and maximum batch size 3. Larger legacy sizes are capped at 3.
+   * Already-issued pages retain their original size for idempotent retries.
    *
    * @generated from field: int32 page_size = 3;
    */
@@ -45,7 +46,7 @@ export type GetPlayFeedRequest = Message<"wavelength.v1.GetPlayFeedRequest"> & {
   seedTrackId: string;
 
   /**
-   * Current and upcoming manually chosen songs, in queue order.
+   * Current and upcoming committed songs, in queue order; excluded from new choices.
    *
    * @generated from field: repeated string queued_track_ids = 5;
    */

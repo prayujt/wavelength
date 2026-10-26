@@ -58,7 +58,19 @@ type Preference struct {
 	ListenedMS                        int64
 	LastPlayedAt                      time.Time
 }
+
+// RecentListen preserves session order and actual playback timing for the next
+// decision without exposing session IDs, account identities, or source paths.
+type RecentListen struct {
+	Track                         library.Track
+	StartedAt, UpdatedAt, EndedAt time.Time
+	ListenedMS, PositionMS        int64
+	Playing                       bool
+	Outcome, ChangeReason         string
+}
 type Context struct {
+	AsOf        time.Time
+	Recent      []RecentListen
 	Seed        library.Track
 	Upcoming    []library.Track
 	Preferences []Preference

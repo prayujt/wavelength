@@ -339,8 +339,6 @@ export function QueueScreen() {
     <Screen scroll={false}>
       <FlatList
         testID="queue-scroll"
-        bounces={false}
-        overScrollMode="never"
         data={player.queue}
         keyExtractor={(track, index) => `${track.id}:${index}`}
         contentContainerStyle={{ paddingBottom: bottom }}
@@ -559,8 +557,6 @@ export function LyricsScreen() {
           />
         ) : (
           <ScrollView
-            bounces={false}
-            overScrollMode="never"
             testID="lyrics-scroll"
             ref={scroll}
             showsVerticalScrollIndicator={false}

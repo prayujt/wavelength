@@ -7,11 +7,17 @@ export function useAppViewport() {
     const update = () => {
       const viewport = window.visualViewport;
       const editing = document.activeElement?.matches('input, textarea, [contenteditable="true"]');
-      const height =
-        editing && viewport
-          ? Math.min(window.innerHeight, viewport.height + viewport.offsetTop)
-          : window.innerHeight;
-      document.documentElement.style.setProperty('--app-height', `${Math.round(height)}px`);
+      // CSS owns the full-screen height. In iOS standalone, innerHeight can
+      // omit safe areas and leave a permanent strip below a fixed-size root.
+      // Override it only for a software keyboard, never for edge overscroll.
+      const keyboard =
+        editing && viewport && viewport.height < document.documentElement.clientHeight - 120;
+      if (keyboard)
+        document.documentElement.style.setProperty(
+          '--app-height',
+          `${Math.round(viewport.height + viewport.offsetTop)}px`,
+        );
+      else document.documentElement.style.removeProperty('--app-height');
     };
     update();
     window.addEventListener('resize', update);
