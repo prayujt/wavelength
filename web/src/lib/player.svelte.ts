@@ -30,7 +30,13 @@ export class PlayerState {
     },
     fetch: (input, signal) =>
       api.playfeed.getPlayFeed(input, { signal, timeoutMs: 12000 }),
-    flush: () => this.listening.flush(),
+    flush: () => {
+      this.listening.report(
+        this.audio?.currentTime ?? this.position,
+        this.playing,
+      );
+      return this.listening.flush();
+    },
     active: () => session.status === 'signed_in' && !!this.audio,
     changed: (status) => {
       this.playFeedEnabled = status.enabled;
@@ -93,10 +99,11 @@ export class PlayerState {
           ? [{ index, playFeedItemId: item.playFeedItemId }]
           : [];
       });
-      this.feed.restore(recommendations, queue.playFeedEnabled ?? true);
       const index = this.tracks.findIndex(
         (track) => track.id === queue.currentTrackId,
       );
+      this.index = Math.max(0, index);
+      this.feed.restore(recommendations, queue.playFeedEnabled ?? true);
       if (this.tracks.length)
         await this.open(
           Math.max(0, index),

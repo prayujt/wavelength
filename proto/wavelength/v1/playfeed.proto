@@ -13,10 +13,11 @@ message GetPlayFeedRequest {
   string request_id = 1;
   // Empty starts a fresh feed. Otherwise continue with next_cursor.
   string cursor = 2;
-  // Default 10, maximum 25. Already-issued pages retain their original size.
+  // Default and maximum batch size 3. Larger legacy sizes are capped at 3.
+  // Already-issued pages retain their original size for idempotent retries.
   int32 page_size = 3;
   string seed_track_id = 4;
-  // Current and upcoming manually chosen songs, in queue order.
+  // Current and upcoming committed songs, in queue order; excluded from new choices.
   repeated string queued_track_ids = 5;
   // Songs dismissed from this player's queue; a temporary exclusion, not dislike.
   repeated string excluded_track_ids = 6;

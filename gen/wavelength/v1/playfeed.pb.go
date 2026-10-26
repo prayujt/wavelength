@@ -27,10 +27,11 @@ type GetPlayFeedRequest struct {
 	RequestId string `protobuf:"bytes,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"`
 	// Empty starts a fresh feed. Otherwise continue with next_cursor.
 	Cursor string `protobuf:"bytes,2,opt,name=cursor,proto3" json:"cursor,omitempty"`
-	// Default 10, maximum 25. Already-issued pages retain their original size.
+	// Default and maximum batch size 3. Larger legacy sizes are capped at 3.
+	// Already-issued pages retain their original size for idempotent retries.
 	PageSize    int32  `protobuf:"varint,3,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	SeedTrackId string `protobuf:"bytes,4,opt,name=seed_track_id,json=seedTrackId,proto3" json:"seed_track_id,omitempty"`
-	// Current and upcoming manually chosen songs, in queue order.
+	// Current and upcoming committed songs, in queue order; excluded from new choices.
 	QueuedTrackIds []string `protobuf:"bytes,5,rep,name=queued_track_ids,json=queuedTrackIds,proto3" json:"queued_track_ids,omitempty"`
 	// Songs dismissed from this player's queue; a temporary exclusion, not dislike.
 	ExcludedTrackIds []string `protobuf:"bytes,6,rep,name=excluded_track_ids,json=excludedTrackIds,proto3" json:"excluded_track_ids,omitempty"`

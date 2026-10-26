@@ -274,14 +274,14 @@ test.describe('Mobile polish', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await standalone(context);
     await phoneInsets(context);
-    // Reproduce Safari reporting a visible window shorter than its CSS large viewport.
+    // Reproduce iOS standalone innerHeight omitting safe areas from a full-screen CSS viewport.
     await context.addInitScript(() =>
       Object.defineProperty(window, 'innerHeight', { configurable: true, get: () => 780 }),
     );
     await service(context);
     await connect(page);
     const bar = await page.getByTestId('bottom-navigation').boundingBox();
-    expect(Math.round(bar!.y + bar!.height)).toBe(780);
+    expect(Math.round(bar!.y + bar!.height)).toBe(844);
     for (const name of ['Home', 'Playlists', 'Library', 'Discover']) {
       const label = page.getByRole('tab', { name, exact: true }).getByText(name, { exact: true });
       const rect = await label.boundingBox();
@@ -336,6 +336,49 @@ test.describe('Mobile polish', () => {
         return !!update && !!feedback && feedback.y >= update.y + update.height;
       })
       .toBe(true);
+  });
+
+  test('page edges allow native bounce and the viewport recovers after keyboard dismissal', async ({
+    page,
+    context,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await standalone(context);
+    await phoneInsets(context);
+    await service(context);
+    await connect(page);
+    const home = page.getByTestId('page-scroll').first();
+    expect(await home.evaluate((el) => getComputedStyle(el).overscrollBehaviorY)).toBe('contain');
+    await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
+    const input = page.getByRole('textbox', { name: 'Find a playlist', exact: true });
+    await input.focus();
+    await page.evaluate(() => {
+      Object.defineProperty(window.visualViewport!, 'height', {
+        configurable: true,
+        get: () => 430,
+      });
+      window.visualViewport!.dispatchEvent(new Event('resize'));
+    });
+    const bar = page.getByTestId('bottom-navigation');
+    await expect
+      .poll(async () => {
+        const rect = (await bar.boundingBox())!;
+        return Math.round(rect.y + rect.height);
+      })
+      .toBe(430);
+    await input.blur();
+    await expect
+      .poll(async () => {
+        const rect = (await bar.boundingBox())!;
+        return Math.round(rect.y + rect.height);
+      })
+      .toBe(844);
+    expect(
+      await page
+        .getByTestId('playlists-scroll')
+        .evaluate((el) => getComputedStyle(el).overscrollBehaviorY),
+    ).toBe('contain');
+    expect(await page.evaluate(() => document.scrollingElement!.scrollTop)).toBe(0);
   });
 
   test('page ends reserve only the space used by the visible player', async ({ page, context }) => {
@@ -429,7 +472,7 @@ test.describe('Mobile polish', () => {
     const bar = await background.boundingBox();
     expect(bar).not.toBeNull();
     expect(Math.abs(bar!.y + bar!.height - 844)).toBeLessThanOrEqual(1);
-    expect(bar!.height).toBeLessThanOrEqual(94);
+    expect(bar!.height).toBeLessThanOrEqual(86);
     expect(await background.evaluate((el) => getComputedStyle(el).paddingBottom)).toBe('34px');
     await page.waitForTimeout(350);
     await page.screenshot({ path: info.outputPath('library.png') });

@@ -56,6 +56,8 @@ func normalize(in Request) (Request, string, error) {
 	if !requestID.MatchString(in.RequestID) || len(in.Cursor) > 128 || len(in.SeedTrackID) > 256 || in.PageSize < 0 || in.PageSize > MaxPageSize || len(in.QueuedTrackIDs) > MaxExclusions || len(in.ExcludedTrackIDs) > MaxExclusions {
 		return in, "", ErrInvalid
 	}
+	// Preserve canonical request hashes from earlier releases for safe retries.
+	// The response batch is capped separately when generating a new page.
 	if in.PageSize == 0 {
 		in.PageSize = 10
 	}
@@ -165,6 +167,7 @@ func (s *Service) hydrate(ctx context.Context, page Page) (Page, error) {
 }
 func (s *Service) generate(ctx context.Context, owner string, in Request) (Page, string, error) {
 	page := Page{FeedID: rand.Text(), Items: []Item{}}
+	in.PageSize = min(in.PageSize, 3)
 	excluded := map[string]bool{}
 	for _, ids := range [][]string{in.QueuedTrackIDs, in.ExcludedTrackIDs} {
 		for _, id := range ids {
@@ -212,6 +215,12 @@ func (s *Service) generate(ctx context.Context, owner string, in Request) (Page,
 		return page, "error", err
 	}
 	state.Preferences = preferences(history.Sessions, time.Now(), excluded)
+	state.AsOf = time.Now().UTC()
+	for _, session := range history.Sessions[:min(20, len(history.Sessions))] {
+		track := session.Track
+		track.Path = ""
+		state.Recent = append(state.Recent, RecentListen{Track: track, StartedAt: session.StartedAt, UpdatedAt: session.UpdatedAt, EndedAt: session.EndedAt, ListenedMS: session.ListenedMS, PositionMS: session.PositionMS, Playing: session.Playing, Outcome: session.Outcome, ChangeReason: session.ChangeReason})
+	}
 	ids := sortedIDs(excluded)
 	available, err := s.store.Count(ctx, s.root, ids)
 	if err != nil {
@@ -226,10 +235,11 @@ func (s *Service) generate(ctx context.Context, owner string, in Request) (Page,
 		return page, "error", err
 	}
 	raw, _ := json.Marshal(struct {
-		Owner    string
-		Revision int64
-		State    Context
-	}{owner, revision, state})
+		Owner     string
+		RequestID string
+		Revision  int64
+		State     Context
+	}{owner, in.RequestID, revision, state})
 	key := fmt.Sprintf("%x", sha256.Sum256(raw))
 	candidates, err := s.candidates(ctx, key, state, nil)
 	if err != nil {

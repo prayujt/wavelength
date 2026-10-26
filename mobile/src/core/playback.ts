@@ -97,7 +97,8 @@ export class PlaybackController {
     apply: (queue, index) => this.commit(queue, index, false),
     active: () => !!this.port?.getPlayFeed && this.snapshot.repeat === 'off',
     fetch: (input, signal) => this.port!.getPlayFeed!(input, signal),
-    flush: () => this.reporter?.flush() ?? Promise.resolve(),
+    flush: () =>
+      this.reporter?.report(this.audio.position(), this.snapshot.playing) ?? Promise.resolve(),
     uuid: () => this.random(),
     changed: (status) =>
       this.patch({

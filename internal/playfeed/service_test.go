@@ -114,7 +114,7 @@ func TestPaginationReplayPersistenceAndOwnerIsolation(t *testing.T) {
 	f := setup(t, r, 38)
 	in := playfeed.Request{RequestID: "page-first", PageSize: 10, SeedTrackID: f.tracks[0].ID, QueuedTrackIDs: []string{f.tracks[1].ID}, ExcludedTrackIDs: []string{f.tracks[2].ID}}
 	first := get(t, f, "alice", in)
-	if len(first.Items) != 10 || first.Exhausted || first.NextCursor == "" {
+	if len(first.Items) != 3 || first.Exhausted || first.NextCursor == "" {
 		t.Fatal(first)
 	}
 	replay := get(t, f, "alice", in)
@@ -122,7 +122,7 @@ func TestPaginationReplayPersistenceAndOwnerIsolation(t *testing.T) {
 		t.Fatal("retry changed the page or called ranking twice")
 	}
 	altered := in
-	altered.PageSize = 11
+	altered.PageSize = 2
 	if _, err := f.service.Get(context.Background(), "alice", altered); !errors.Is(err, playfeed.ErrConflict) {
 		t.Fatal("request ID did not bind input", err)
 	}
@@ -271,6 +271,47 @@ func TestConcurrentRetriesShareOnePageAndRanking(t *testing.T) {
 	}
 	if r.calls.Load() != 1 {
 		t.Fatal("duplicate provider requests", r.calls.Load())
+	}
+}
+
+func TestRollingPagesRerankWithCurrentListeningProgress(t *testing.T) {
+	r := &ranker{seen: make(chan playfeed.Context, 4)}
+	f := setup(t, r, 15)
+	now := time.Now().UTC()
+	_, err := f.history.Create(context.Background(), listening.Session{
+		ID: "active-listen", Owner: "alice", RootID: f.root, Track: f.tracks[0],
+		StartedAt: now.Add(-2 * time.Minute), UpdatedAt: now, Playing: true,
+		ListenedMS: 110000, PositionMS: 125000,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := get(t, f, "alice", playfeed.Request{RequestID: "rolling-first", SeedTrackID: f.tracks[0].ID})
+	if len(first.Items) != 3 {
+		t.Fatalf("expected a short first batch, got %d", len(first.Items))
+	}
+	_, err = f.history.Update(context.Background(), "alice", f.root, "active-listen", func(s *listening.Session) error {
+		s.ListenedMS, s.PositionMS, s.UpdatedAt = 150000, 165000, now.Add(40*time.Second)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	next := get(t, f, "alice", playfeed.Request{RequestID: "rolling-next", Cursor: first.NextCursor, PageSize: 2, SeedTrackID: f.tracks[0].ID})
+	if len(next.Items) != 2 || r.calls.Load() != 2 {
+		t.Fatal("continuation did not request a fresh short ranking", r.calls.Load())
+	}
+	<-r.seen
+	state := <-r.seen
+	if state.AsOf.IsZero() || len(state.Recent) != 1 || state.Recent[0].ListenedMS != 150000 || state.Recent[0].PositionMS != 165000 || !state.Recent[0].Playing || state.Recent[0].Track.Path != "" || !state.Recent[0].StartedAt.Equal(now.Add(-2*time.Minute)) {
+		t.Fatal("current listening time, position or timestamps missing from ranking context", state)
+	}
+	for _, item := range next.Items {
+		for _, previous := range first.Items {
+			if item.Track.ID == previous.Track.ID {
+				t.Fatal("continuation repeated a prior suggestion")
+			}
+		}
 	}
 }
 

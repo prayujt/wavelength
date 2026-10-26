@@ -53,7 +53,7 @@ export default function TabLayout() {
                       flex: 1,
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: 3,
+                      gap: 2,
                       paddingHorizontal: 4,
                     }}
                   >

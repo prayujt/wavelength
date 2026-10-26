@@ -17,7 +17,8 @@ import (
 
 func TestPlayFeedUsesMusicalMetadataAndListeningSignalsOnly(t *testing.T) {
 	track := library.Track{ID: "catalog-id", Title: "Dandelion Wine", Artist: "Gregory Alan Isakov", Album: "This Empty Northern Hemisphere", AlbumArtist: "Gregory Alan Isakov", Genre: "Folk", Year: 2009, TrackNumber: 1, DiscNumber: 1, Duration: 184.9, Path: "/private/music/recording.flac"}
-	state := playfeed.Context{Seed: track, Upcoming: []library.Track{track}, Preferences: []playfeed.Preference{{Track: track, Completed: 3, EarlySkips: 1, OtherSkips: 2, ListenedMS: 600000, LastPlayedAt: time.Now().UTC()}}}
+	now := time.Now().UTC()
+	state := playfeed.Context{AsOf: now, Recent: []playfeed.RecentListen{{Track: track, StartedAt: now.Add(-time.Minute), UpdatedAt: now, ListenedMS: 45000, PositionMS: 60000, Playing: true}}, Seed: track, Upcoming: []library.Track{track}, Preferences: []playfeed.Preference{{Track: track, Completed: 3, EarlySkips: 1, OtherSkips: 2, ListenedMS: 600000, LastPlayedAt: now}}}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer test-api-key" {
 			t.Error("missing authentication")
@@ -29,8 +30,10 @@ func TestPlayFeedUsesMusicalMetadataAndListeningSignalsOnly(t *testing.T) {
 		var input struct {
 			Model string `json:"model"`
 			State struct {
+				AsOf        time.Time        `json:"as_of"`
+				Recent      []feedListen     `json:"recent_listening_newest_first"`
 				Seed        feedTrack        `json:"seed"`
-				Upcoming    []feedTrack      `json:"upcoming_manual_queue"`
+				Upcoming    []feedTrack      `json:"upcoming_queue"`
 				Preferences []feedPreference `json:"listening_preferences"`
 				Candidates  []feedTrack      `json:"candidates"`
 			} `json:"state"`
@@ -41,6 +44,9 @@ func TestPlayFeedUsesMusicalMetadataAndListeningSignalsOnly(t *testing.T) {
 			return
 		}
 		want := feedMetadata(track)
+		if !input.State.AsOf.Equal(now) || len(input.State.Recent) != 1 || input.State.Recent[0].ListenedMS != 45000 || input.State.Recent[0].PositionMS != 60000 || !input.State.Recent[0].Playing || input.State.Recent[0].Track != want || !input.State.Recent[0].StartedAt.Equal(now.Add(-time.Minute)) {
+			t.Error("current playback and chronological timing context were lost")
+		}
 		if input.Model != "jev-1.14.0" || input.State.Seed != want || !reflect.DeepEqual(input.State.Upcoming, []feedTrack{want}) || !reflect.DeepEqual(input.State.Candidates, []feedTrack{want}) || len(input.Questions) != 1 {
 			t.Error("musical context was lost")
 		}

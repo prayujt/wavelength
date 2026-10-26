@@ -68,8 +68,6 @@ export function CatalogScreen() {
     <Screen scroll={false}>
       <FlatList
         testID="catalog-scroll"
-        bounces={false}
-        overScrollMode="never"
         key={columns}
         data={ordered}
         keyExtractor={(item) => item.id}

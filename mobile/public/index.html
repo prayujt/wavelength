@@ -23,7 +23,7 @@
         overscroll-behavior: none;
       }
       #root {
-        position: fixed;
+        position: absolute;
         top: 0;
         left: 0;
         height: var(--app-height, 100dvh);
@@ -31,7 +31,7 @@
         flex: 1;
       }
       #root div {
-        overscroll-behavior-y: none;
+        overscroll-behavior-y: contain;
       }
     </style>
   </head>

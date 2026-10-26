@@ -395,8 +395,6 @@ function TrackCollection({
     <Screen scroll={false}>
       <FlatList
         testID="collection-scroll"
-        bounces={false}
-        overScrollMode="never"
         data={tracks}
         keyExtractor={(track, index) => `${track.id}:${index}`}
         renderItem={({ item, index }) => (
