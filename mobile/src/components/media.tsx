@@ -385,7 +385,7 @@ export function TrackRow({
               numberOfLines={1}
               style={active ? { color: color.accent } : undefined}
             >
-              {track.title}
+              {track.title || 'Loading song…'}
             </Txt>
             <Txt muted size={12} numberOfLines={1}>
               {subtitle || track.artist}

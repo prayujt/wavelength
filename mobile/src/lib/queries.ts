@@ -21,6 +21,10 @@ export function useTracks(ids: readonly string[]) {
     cache = useQueryClient();
   return useQuery({
     queryKey: ['tracks-by-id', ids],
+    placeholderData: (previous: Track[] | undefined) => {
+      const retained = ids.flatMap((id) => previous?.find((track) => track.id === id) || []);
+      return retained.length ? retained : undefined;
+    },
     queryFn: async () => {
       const result: Track[] = [];
       // Preserve playlist order and duplicates while bounding requests for large collections.
@@ -39,6 +43,9 @@ export function useTracks(ids: readonly string[]) {
           }),
         );
         result.push(...batch.filter((x): x is Track => Boolean(x)));
+        // A large playlist becomes usable after its first batch, instead of
+        // holding the whole screen behind hundreds of per-track RPCs.
+        if (result.length) cache.setQueryData(['tracks-by-id', ids], [...result]);
       }
       return result;
     },

@@ -83,6 +83,24 @@ afterEach(() => {
   for (const c of controllers.splice(0)) c.disconnect();
 });
 describe('native playback orchestration', () => {
+  it('starts a large playlist before remaining metadata loads without losing order or duplicates', async () => {
+    const f = connected();
+    await f.controller.play([
+      song('a'),
+      create(TrackSchema, { id: 'b' }),
+      create(TrackSchema, { id: 'a' }),
+    ]);
+    expect(f.sources.at(-1)).toEqual({ uri: 'https://music.example/temporary/a' });
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['a', 'b', 'a']);
+    f.controller.hydrate([song('a')]);
+    expect(f.controller.getSnapshot().queue[2].title).toBe('a');
+    await f.controller.next();
+    expect(f.controller.getSnapshot().track?.title).toBe('b');
+    expect(f.sources.at(-1)).toEqual({ uri: 'https://music.example/temporary/b' });
+    expect(f.audio.metadata).toHaveBeenLastCalledWith(song('b'));
+    f.controller.hydrate([song('b'), song('c')]);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['a', 'b', 'a']);
+  });
   it('restores ordered saved IDs, skips deleted tracks, and never autoplays on launch', async () => {
     const f = setup();
     f.port.queue = async () => ({

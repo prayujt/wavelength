@@ -2,8 +2,10 @@ package httpserver
 
 import (
 	"io/fs"
+	"mime"
 	"net/http"
 	"path"
+	"strconv"
 	"strings"
 )
 
@@ -36,6 +38,17 @@ func WithWeb(assets fs.FS) Option {
 				}
 				if strings.HasPrefix(r.URL.Path, "/app/_expo/static/") || strings.HasPrefix(r.URL.Path, "/app/assets/") {
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+					if ext := path.Ext(r.URL.Path); ext == ".js" || ext == ".css" {
+						if _, err := fs.Stat(assets, strings.TrimPrefix(r.URL.Path, "/")+".gz"); err == nil {
+							w.Header().Add("Vary", "Accept-Encoding")
+							if acceptsGzip(r.Header.Get("Accept-Encoding")) {
+								w.Header().Set("Content-Type", mime.TypeByExtension(ext))
+								w.Header().Set("Content-Encoding", "gzip")
+								r = r.Clone(r.Context())
+								r.URL.Path += ".gz"
+							}
+						}
+					}
 				}
 				if strings.HasPrefix(r.URL.Path, "/app/oauth/") {
 					w.Header().Set("Cache-Control", "private, no-store")
@@ -63,4 +76,30 @@ func WithWeb(assets fs.FS) Option {
 			files.ServeHTTP(w, r)
 		}))
 	}
+}
+
+func acceptsGzip(header string) bool {
+	wildcard := false
+	for _, offer := range strings.Split(header, ",") {
+		parts := strings.Split(offer, ";")
+		coding, quality := strings.ToLower(strings.TrimSpace(parts[0])), 1.0
+		for _, parameter := range parts[1:] {
+			key, value, _ := strings.Cut(parameter, "=")
+			if strings.EqualFold(strings.TrimSpace(key), "q") {
+				q, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+				if err != nil || q < 0 || q > 1 {
+					quality = 0
+				} else {
+					quality = q
+				}
+			}
+		}
+		if coding == "gzip" {
+			return quality > 0
+		}
+		if coding == "*" {
+			wildcard = quality > 0
+		}
+	}
+	return wildcard
 }

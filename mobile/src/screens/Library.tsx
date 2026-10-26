@@ -1,84 +1,189 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
-import { useInfiniteQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
-import { RefreshCw, Library, Plus } from 'lucide-react-native';
-import type { Album, Artist, Playlist, Track } from '../gen/wavelength/v1/library_pb';
+import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { ArrowDownToLine, ChevronRight, Disc3, ListMusic, Plus } from 'lucide-react-native';
+import type { Playlist } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
-import { usePlayer } from '../lib/player';
+import { usePlaylists } from '../lib/queries';
+import { color } from '../lib/theme';
+import { Artwork } from '../components/artwork';
+import { AlbumCard } from '../components/media';
 import { DeviceLibraryLink } from '../components/device';
-import { AlbumCard, ArtistCard, PlaylistCard, TrackRow } from '../components/media';
 import {
   Empty,
   Failure,
   Header,
   IconButton,
   Loading,
-  Pill,
+  Press,
   Screen,
   SearchField,
+  Section,
   Txt,
-  useDebounced,
 } from '../components/ui';
 
-const filters = ['Songs', 'Albums', 'Artists', 'Playlists'] as const;
-type Filter = (typeof filters)[number];
-type Item = Track | Album | Artist | Playlist;
+function PlaylistRow({ playlist }: { playlist: Playlist }) {
+  return (
+    <Press
+      label={`Open playlist ${playlist.name}`}
+      onPress={() => router.push({ pathname: '/playlist/[id]', params: { id: playlist.id } })}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 14,
+        paddingVertical: 12,
+        marginHorizontal: 24,
+      }}
+    >
+      <Artwork title={playlist.name} id={playlist.id} size={60} radius={12} />
+      <View style={{ flex: 1, gap: 6 }}>
+        <Txt size={16} weight="medium" numberOfLines={1}>
+          {playlist.name}
+        </Txt>
+        <Txt muted size={12}>
+          {playlist.trackIds.length} songs
+        </Txt>
+      </View>
+      <ChevronRight color={color.faint} size={18} />
+    </Press>
+  );
+}
+
 export function LibraryScreen() {
-  const params = useLocalSearchParams<{ tab?: string }>(),
-    api = useAPI(),
-    player = usePlayer();
-  const filter: Filter = filters.includes(params.tab as Filter) ? (params.tab as Filter) : 'Songs';
-  const setFilter = (tab: Filter) => router.setParams({ tab });
-  const [search, setSearch] = useState('');
-  const query = useDebounced(search.trim()),
-    width = useWindowDimensions().width;
-  const data = useInfiniteQuery({
-    queryKey: [filter === 'Playlists' ? 'playlists' : 'library', filter, query],
-    initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      if (filter === 'Songs') {
-        const r = await api.library.listTracks({ query, offset: pageParam, limit: 80 });
-        return { items: r.tracks as Item[], total: r.total };
-      }
-      if (filter === 'Albums') {
-        const r = await api.library.listAlbums({ query, offset: pageParam, limit: 60 });
-        return { items: r.albums as Item[], total: r.total };
-      }
-      if (filter === 'Artists') {
-        const r = await api.library.listArtists({ query, offset: pageParam, limit: 60 });
-        return { items: r.artists as Item[], total: r.total };
-      }
-      const r = await api.user.listPlaylists({ limit: 500 });
-      const items = r.playlists.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
-      return { items, total: items.length };
-    },
-    getNextPageParam: (last, pages) => {
-      const loaded = pages.reduce((n, p) => n + p.items.length, 0);
-      return last.items.length && loaded < last.total ? loaded : undefined;
-    },
+  const api = useAPI(),
+    playlists = usePlaylists(),
+    { width } = useWindowDimensions();
+  const albums = useQuery({
+    queryKey: ['library', 'albums', 'home'],
+    queryFn: () => api.library.listAlbums({ limit: 12 }),
   });
-  const items = data.data?.pages.flatMap((p) => p.items) || [];
-  const ordered = items;
-  const columns = filter === 'Songs' ? 1 : width >= 740 ? 3 : 2,
-    cardWidth = (width - 48 - (columns - 1) * 16) / columns;
+  return (
+    <Screen>
+      <Header
+        title="Your library"
+        subtitle="Your favorites, a little closer."
+        right={
+          <IconButton
+            icon={Plus}
+            label="Create playlist"
+            active
+            onPress={() => router.push('/playlist-edit')}
+          />
+        }
+      />
+      <DeviceLibraryLink />
+      <Section
+        title="Your playlists"
+        action="See all"
+        onPress={() => router.navigate('/playlists')}
+      >
+        {playlists.isPending ? (
+          <Loading rows={2} />
+        ) : playlists.error ? (
+          <Failure error={playlists.error} retry={playlists.refetch} />
+        ) : playlists.data?.playlists.length ? (
+          playlists.data.playlists
+            .slice(0, 4)
+            .map((playlist) => <PlaylistRow key={playlist.id} playlist={playlist} />)
+        ) : (
+          <Empty
+            icon={ListMusic}
+            title="Make it yours"
+            text="Keep your favorites together for any mood."
+            action="Create a playlist"
+            onPress={() => router.push('/playlist-edit')}
+          />
+        )}
+      </Section>
+      {!!albums.data?.albums.length && (
+        <Section
+          title="From your collection"
+          action="All albums"
+          onPress={() => router.push({ pathname: '/library/catalog', params: { tab: 'Albums' } })}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 16, paddingHorizontal: 24 }}
+          >
+            {albums.data.albums.slice(0, 8).map((album) => (
+              <AlbumCard key={album.id} album={album} width={Math.min(160, width * 0.4)} />
+            ))}
+          </ScrollView>
+        </Section>
+      )}
+      <View
+        style={{
+          marginHorizontal: 24,
+          marginTop: 24,
+          borderRadius: 18,
+          backgroundColor: color.surface,
+          overflow: 'hidden',
+        }}
+      >
+        {[
+          {
+            title: 'Browse all music',
+            detail: 'Albums, artists and songs',
+            icon: Disc3,
+            route: '/library/catalog' as const,
+          },
+          {
+            title: 'Server downloads',
+            detail: 'Imports and download activity',
+            icon: ArrowDownToLine,
+            route: '/activity' as const,
+          },
+        ].map(({ title, detail, icon: Icon, route }) => (
+          <Press
+            key={route}
+            label={title}
+            onPress={() => router.push(route)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 14, padding: 18 }}
+          >
+            <Icon size={22} color={color.accent} />
+            <View style={{ flex: 1, gap: 5 }}>
+              <Txt weight="medium">{title}</Txt>
+              <Txt muted size={12}>
+                {detail}
+              </Txt>
+            </View>
+            <ChevronRight size={18} color={color.faint} />
+          </Press>
+        ))}
+      </View>
+    </Screen>
+  );
+}
+
+export function PlaylistsScreen() {
+  const playlists = usePlaylists(),
+    [search, setSearch] = useState('');
+  const items = useMemo(
+    () =>
+      (playlists.data?.playlists || []).filter((p) =>
+        p.name.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()),
+      ),
+    [playlists.data, search],
+  );
   return (
     <Screen scroll={false}>
       <FlatList
-        key={columns}
-        data={ordered}
-        keyExtractor={(item) => item.id}
-        numColumns={columns}
+        data={items}
+        keyExtractor={(p) => p.id}
+        renderItem={({ item }) => <PlaylistRow playlist={item} />}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 170 }}
-        columnWrapperStyle={
-          columns > 1 ? { paddingHorizontal: 24, gap: 16, marginBottom: 26 } : undefined
-        }
+        contentContainerStyle={{ paddingBottom: 100 }}
+        refreshing={playlists.isRefetching}
+        onRefresh={() => {
+          void playlists.refetch();
+        }}
         ListHeaderComponent={
           <View>
             <Header
-              title="Your library"
-              subtitle="Every song. A little piece of you."
+              title="Playlists"
+              subtitle="A soundtrack for every part of your day."
               right={
                 <IconButton
                   icon={Plus}
@@ -88,98 +193,31 @@ export function LibraryScreen() {
                 />
               }
             />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 24,
-                gap: 8,
-                paddingVertical: 6,
-                marginBottom: 16,
-              }}
-            >
-              {filters.map((f) => (
-                <Pill key={f} title={f} active={f === filter} onPress={() => setFilter(f)} />
-              ))}
-            </ScrollView>
-            <SearchField
-              value={search}
-              onChange={setSearch}
-              placeholder={`Search your ${filter.toLowerCase()}`}
-            />
-            <DeviceLibraryLink />
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingHorizontal: 24,
-                marginTop: 17,
-                marginBottom: 14,
-              }}
-            >
-              <Txt muted size={11}>
-                {data.data
-                  ? `${data.data.pages[0].total} ${filter.toLowerCase()}`
-                  : 'Your collection'}
+            <SearchField value={search} onChange={setSearch} placeholder="Find a playlist" />
+            <View style={{ marginHorizontal: 24, paddingVertical: 18 }}>
+              <Txt muted size={12}>
+                {playlists.data ? `${playlists.data.playlists.length} playlists` : 'Your playlists'}
               </Txt>
-              <IconButton
-                icon={RefreshCw}
-                label="Refresh library"
-                size={18}
-                disabled={data.isFetching}
-                onPress={data.refetch}
-              />
             </View>
           </View>
         }
-        renderItem={({ item, index }) =>
-          filter === 'Songs' ? (
-            <TrackRow track={item as Track} onPlay={() => player.play(ordered as Track[], index)} />
-          ) : filter === 'Albums' ? (
-            <AlbumCard album={item as Album} width={cardWidth} />
-          ) : filter === 'Artists' ? (
-            <ArtistCard artist={item as Artist} width={cardWidth} />
-          ) : (
-            <PlaylistCard playlist={item as Playlist} width={cardWidth} />
-          )
-        }
         ListEmptyComponent={
-          data.isPending ? (
+          playlists.isPending ? (
             <Loading />
-          ) : data.error ? (
-            <Failure error={data.error} retry={data.refetch} />
+          ) : playlists.error ? (
+            <Failure error={playlists.error} retry={playlists.refetch} />
           ) : (
             <Empty
-              icon={Library}
-              title={
-                query
-                  ? 'Nothing here by that name'
-                  : filter === 'Playlists'
-                    ? 'A good place to start'
-                    : 'Room for something good'
-              }
+              icon={ListMusic}
+              title={search ? 'No matching playlists' : 'Make it yours'}
               text={
-                query
-                  ? 'Try another name or explore the catalog in Discover.'
-                  : filter === 'Playlists'
-                    ? 'Put a few favorites together. Make a soundtrack for anything.'
-                    : 'Find a favorite in Discover and bring it into your collection.'
+                search ? 'Try another playlist name.' : 'Keep your favorites together for any mood.'
               }
-              action={filter === 'Playlists' ? 'Create a playlist' : 'Discover music'}
-              onPress={() => router.push(filter === 'Playlists' ? '/playlist-edit' : '/search')}
+              action={search ? undefined : 'Create a playlist'}
+              onPress={() => router.push('/playlist-edit')}
             />
           )
         }
-        onEndReached={() => {
-          if (data.hasNextPage && !data.isFetchingNextPage) void data.fetchNextPage();
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={data.isFetchingNextPage ? <Loading rows={2} /> : null}
-        refreshing={data.isRefetching && !data.isFetchingNextPage}
-        onRefresh={() => {
-          void data.refetch();
-        }}
       />
     </Screen>
   );

@@ -73,6 +73,19 @@ export class PlaybackController {
     private message: (error: unknown) => string,
   ) {}
   getSnapshot = () => this.snapshot;
+  hydrate = (tracks: Track[]) => {
+    const known = new Map(tracks.map((track) => [track.id, track]));
+    let changed = false;
+    const queue = this.snapshot.queue.map((track) => {
+      const detail = !track.title && known.get(track.id);
+      if (detail) {
+        changed = true;
+        return detail;
+      }
+      return track;
+    });
+    if (changed) this.patch({ queue, track: queue[this.snapshot.index] });
+  };
   subscribe = (listener: () => void) => {
     this.subscribers.add(listener);
     return () => {
@@ -187,6 +200,18 @@ export class PlaybackController {
     this.patch({ loading: true, error: '', playing: false });
     void this.revoke();
     try {
+      // A large playlist can enqueue its full ordered ID list immediately.
+      // Resolve metadata only when a not-yet-hydrated song actually plays.
+      if (!track.title) {
+        const detail = await port.track(track.id);
+        if (serial !== this.serial) return;
+        if (!detail) throw new Error('This song is no longer available.');
+        track = detail;
+        this.patch({
+          queue: this.snapshot.queue.map((item) => (item.id === detail.id ? detail : item)),
+          track: detail,
+        });
+      }
       const recording = await port.source(track.id);
       if (serial !== this.serial) {
         await recording.release().catch(() => {});

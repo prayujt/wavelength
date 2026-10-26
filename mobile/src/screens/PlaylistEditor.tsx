@@ -81,7 +81,7 @@ export function PlaylistEditorScreen() {
     void cache.invalidateQueries({ queryKey: ['playlists'] });
     cache.removeQueries({ queryKey: ['playlist', id] });
     feedback.notify('Playlist deleted');
-    router.replace('/library');
+    router.replace('/playlists');
   }
   if (id && data.isPending)
     return (
@@ -182,7 +182,7 @@ export function PlaylistEditorScreen() {
               const track = tracks.data?.find((t) => t.id === trackId);
               return (
                 <View
-                  key={`${trackId}:${i}`}
+                  key={`${trackId}:${ids.slice(0, i).filter((id) => id === trackId).length}`}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -206,7 +206,7 @@ export function PlaylistEditorScreen() {
                   )}
                   <View style={{ flex: 1 }}>
                     <Txt size={12} weight="medium" numberOfLines={1}>
-                      {track?.title || 'Unavailable song'}
+                      {track?.title || (tracks.isFetching ? 'Loading song…' : 'Unavailable song')}
                     </Txt>
                     {track && (
                       <Txt muted size={10} numberOfLines={1} style={{ marginTop: 4 }}>

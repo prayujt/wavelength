@@ -23,7 +23,6 @@ const shots = {
   home: async () => {},
   library: async (page) => {
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
-    await page.getByRole('button', { name: 'Albums', exact: true }).click();
   },
   discover: async (page) => {
     await page.getByRole('tab', { name: 'Discover', exact: true }).click();
@@ -36,7 +35,7 @@ const shots = {
     await page.getByRole('button', { name: 'Pause song' }).click();
   },
   activity: async (page) => {
-    await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+    await page.getByRole('button', { name: 'Downloads', exact: true }).click();
     await page.getByRole('button', { name: 'Choose a recording', exact: true }).waitFor();
   },
 };

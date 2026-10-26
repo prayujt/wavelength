@@ -21,10 +21,15 @@ import { authenticatedURL } from '../core/auth';
 import { useSession } from './session';
 import { errorMessage } from './api';
 import { accountWrite, installed, partition, read } from './device-store';
-import { localSource } from './device-library';
+import { localSource, localArtwork } from './device-library';
+import type { Track } from '../gen/wavelength/v1/library_pb';
 
 // A native player is an imperative host object, separate from immutable React state.
-function audioPort(audio: AudioPlayer, controls: () => PlaybackController): AudioPort {
+function audioPort(
+  audio: AudioPlayer,
+  controls: () => PlaybackController,
+  nowPlaying: (track?: Track) => void,
+): AudioPort {
   return {
     pause: () => audio.pause(),
     replace: (source) => audio.replace(source),
@@ -41,6 +46,7 @@ function audioPort(audio: AudioPlayer, controls: () => PlaybackController): Audi
         artist: track.artist,
         albumTitle: track.album,
       });
+      nowPlaying(track);
       if (Platform.OS === 'web' && 'mediaSession' in navigator) {
         try {
           navigator.mediaSession.setActionHandler('nexttrack', () => controls().next());
@@ -52,6 +58,7 @@ function audioPort(audio: AudioPlayer, controls: () => PlaybackController): Audi
     },
     clearMetadata() {
       audio.clearLockScreenControls();
+      nowPlaying();
     },
   };
 }
@@ -59,6 +66,7 @@ type PlayerState = PlaybackSnapshot &
   Pick<
     PlaybackController,
     | 'play'
+    | 'hydrate'
     | 'toggle'
     | 'next'
     | 'previous'
@@ -76,14 +84,56 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const session = useSession(),
     api = session.api,
     audio = useAudioPlayer(null, { updateInterval: 500 });
+  const [metadataTrack, setMetadataTrack] = useState<Track>();
   const [controller] = useState(() => {
     const instance: PlaybackController = new PlaybackController(
-      audioPort(audio, () => instance),
+      audioPort(audio, () => instance, setMetadataTrack),
       () => Crypto.randomUUID(),
       errorMessage,
     );
     return instance;
   });
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !metadataTrack?.artworkPath) return;
+    const track = metadataTrack;
+    let disposed = false,
+      artwork: string | undefined;
+    const request = new AbortController();
+    void (async () => {
+      let uri =
+        session.account && installed()
+          ? await localArtwork(session.account, track.artworkPath)
+          : undefined;
+      if (!uri && session.auth.grant) {
+        const grant = session.auth.grant;
+        const response = await fetch(authenticatedURL(grant.server, track.artworkPath), {
+          headers: { Authorization: 'Bearer ' + (await session.auth.token()) },
+          credentials: 'omit',
+          redirect: 'error',
+          signal: request.signal,
+        });
+        if (response.ok && response.headers.get('Content-Type')?.startsWith('image/'))
+          uri = URL.createObjectURL(await response.blob());
+      }
+      if (!uri) return;
+      if (disposed) {
+        URL.revokeObjectURL(uri);
+        return;
+      }
+      artwork = uri;
+      audio.updateLockScreenMetadata({
+        title: track.title,
+        artist: track.artist,
+        albumTitle: track.album,
+        artworkUrl: uri,
+      });
+    })().catch(() => {});
+    return () => {
+      disposed = true;
+      request.abort();
+      if (artwork) URL.revokeObjectURL(artwork);
+    };
+  }, [audio, metadataTrack, session.account, session.auth]);
   const preferencesReady = useRef('');
   const snapshot = useSyncExternalStore(
     controller.subscribe,
@@ -190,6 +240,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       ...snapshot,
       audio,
       play: controller.play,
+      hydrate: controller.hydrate,
       toggle: controller.toggle,
       next: controller.next,
       previous: controller.previous,

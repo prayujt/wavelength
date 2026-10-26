@@ -81,8 +81,8 @@ export function FadeIn({
   useEffect(() => {
     const animation = Animated.timing(progress, {
       toValue: 1,
-      duration: reduced ? 0 : 480,
-      delay: reduced ? 0 : delay,
+      duration: reduced ? 0 : 220,
+      delay: reduced ? 0 : Math.min(delay, 80),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -99,7 +99,7 @@ export function FadeIn({
             {
               translateY: progress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [reduced ? 0 : 14, 0],
+                outputRange: [reduced ? 0 : 8, 0],
               }),
             },
           ],
@@ -622,7 +622,7 @@ const s = StyleSheet.create({
     flex: 1,
     minHeight: 50,
     fontFamily: font.regular,
-    fontSize: 15,
+    fontSize: 16,
     outlineWidth: 0,
     outlineStyle: 'solid',
   },
@@ -635,7 +635,7 @@ const s = StyleSheet.create({
     padding: 16,
     color: color.text,
     fontFamily: font.regular,
-    fontSize: 15,
+    fontSize: 16,
     outlineWidth: 0,
     outlineStyle: 'solid',
   },

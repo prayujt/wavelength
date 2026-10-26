@@ -66,7 +66,11 @@ export async function localSource(account: LocalAccount, id: string) {
   return { source: { uri }, release: async () => URL.revokeObjectURL(uri) };
 }
 export async function localArtwork(account: LocalAccount, path: string) {
-  const item = (await downloads(account)).find((item) => item.track.artworkPath === path);
+  // Artwork lookup must not open every saved audio response for every visible
+  // cover. Only the small metadata records and the matching image are needed.
+  const item = (await entries<Download>(partition(account) + 'track:'))
+    .map(([, item]) => item)
+    .find((item) => item.track.artworkPath === path);
   const response = item?.artwork && (await (await caches.open(MUSIC_CACHE)).match(item.artwork));
   return response ? URL.createObjectURL(await response.blob()) : undefined;
 }

@@ -37,6 +37,7 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
   await page.getByRole('button', { name: 'Open now playing' }).click();
   await expect(page.getByRole('button', { name: 'Pause song' })).toBeVisible();
@@ -59,6 +60,7 @@ test('library switches layouts and filters the catalog without losing the screen
 }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await expect(page.getByText('40 songs', { exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Search your songs' }).fill('Weightless');
   await expect(page.getByText('1 songs', { exact: true })).toBeVisible();
@@ -70,7 +72,8 @@ test('playlist create, edit, reorder and delete preserve explicit track order', 
   page,
 }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Create new', exact: true }).click();
+  await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
+  await page.getByRole('button', { name: 'Create playlist', exact: true }).click();
   await page.getByRole('textbox', { name: 'Playlist name' }).fill('Evening signals');
   await page
     .getByRole('textbox', { name: 'A little about this playlist' })
@@ -86,16 +89,17 @@ test('playlist create, edit, reorder and delete preserve explicit track order', 
   await page.getByRole('button', { name: 'Edit playlist' }).click();
   await page.getByRole('button', { name: 'Delete playlist', exact: true }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
 });
 test('song menu adds a track to an owned playlist and exposes queue actions', async ({ page }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Add to playlist', exact: true }).click();
   await page.getByRole('button', { name: 'Add to The slow hours', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('Added to The slow hours');
-  await page.getByRole('button', { name: 'Playlists', exact: true }).click();
+  await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
   await page.getByRole('button', { name: 'Open playlist The slow hours' }).click();
   await expect(page.getByText('5 songs ·', { exact: false })).toBeVisible();
 });
@@ -113,7 +117,7 @@ test('catalog discovery exposes exact saved matches and album imports', async ({
 });
 test('ambiguous downloads can choose a source and resume the existing job', async ({ page }) => {
   await preview(page);
-  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+  await page.getByRole('button', { name: 'Downloads', exact: true }).click();
   await page.getByRole('button', { name: 'Choose a recording', exact: true }).click();
   await expect(page.getByText('The right recording.')).toBeVisible();
   await page
@@ -144,6 +148,7 @@ test('public sharing is explicit, and its revocation is available in settings', 
 }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Share a listening link', exact: true }).click();
   await page.getByRole('button', { name: 'Create link', exact: true }).click();
@@ -160,7 +165,7 @@ test('listening history is readable and filtered without creating fake sessions'
   page,
 }) => {
   await preview(page);
-  await page.getByRole('tab', { name: 'Activity', exact: true }).click();
+  await page.getByRole('button', { name: 'Downloads', exact: true }).click();
   await page.getByRole('button', { name: 'Listening', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Play Weightless', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Skipped', exact: true }).click();
@@ -179,13 +184,14 @@ test('phone and tablet screens stay within the viewport with reduced motion', as
   await page.setViewportSize({ width: 320, height: 740 });
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
+  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'Albums', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open album Blue hour' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   await page.setViewportSize({ width: 834, height: 1112 });
-  await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'All music' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );

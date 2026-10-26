@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import sharp from 'sharp';
+import { gzipSync } from 'node:zlib';
 
 const root = process.argv[2] || 'pwa-dist';
 for (const size of [192, 512])
@@ -11,11 +12,15 @@ async function walk(root) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) result.push(...(await walk(path)));
-    else if (!path.endsWith('.map') && !path.endsWith('/sw.js')) result.push(path);
+    else if (!path.endsWith('.map') && !path.endsWith('.gz') && !path.endsWith('/sw.js'))
+      result.push(path);
   }
   return result;
 }
 const files = (await walk(root)).sort();
+for (const file of files)
+  if (/\.(js|css)$/.test(file))
+    await writeFile(file + '.gz', gzipSync(await readFile(file), { level: 9 }));
 const hash = createHash('sha256');
 // A worker-only change must get a fresh disposable cache as well.
 hash.update(await readFile(new URL(import.meta.url)));
