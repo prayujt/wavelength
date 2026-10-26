@@ -188,14 +188,14 @@ async function connect(page: Page) {
           const open = indexedDB.open('wavelength-device-v1');
           open.onsuccess = () => resolve(open.result);
         });
-          const read = <T>(key: string) =>
-            new Promise<T | undefined>((resolve) => {
+        const read = <T>(key: string) =>
+          new Promise<T | undefined>((resolve) => {
             const request = database.transaction('state').objectStore('state').get(key);
             request.onsuccess = () => resolve(request.result);
           });
         const [grant, account] = await Promise.all([
-            read<string>('credential:wavelength.oauth.grant.v1'),
-            read<{ user: { id: string } }>('active-account'),
+          read<string>('credential:wavelength.oauth.grant.v1'),
+          read<{ user: { id: string } }>('active-account'),
         ]);
         database.close();
         return !!account && JSON.parse(grant || '{}').accountId === account.user.id;
