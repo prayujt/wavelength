@@ -3,6 +3,7 @@ package playfeed_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -312,6 +313,32 @@ func TestRollingPagesRerankWithCurrentListeningProgress(t *testing.T) {
 				t.Fatal("continuation repeated a prior suggestion")
 			}
 		}
+	}
+}
+
+func TestInitialFeedUsesLifetimeHistoryBeyondRecentPages(t *testing.T) {
+	r := &ranker{seen: make(chan playfeed.Context, 1)}
+	f := setup(t, r, 15)
+	for i := 0; i < 520; i++ {
+		_, err := f.history.Create(context.Background(), listening.Session{
+			ID: fmt.Sprintf("old-%d", i), Owner: "alice", RootID: f.root, Track: f.tracks[0],
+			StartedAt: time.Now().Add(-365 * 24 * time.Hour).Add(time.Duration(i) * time.Minute),
+			Outcome:   "completed", ListenedMS: 180000,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.history.Create(context.Background(), listening.Session{ID: "other-listener", Owner: "bob", RootID: f.root, Track: f.tracks[1], StartedAt: time.Now(), Outcome: "skipped", ChangeReason: "next", ListenedMS: 1000}); err != nil {
+		t.Fatal(err)
+	}
+	page := get(t, f, "alice", playfeed.Request{RequestID: "history-only-start", PageSize: 3})
+	if len(page.Items) != 3 {
+		t.Fatal("feed required a manual seed", page)
+	}
+	state := <-r.seen
+	if state.Seed.ID != "" || len(state.Preferences) != 1 || state.Preferences[0].Sessions != 520 || state.Preferences[0].Completed != 520 || state.Preferences[0].ListenedMS != 520*180000 || state.Preferences[0].Track.ID != f.tracks[0].ID || state.Preferences[0].FirstPlayedAt.IsZero() {
+		t.Fatal("history was truncated, discarded by age, or mixed across listeners", state)
 	}
 }
 

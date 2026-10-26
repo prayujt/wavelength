@@ -118,6 +118,72 @@ export class PlayFeedQueue<T extends { id: string }> {
     } else this.schedule();
     this.status();
   }
+  async start() {
+    if (!this.deps.active()) return false;
+    const previous = {
+      generated: this.generated,
+      excluded: this.excluded,
+      cursor: this.cursor,
+      exhausted: this.exhausted,
+      enabled: this.enabled,
+    };
+    this.generated = new Map(this.generated);
+    this.excluded = new Set(this.excluded);
+    this.reset();
+    this.enabled = true;
+    const ticket = this.revision;
+    const controller = new AbortController();
+    this.request = controller;
+    this.loading = true;
+    this.status();
+    try {
+      await this.deps.flush();
+      if (ticket !== this.revision || !this.deps.active()) return false;
+      const page = await this.deps.fetch(
+        {
+          requestId: this.deps.uuid(),
+          cursor: '',
+          pageSize: 3,
+          seedTrackId: '',
+          queuedTrackIds: [],
+          excludedTrackIds: [],
+        },
+        controller.signal,
+      );
+      if (ticket !== this.revision || !this.deps.active()) return false;
+      const tracks: T[] = [];
+      const seen = new Set<string>();
+      for (const item of page.items) {
+        if (!item.track || !item.id || seen.has(item.track.id)) continue;
+        const track = { ...item.track };
+        tracks.push(track);
+        seen.add(track.id);
+        this.generated.set(track, item.id);
+        if (tracks.length === 3) break;
+      }
+      if (!tracks.length)
+        throw new Error('No songs are available for your play feed yet.');
+      this.cursor = page.nextCursor;
+      this.exhausted = page.exhausted;
+      this.deps.apply(tracks, 0);
+      return true;
+    } catch (error) {
+      if (ticket !== this.revision || controller.signal.aborted) return false;
+      this.generated = previous.generated;
+      this.excluded = previous.excluded;
+      this.cursor = previous.cursor;
+      this.exhausted = previous.exhausted;
+      this.enabled = previous.enabled;
+      this.error = true;
+      throw error;
+    } finally {
+      if (ticket === this.revision) {
+        this.loading = false;
+        this.request = undefined;
+        this.status();
+      }
+    }
+  }
   private limitUpcoming() {
     const { tracks, index } = this.deps.read();
     let slots = Math.max(

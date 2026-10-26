@@ -66,6 +66,7 @@ type PlayerState = PlaybackSnapshot &
   Pick<
     PlaybackController,
     | 'play'
+    | 'startFeed'
     | 'hydrate'
     | 'jump'
     | 'recommendation'
@@ -250,6 +251,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       ...snapshot,
       audio,
       play: controller.play,
+      startFeed: controller.startFeed,
       hydrate: controller.hydrate,
       jump: controller.jump,
       recommendation: controller.recommendation,

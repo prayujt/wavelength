@@ -78,6 +78,34 @@ describe('mobile play-feed queue', () => {
     });
     f.stop();
   });
+  it('starts from history with no seed or pre-existing queue and retains item attribution', async () => {
+    const f = setup([]);
+    expect(await f.controller.start()).toBe(true);
+    expect(f.fetch.mock.calls[0]?.[0]).toMatchObject({
+      seedTrackId: '',
+      queuedTrackIds: [],
+      cursor: '',
+      pageSize: 3,
+    });
+    expect(f.state().tracks.map((t) => t.id)).toEqual(['new-1', 'new-2', 'new-3']);
+    expect(f.controller.recommendation(f.state().tracks[0])).toBe('item-new-1');
+    expect(f.controller.references()).toHaveLength(3);
+    f.stop();
+  });
+  it('keeps an existing playable feed and attribution when a new start fails', async () => {
+    const f = setup([song('current'), song('next')]);
+    f.controller.restore([
+      { index: 0, playFeedItemId: 'current-ref' },
+      { index: 1, playFeedItemId: 'next-ref' },
+    ]);
+    const tracks = f.state().tracks;
+    f.fetch.mockRejectedValueOnce(new Error('offline'));
+    await expect(f.controller.start()).rejects.toThrow('offline');
+    expect(f.state().tracks).toBe(tracks);
+    expect(f.controller.recommendation(tracks[0])).toBe('current-ref');
+    expect(f.controller.recommendation(tracks[1])).toBe('next-ref');
+    f.stop();
+  });
   it('debounces operations and flushes listening feedback before requesting', async () => {
     vi.useFakeTimers();
     const f = setup();

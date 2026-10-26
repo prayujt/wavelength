@@ -21,6 +21,8 @@ export class PlayerState {
   playFeedEnabled = $state(true);
   playFeedLoading = $state(false);
   playFeedError = $state(false);
+  startingFeed = $state(false);
+  private startingFeedRequest?: Promise<void>;
   private feed = new PlayFeedQueue<Track>({
     read: () => ({ tracks: this.tracks, index: this.index }),
     apply: (tracks, index) => {
@@ -51,6 +53,35 @@ export class PlayerState {
   refreshRecommendations() {
     this.feed.schedule();
   }
+  startFeed(fresh = false): Promise<void> {
+    if (this.startingFeedRequest) return this.startingFeedRequest;
+    if (
+      !fresh &&
+      this.track &&
+      this.tracks.every((track) => this.feed.recommendation(track))
+    )
+      return this.playing ? Promise.resolve() : this.toggle();
+    ++this.generation;
+    this.startingFeed = true;
+    this.error = '';
+    const request = (async () => {
+      try {
+        // The feed route can mount before the persistent audio element.
+        if (!this.audio)
+          await new Promise<void>((resolve) =>
+            requestAnimationFrame(() => resolve()),
+          );
+        if (await this.feed.start()) await this.open(0, true, 0, 'queue');
+      } catch (error) {
+        this.error = errorMessage(error);
+      } finally {
+        this.startingFeed = false;
+        this.startingFeedRequest = undefined;
+      }
+    })();
+    this.startingFeedRequest = request;
+    return request;
+  }
   togglePlayFeed() {
     this.feed.setEnabled(!this.playFeedEnabled);
     this.save();
@@ -75,6 +106,7 @@ export class PlayerState {
   private origin: ListeningOrigin = 'queue';
 
   async restore() {
+    if (this.startingFeed) return;
     const generation = this.generation;
     try {
       const { queue } = await api.user.getQueue({});
@@ -88,7 +120,8 @@ export class PlayerState {
           }
         }),
       );
-      if (generation !== this.generation || !this.audio) return;
+      if (generation !== this.generation || !this.audio || this.startingFeed)
+        return;
       this.tracks = tracks.filter(
         (track): track is Track => !!track && !this.deletedIDs.has(track.id),
       );

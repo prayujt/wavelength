@@ -15,6 +15,7 @@
     PanelLeftClose,
     PanelLeftOpen,
     Search,
+    Sparkles,
     Sun,
     Users,
   } from '@lucide/svelte';
@@ -35,6 +36,7 @@
   import Imports from '../views/Imports.svelte';
   import Shares from '../views/Shares.svelte';
   import Playlists from '../views/Playlists.svelte';
+  import PlayFeed from '../views/PlayFeed.svelte';
   import Notice from './Notice.svelte';
   import Player from './Player.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
@@ -70,25 +72,28 @@
     {
       label: 'Browse',
       items: [
+        { label: 'Play feed', page: 'feed', tab: '', icon: Sparkles },
         { label: 'Discover', page: 'discover', tab: '', icon: Compass },
         { label: 'Downloads', page: 'imports', tab: '', icon: Download },
       ],
     },
   ];
   const pageName = $derived(
-    route.page === 'artist'
-      ? 'Artist'
-      : route.page === 'album'
-        ? 'Album'
-        : route.page === 'discover'
-          ? 'Discover'
-          : route.page === 'imports'
-            ? 'Downloads'
-            : route.page === 'playlists'
-              ? 'Playlists'
-              : route.page === 'links'
-                ? 'Links'
-                : 'Library',
+    route.page === 'feed'
+      ? 'Play feed'
+      : route.page === 'artist'
+        ? 'Artist'
+        : route.page === 'album'
+          ? 'Album'
+          : route.page === 'discover'
+            ? 'Discover'
+            : route.page === 'imports'
+              ? 'Downloads'
+              : route.page === 'playlists'
+                ? 'Playlists'
+                : route.page === 'links'
+                  ? 'Links'
+                  : 'Library',
   );
   const libraryTab = $derived(route.query.get('tab') || '');
   function active(page: string, tab: string) {
@@ -272,6 +277,8 @@
             {player}
             initialID={route.id}
             {realtime}
+          />{:else if route.page === 'feed'}<PlayFeed
+            {player}
           />{:else if route.page === 'links'}<Shares
           />{:else if route.page === 'playlists'}<Playlists
             {realtime}

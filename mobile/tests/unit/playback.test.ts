@@ -263,6 +263,27 @@ describe('native playback orchestration', () => {
 
 describe('play feed and playback integration', () => {
   afterEach(() => vi.useRealTimers());
+  it('starts playback from an empty queue without a manually selected song', async () => {
+    const f = connected();
+    f.controller.restoreSettings({ repeat: 'all', shuffle: true });
+    f.port.getPlayFeed = vi.fn(async () => ({
+      items: ['first', 'second', 'third'].map((id) => ({ id: 'item-' + id, track: song(id) })),
+      nextCursor: 'continue',
+      exhausted: false,
+    }));
+    await f.controller.startFeed();
+    expect(f.controller.getSnapshot().track?.id).toBe('first');
+    expect(f.controller.getSnapshot().queue).toHaveLength(3);
+    expect(f.controller.getSnapshot().startingFeed).toBe(false);
+    expect(f.controller.getSnapshot().repeat).toBe('off');
+    expect(f.controller.getSnapshot().shuffle).toBe(false);
+    expect(f.audio.play).toHaveBeenCalledTimes(1);
+    expect(f.controller.recommendation(f.controller.getSnapshot().track!)).toBe('item-first');
+    expect(f.port.getPlayFeed).toHaveBeenCalledWith(
+      expect.objectContaining({ seedTrackId: '', queuedTrackIds: [], pageSize: 3 }),
+      expect.any(AbortSignal),
+    );
+  });
   it('refreshes after actions, preserves manual entries, and flushes Next feedback first', async () => {
     vi.useFakeTimers();
     const f = connected();

@@ -3,6 +3,7 @@ package jev
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -86,5 +87,40 @@ func TestPlayFeedRejectsInvalidProviderResponses(t *testing.T) {
 		if err == nil || strings.Contains(err.Error(), "test-api-key") {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestLargeLifetimeHistoryKeepsCompleteTotalsAndCandidateEvidence(t *testing.T) {
+	state := playfeed.Context{AsOf: time.Now()}
+	for i := 0; i < 2000; i++ {
+		state.Preferences = append(state.Preferences, playfeed.Preference{Track: library.Track{ID: fmt.Sprintf("track-%d", i), Title: "An observed song with musical context", Artist: fmt.Sprintf("Artist %d", i%10), Genre: "Folk", Duration: 180}, Sessions: 1, Completed: 1, ListenedMS: 180000, LastPlayedAt: time.Now()})
+	}
+	candidate := state.Preferences[1999].Track
+	raw, err := recommendationPayload(state, []library.Track{candidate}, "test-model")
+	if err != nil || len(raw) > maxRequestSize {
+		t.Fatal("history context did not fit the provider budget", len(raw), err)
+	}
+	var input struct {
+		State struct {
+			History       feedHistoryTotals      `json:"lifetime_listening_totals"`
+			Artists       []feedArtistPreference `json:"lifetime_artist_preferences"`
+			Preferences   []feedPreference       `json:"listening_preferences"`
+			DetailsCapped bool                   `json:"track_detail_budgeted"`
+		} `json:"state"`
+	}
+	if err := json.Unmarshal(raw, &input); err != nil {
+		t.Fatal(err)
+	}
+	if input.State.History.Sessions != 2000 || input.State.History.ListenedMS != 2000*180000 || len(input.State.Artists) != 10 || !input.State.DetailsCapped {
+		t.Fatal("full lifetime history was lost from the budgeted request", input.State.History)
+	}
+	found := false
+	for _, p := range input.State.Preferences {
+		if p.Track.ID == candidate.ID && p.ListenedMS == 180000 {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("candidate-specific listening evidence was dropped")
 	}
 }

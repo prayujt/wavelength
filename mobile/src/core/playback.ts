@@ -51,6 +51,7 @@ export type PlaybackSnapshot = {
   playFeedEnabled: boolean;
   playFeedLoading: boolean;
   playFeedError: boolean;
+  startingFeed: boolean;
 };
 export type NativeStatus = {
   isLoaded: boolean;
@@ -72,6 +73,7 @@ const empty = (): PlaybackSnapshot => ({
   playFeedEnabled: true,
   playFeedLoading: false,
   playFeedError: false,
+  startingFeed: false,
 });
 
 /** Owns playback independently of screen lifetimes and React render timing. */
@@ -83,6 +85,7 @@ export class PlaybackController {
   private serial = 0;
   private navigation = 0;
   private waitingForFeed = 0;
+  private startingFeedRequest?: Promise<void>;
   private loaded: string | null = null;
   private ended = false;
   private pendingSeek: number | null = null;
@@ -109,6 +112,34 @@ export class PlaybackController {
   });
   recommendation = (track: Track) => this.feed.recommendation(track);
   refreshRecommendations = () => this.feed.schedule();
+  startFeed = (fresh = false): Promise<void> => {
+    if (this.startingFeedRequest) return this.startingFeedRequest;
+    if (
+      !fresh &&
+      this.snapshot.track &&
+      this.snapshot.queue.every((track) => this.feed.recommendation(track))
+    )
+      return this.snapshot.playing ? Promise.resolve() : this.toggle();
+    const port = this.port;
+    if (!port) return Promise.resolve();
+    ++this.serial;
+    this.patch({ repeat: 'off', shuffle: false, startingFeed: true, error: '' });
+    const request = (async () => {
+      try {
+        if (await this.feed.start()) {
+          this.original = [...this.snapshot.queue];
+          await this.load(this.snapshot.queue[0], 0, 'queue');
+        }
+      } catch (error) {
+        if (this.port === port) this.patch({ error: this.message(error) });
+      } finally {
+        if (this.port === port) this.patch({ startingFeed: false });
+        this.startingFeedRequest = undefined;
+      }
+    })();
+    this.startingFeedRequest = request;
+    return request;
+  };
   togglePlayFeed = () => {
     this.feed.setEnabled(!this.snapshot.playFeedEnabled);
     this.scheduleSave();

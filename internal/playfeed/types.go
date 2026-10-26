@@ -55,7 +55,9 @@ type Continuation struct {
 type Preference struct {
 	Track                             library.Track
 	Completed, EarlySkips, OtherSkips int
+	Sessions                          int
 	ListenedMS                        int64
+	FirstPlayedAt                     time.Time
 	LastPlayedAt                      time.Time
 }
 
@@ -84,6 +86,7 @@ type Ranker interface {
 }
 type History interface {
 	List(context.Context, string, string, listening.Query) (listening.Page, error)
+	Preferences(context.Context, string, string) ([]Preference, error)
 }
 type Store interface {
 	Request(context.Context, string, string, string) (Receipt, error)
