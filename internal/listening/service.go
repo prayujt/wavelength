@@ -18,6 +18,7 @@ var (
 )
 
 type Session struct {
+	PlayFeedItemID, ChangeReason  string
 	ID, Owner, RootID             string
 	Track                         library.Track
 	ArtistID, AlbumID             string
@@ -41,14 +42,16 @@ type Page struct {
 }
 
 type Progress struct {
+	ChangeReason           string
 	ListenedMS, PositionMS int64
 	Playing                bool
 	At                     time.Time
 }
 
 type StartOptions struct {
-	At        time.Time
-	CountPlay bool
+	PlayFeedItemID string
+	At             time.Time
+	CountPlay      bool
 }
 
 func eventTime(at time.Time) (time.Time, error) {
@@ -97,11 +100,14 @@ func (s *Service) Start(ctx context.Context, owner, trackID, origin, id string, 
 	if len(options) > 0 {
 		option = options[0]
 	}
+	if len(option.PlayFeedItemID) > 128 {
+		return Session{}, ErrInvalid
+	}
 	now, err := eventTime(option.At)
 	if err != nil {
 		return Session{}, err
 	}
-	session, err := s.store.Create(ctx, Session{ID: id, Owner: owner, RootID: s.root, Track: track, ArtistID: group.ArtistID, AlbumID: group.AlbumID, Origin: origin, StartedAt: now, UpdatedAt: now, Playing: true, CountPlay: option.CountPlay})
+	session, err := s.store.Create(ctx, Session{ID: id, Owner: owner, RootID: s.root, Track: track, ArtistID: group.ArtistID, AlbumID: group.AlbumID, Origin: origin, StartedAt: now, UpdatedAt: now, Playing: true, CountPlay: option.CountPlay, PlayFeedItemID: option.PlayFeedItemID})
 	if err == nil && (session.Track.ID != trackID || session.Origin != origin) {
 		return Session{}, ErrConflict
 	}
@@ -123,7 +129,7 @@ func (s *Service) report(ctx context.Context, owner, id string, p Progress, outc
 			return ErrInvalid
 		}
 		if session.Outcome != "" {
-			if outcome != "" && outcome != session.Outcome {
+			if outcome != "" && (outcome != session.Outcome || (p.ChangeReason != "" && p.ChangeReason != session.ChangeReason)) {
 				return ErrConflict
 			}
 			return nil
@@ -142,6 +148,7 @@ func (s *Service) report(ctx context.Context, owner, id string, p Progress, outc
 		session.Playing = p.Playing
 		if outcome != "" {
 			session.Outcome, session.EndedAt, session.Playing = outcome, session.UpdatedAt, false
+			session.ChangeReason = p.ChangeReason
 		}
 		return nil
 	})
@@ -151,7 +158,7 @@ func (s *Service) Report(ctx context.Context, owner, id string, p Progress) (Ses
 	return s.report(ctx, owner, id, p, "")
 }
 func (s *Service) Finish(ctx context.Context, owner, id, outcome string, p Progress) (Session, error) {
-	if !validOutcome(outcome) {
+	if !validOutcome(outcome) || !validChangeReason(outcome, p.ChangeReason) {
 		return Session{}, ErrInvalid
 	}
 	return s.report(ctx, owner, id, p, outcome)
@@ -164,4 +171,19 @@ func (s *Service) List(ctx context.Context, owner string, q Query) (Page, error)
 		q.Limit = 100
 	}
 	return s.store.List(ctx, owner, s.root, q)
+}
+
+func validChangeReason(outcome, reason string) bool {
+	if reason == "" {
+		return true
+	}
+	switch outcome {
+	case "skipped":
+		return reason == "next" || reason == "previous" || reason == "selection"
+	case "completed":
+		return reason == "ended"
+	case "stopped":
+		return reason == "stop"
+	}
+	return false
 }

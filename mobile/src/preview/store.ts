@@ -314,6 +314,24 @@ export function createPreviewFetch(): typeof fetch {
         playlists = playlists.filter((p) => p.id !== args.id);
         result = {};
         break;
+      case 'GetPlayFeed': {
+        const blocked = new Set([
+          args.seedTrackId,
+          ...(Array.isArray(args.queuedTrackIds) ? args.queuedTrackIds : []),
+          ...(Array.isArray(args.excludedTrackIds) ? args.excludedTrackIds : []),
+        ]);
+        const available = tracks.filter((track) => !blocked.has(track.id));
+        const start = Math.max(0, Number(args.cursor || 0));
+        const selected = available.slice(start, start + Math.min(25, Number(args.pageSize || 10)));
+        const next = start + selected.length;
+        result = {
+          feedId: 'preview-feed',
+          items: selected.map((track) => ({ id: 'preview-feed-' + track.id, track })),
+          nextCursor: next < available.length ? String(next) : '',
+          exhausted: next >= available.length,
+        };
+        break;
+      }
       case 'GetQueue':
         result = { queue };
         break;

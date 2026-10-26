@@ -42,6 +42,8 @@ func TestMetricsExposeCountsLatencyQueueAndRuntime(t *testing.T) {
 	m.Wait("itunes", "rate_limit", time.Second)
 	m.Cache("jev", true)
 	m.Tokens(200, 20)
+	m.PlayFeed("jev", 10, nil, time.Millisecond)
+	m.PlayFeed("private-owner", 0, errors.New("private track"), time.Second)
 	body := scrape(t, m)
 	for _, expected := range []string{
 		`wavelength_downloads_total{outcome="ok"} 1`,
@@ -55,6 +57,10 @@ func TestMetricsExposeCountsLatencyQueueAndRuntime(t *testing.T) {
 		`wavelength_provider_requests_total{operation="lookup",provider="itunes",status="4xx"} 1`,
 		`wavelength_provider_cache_lookups_total{provider="jev",result="hit"} 1`,
 		`wavelength_jev_tokens_total{direction="input"} 200`,
+		`wavelength_play_feed_requests_total{outcome="ok",source="jev"} 1`,
+		`wavelength_play_feed_requests_total{outcome="error",source="error"} 1`,
+		`wavelength_play_feed_items_sum 10`,
+		`wavelength_play_feed_duration_seconds_count{outcome="ok",source="jev"} 1`,
 		`go_goroutines`, `process_cpu_seconds_total`,
 	} {
 		if !strings.Contains(body, expected) {

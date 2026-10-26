@@ -167,6 +167,7 @@ async function signedIn(page: Page, existing = false) {
     const responses: Record<string, object> = {
       GetCurrentUser: { user: { id: 'listener-1', name: 'Jamie' } },
       GetQueue: {},
+      GetPlayFeed: { items: [], exhausted: true },
       SaveQueue: {},
       RecordPlay: {},
       ListTracks: { tracks: [track], total: 1 },
@@ -1843,3 +1844,129 @@ for (const location of ['#album/album-1', '#library?track=track-1']) {
     await expect(row).toHaveCount(0);
   });
 }
+
+test('autoplay refreshes generated slots, preserves manual choices and attributes explicit skips', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.addInitScript(() => {
+    const playing = new WeakSet<HTMLMediaElement>();
+    Object.defineProperty(HTMLMediaElement.prototype, 'paused', {
+      get() {
+        return !playing.has(this);
+      },
+    });
+    HTMLMediaElement.prototype.play = async function () {
+      playing.add(this);
+      this.dispatchEvent(new Event('play'));
+    };
+    HTMLMediaElement.prototype.pause = function () {
+      if (playing.delete(this)) this.dispatchEvent(new Event('pause'));
+    };
+  });
+  const songs = [
+    track,
+    ...[
+      'Old One',
+      'Manual Choice',
+      'Old Two',
+      'Feed One',
+      'Feed Two',
+      'Feed Three',
+    ].map((title, index) => ({ ...track, id: `feed-${index}`, title })),
+  ];
+  await page.route('**/wavelength.v1.LibraryService/GetTrack', (route) =>
+    route.fulfill({
+      json: {
+        track: songs.find((t) => t.id === route.request().postDataJSON().id),
+      },
+    }),
+  );
+  await page.route('**/wavelength.v1.UserDataService/GetQueue', (route) =>
+    route.fulfill({
+      json: {
+        queue: {
+          trackIds: songs.slice(0, 4).map((t) => t.id),
+          currentTrackId: track.id,
+          recommendations: [
+            { index: 1, playFeedItemId: 'old-1' },
+            { index: 3, playFeedItemId: 'old-2' },
+          ],
+          playFeedEnabled: true,
+        },
+      },
+    }),
+  );
+  const requests: Record<string, unknown>[] = [];
+  let chosen = ['feed-3', 'feed-4'];
+  await page.route('**/wavelength.v1.PlayFeedService/GetPlayFeed', (route) => {
+    requests.push(route.request().postDataJSON());
+    return route.fulfill({
+      json: {
+        feedId: 'feed',
+        items: chosen.map((id) => ({
+          id: 'item-' + id,
+          track: songs.find((t) => t.id === id),
+        })),
+        nextCursor: 'cursor',
+        exhausted: false,
+      },
+    });
+  });
+  const listening: { method: string; body: Record<string, unknown> }[] = [];
+  await page.route('**/wavelength.v1.ListeningService/*', (route) => {
+    const body = route.request().postDataJSON();
+    listening.push({ method: route.request().url().split('/').pop()!, body });
+    return route.fulfill({ json: { id: body.requestId || body.sessionId } });
+  });
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Show queue' }).click();
+  const queue = page.getByRole('complementary', { name: 'Playback queue' });
+  await expect(queue.getByText('Recommended', { exact: true })).toHaveCount(2);
+  await expect(
+    queue.getByRole('button', { name: 'Feed One', exact: true }),
+  ).toBeVisible();
+  await expect(
+    queue.getByRole('button', { name: 'Manual Choice', exact: true }),
+  ).toBeVisible();
+  await expect(
+    queue.getByRole('button', { name: 'Old One', exact: true }),
+  ).toHaveCount(0);
+  expect(requests[0]).toMatchObject({
+    seedTrackId: track.id,
+    queuedTrackIds: [track.id, 'feed-1'],
+  });
+  await queue.getByRole('button', { name: 'Feed One', exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        listening.find((e) => e.method === 'StartListeningSession')?.body
+          .playFeedItemId,
+    )
+    .toBe('item-feed-3');
+  chosen = ['feed-5'];
+  await page.getByRole('button', { name: 'Next track', exact: true }).click();
+  await expect
+    .poll(
+      () =>
+        listening.find((e) => e.method === 'FinishListeningSession')?.body
+          .changeReason,
+    )
+    .toBe('next');
+  await expect(
+    queue.getByRole('button', { name: 'Feed Three', exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('.now-playing strong')).toHaveText('Manual Choice');
+  expect(requests.at(-1)).toMatchObject({
+    seedTrackId: 'feed-1',
+    excludedTrackIds: ['feed-3'],
+  });
+  await queue.getByRole('button', { name: 'Autoplay on', exact: true }).click();
+  await expect(
+    queue.getByRole('button', { name: 'Feed Three', exact: true }),
+  ).toHaveCount(0);
+  await expect(page.locator('.now-playing strong')).toHaveText('Manual Choice');
+  await expect(
+    queue.getByRole('button', { name: 'Autoplay off', exact: true }),
+  ).toHaveAttribute('aria-pressed', 'false');
+});

@@ -36,7 +36,11 @@ func playlist(p userdata.Playlist) *pb.Playlist {
 	return &pb.Playlist{Id: p.ID, Name: p.Name, Comment: p.Comment, OwnerId: strings.TrimPrefix(p.Owner, "oidc:"), Public: p.Public, TrackIds: p.IDs, CreatedAt: p.Created, ChangedAt: p.Changed}
 }
 func queue(q userdata.Queue) *pb.Queue {
-	return &pb.Queue{TrackIds: q.IDs, CurrentTrackId: q.Current, PositionMs: q.Position, ChangedAt: q.Changed, ChangedBy: q.ChangedBy}
+	out := &pb.Queue{TrackIds: q.IDs, CurrentTrackId: q.Current, PositionMs: q.Position, ChangedAt: q.Changed, ChangedBy: q.ChangedBy, PlayFeedEnabled: q.PlayFeedEnabled}
+	for _, item := range q.Recommendations {
+		out.Recommendations = append(out.Recommendations, &pb.QueueRecommendation{Index: int32(item.Index), PlayFeedItemId: item.PlayFeedItemID})
+	}
+	return out
 }
 func (s *personalService) GetCurrentUser(ctx context.Context, _ *connect.Request[pb.GetCurrentUserRequest]) (*connect.Response[pb.GetCurrentUserResponse], error) {
 	return personal(ctx, false, func(string) (*pb.GetCurrentUserResponse, error) {
@@ -102,7 +106,10 @@ func (s *personalService) GetQueue(ctx context.Context, _ *connect.Request[pb.Ge
 }
 func (s *personalService) SaveQueue(ctx context.Context, r *connect.Request[pb.SaveQueueRequest]) (*connect.Response[pb.GetQueueResponse], error) {
 	return personal(ctx, true, func(user string) (*pb.GetQueueResponse, error) {
-		q := userdata.Queue{IDs: r.Msg.TrackIds, Current: r.Msg.CurrentTrackId, Position: r.Msg.PositionMs, ChangedBy: "native"}
+		q := userdata.Queue{IDs: r.Msg.TrackIds, Current: r.Msg.CurrentTrackId, Position: r.Msg.PositionMs, ChangedBy: "native", PlayFeedEnabled: r.Msg.PlayFeedEnabled}
+		for _, item := range r.Msg.Recommendations {
+			q.Recommendations = append(q.Recommendations, userdata.QueueRecommendation{Index: int(item.Index), PlayFeedItemID: item.PlayFeedItemId})
+		}
 		if err := s.data.SaveQueue(ctx, user, q); err != nil {
 			return nil, err
 		}

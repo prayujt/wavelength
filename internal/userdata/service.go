@@ -38,7 +38,13 @@ type Bookmark struct {
 	ID, Comment, Created, Changed string
 	Position                      int64
 }
+type QueueRecommendation struct {
+	Index          int
+	PlayFeedItemID string
+}
 type Queue struct {
+	Recommendations             []QueueRecommendation
+	PlayFeedEnabled             *bool
 	IDs                         []string
 	Current, Changed, ChangedBy string
 	Position                    int64
@@ -135,6 +141,14 @@ func (s *Service) Queue(ctx context.Context, user string) (Queue, error) {
 	return state.Read[Queue](ctx, s.store, "queues", user)
 }
 func (s *Service) SaveQueue(ctx context.Context, user string, q Queue) error {
+	seen := map[int]bool{}
+	for _, item := range q.Recommendations {
+		if item.Index < 0 || item.Index >= len(q.IDs) || seen[item.Index] || item.PlayFeedItemID == "" || len(item.PlayFeedItemID) > 128 {
+			return ErrInvalid
+		}
+		seen[item.Index] = true
+	}
+
 	if q.Position < 0 || q.Current != "" && !slices.Contains(q.IDs, q.Current) {
 		return ErrInvalid
 	}

@@ -28,6 +28,9 @@ message ListeningSession {
   int64 listened_ms = 10;
   int64 position_ms = 11;
   bool playing = 12;
+  string play_feed_item_id = 13;
+  // next, previous, selection, ended, or stop; empty for legacy reporters.
+  string change_reason = 14;
 }
 message StartListeningSessionRequest {
   string track_id = 1;
@@ -41,6 +44,8 @@ message StartListeningSessionRequest {
   // Count this play atomically with the first insertion of this request ID.
   // Such clients must not also submit a counting RecordPlay request.
   bool count_play = 5;
+  // Optional recommendation attribution; ignored if expired or not owned.
+  string play_feed_item_id = 6;
 }
 message ReportListeningProgressRequest {
   string session_id = 1;
@@ -56,6 +61,7 @@ message FinishListeningSessionRequest {
   int64 listened_ms = 3;
   int64 position_ms = 4;
   google.protobuf.Timestamp occurred_at = 5;
+  string change_reason = 6;
 }
 message ListListeningSessionsRequest {
   // Optional local catalog IDs; supplied filters are combined.

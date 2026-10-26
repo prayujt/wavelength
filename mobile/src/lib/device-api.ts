@@ -8,6 +8,7 @@ import {
 } from '@bufbuild/protobuf';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { LibraryService, UserDataService } from '../gen/wavelength/v1/library_pb';
+import { PlayFeedService } from '../gen/wavelength/v1/playfeed_pb';
 import { ListeningService } from '../gen/wavelength/v1/listening_pb';
 import { DiscoveryService, IngestionService } from '../gen/wavelength/v1/ingestion_pb';
 import { SharingService } from '../gen/wavelength/v1/sharing_pb';
@@ -220,6 +221,13 @@ export function deviceAPI(raw: API, account: LocalAccount): API {
               void raw.user.recordPlay({ ...request, nowPlayingOnly: true }).catch(() => {});
             return create(method.output);
           }
+
+          if (name === 'playfeed') {
+            if (!online()) throw emptyOffline;
+            await syncHistory(account, raw);
+            await assertAccount(account);
+            return (Reflect.get(target, property) as Callable)(request, options);
+          }
           const isRead = /^(get|list|search)/.test(String(property));
           if (online()) {
             try {
@@ -254,6 +262,7 @@ export function deviceAPI(raw: API, account: LocalAccount): API {
   return {
     ...raw,
     library: wrap(LibraryService, 'library', raw.library),
+    playfeed: wrap(PlayFeedService, 'playfeed', raw.playfeed),
     user: wrap(UserDataService, 'user', raw.user),
     listening: wrap(ListeningService, 'listening', raw.listening),
     discovery: wrap(DiscoveryService, 'discovery', raw.discovery),

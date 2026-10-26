@@ -238,7 +238,22 @@ func cleanDeletionState(ctx context.Context, tx *sql.Tx, id string) error {
 			if !slices.Contains(q.IDs, id) && q.Current != id {
 				continue
 			}
-			q.IDs = slices.DeleteFunc(q.IDs, func(v string) bool { return v == id })
+			indices := map[int]int{}
+			ids := []string{}
+			for old, value := range q.IDs {
+				if value != id {
+					indices[old] = len(ids)
+					ids = append(ids, value)
+				}
+			}
+			recommendations := []userdata.QueueRecommendation{}
+			for _, item := range q.Recommendations {
+				if index, ok := indices[item.Index]; ok {
+					item.Index = index
+					recommendations = append(recommendations, item)
+				}
+			}
+			q.IDs, q.Recommendations = ids, recommendations
 			if q.Current == id {
 				q.Current = ""
 				q.Position = 0

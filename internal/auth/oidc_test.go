@@ -26,6 +26,7 @@ import (
 	"github.com/prayujt/wavelength/internal/database"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/listening"
+	"github.com/prayujt/wavelength/internal/playfeed"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/testutil"
 	"github.com/prayujt/wavelength/internal/transport/httpserver"
@@ -194,10 +195,13 @@ func appWithOptions(t *testing.T, issuer, dataDir, music string, options []https
 	features[0].Links = links
 	features[0].Listening = listening.New(database.ListeningStore{DB: db}, lib)
 	options = append(options, httpserver.WithSharing(lib, links))
+	feedCtx, stopFeed := context.WithCancel(context.Background())
+	options = append(options, httpserver.WithPlayFeed(playfeed.New(feedCtx, lib, database.PlayFeedStore{DB: db}, database.ListeningStore{DB: db}, nil, nil), manager))
 	options = append(options, httpserver.WithAuth(manager), httpserver.WithNative(lib, manager), httpserver.WithPersonal(lib, data, manager, features...))
 	server.Config.Handler = httpserver.New("", db.PingContext, options...).Handler
 	server.Start()
 	t.Cleanup(func() {
+		stopFeed()
 		server.Close()
 		for _, feature := range features {
 			if feature.Ingest != nil {

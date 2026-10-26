@@ -11,6 +11,7 @@ import {
   Bookmark,
   ChevronDown,
   ListMusic,
+  Sparkles,
   MoreHorizontal,
   Pause,
   Play,
@@ -374,6 +375,12 @@ export function QueueScreen() {
               }}
             >
               <Pill
+                title="Autoplay"
+                active={player.playFeedEnabled}
+                onPress={player.togglePlayFeed}
+                icon={Sparkles}
+              />
+              <Pill
                 title="Shuffle"
                 active={player.shuffle}
                 onPress={player.toggleShuffle}
@@ -386,6 +393,13 @@ export function QueueScreen() {
                 icon={Repeat}
               />
             </View>
+            {(player.playFeedLoading || player.playFeedError) && (
+              <Txt muted size={12} style={{ marginHorizontal: 24, marginBottom: 12 }}>
+                {player.playFeedLoading
+                  ? 'Updating recommendations…'
+                  : 'Recommendations will retry when connected.'}
+              </Txt>
+            )}
           </>
         }
         renderItem={({ item, index }) => (
@@ -403,7 +417,7 @@ export function QueueScreen() {
           >
             <Press
               label={`Play queued ${item.title}`}
-              onPress={() => player.play(player.queue, index)}
+              onPress={() => player.jump(index)}
               style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 11 }}
             >
               <Artwork
@@ -423,7 +437,11 @@ export function QueueScreen() {
                   {item.title}
                 </Txt>
                 <Txt size={11} muted numberOfLines={1}>
-                  {index === player.index ? 'Now playing' : item.artist}
+                  {index === player.index
+                    ? 'Now playing'
+                    : player.recommendation(item)
+                      ? 'Recommended · ' + item.artist
+                      : item.artist}
                 </Txt>
               </View>
             </Press>

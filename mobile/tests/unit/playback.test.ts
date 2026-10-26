@@ -1,5 +1,7 @@
 import { create } from '@bufbuild/protobuf';
 import { describe, expect, it, vi, afterEach } from 'vitest';
+import type { FeedPage } from '../../src/core/play-feed';
+import type { Track } from '../../src/gen/wavelength/v1/library_pb';
 import { TrackSchema } from '../../src/gen/wavelength/v1/library_pb';
 import {
   PlaybackController,
@@ -220,7 +222,10 @@ describe('native playback orchestration', () => {
     await f.controller.clear();
     expect(f.controller.getSnapshot().queue).toHaveLength(0);
     expect(f.released).toContain('a');
-    expect(f.port.saveQueue).toHaveBeenLastCalledWith([], '', 0);
+    expect(f.port.saveQueue).toHaveBeenLastCalledWith([], '', 0, {
+      recommendations: [],
+      playFeedEnabled: true,
+    });
   });
   it('does not resume a pending source after clear or sign-out', async () => {
     const f = connected();
@@ -253,5 +258,104 @@ describe('native playback orchestration', () => {
     expect(f.audio.position()).toBe(0);
     f.controller.setVolume(5);
     expect(f.audio.volume).toHaveBeenCalledWith(1);
+  });
+});
+
+describe('play feed and playback integration', () => {
+  afterEach(() => vi.useRealTimers());
+  it('refreshes after actions, preserves manual entries, and flushes Next feedback first', async () => {
+    vi.useFakeTimers();
+    const f = connected();
+    const events: string[] = [];
+    f.port.listening.finishListeningSession = vi.fn(async (input) => {
+      events.push('finish:' + input.changeReason);
+    });
+    f.port.getPlayFeed = vi.fn(async () => {
+      events.push('feed');
+      return {
+        items: [{ id: 'item-auto', track: song('auto') }],
+        nextCursor: 'cursor',
+        exhausted: true,
+      };
+    });
+    await f.controller.play([song('current'), song('manual')]);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual([
+      'current',
+      'manual',
+      'auto',
+    ]);
+    const manual = f.controller.getSnapshot().queue[1];
+    await f.controller.next();
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.controller.getSnapshot().track).toBe(manual);
+    expect(events.indexOf('finish:next')).toBeLessThan(events.lastIndexOf('feed'));
+    await f.controller.next();
+    await vi.advanceTimersByTimeAsync(100);
+    await f.controller.checkpoint();
+    expect(f.port.listening.startListeningSession).toHaveBeenCalledWith(
+      expect.objectContaining({ trackId: 'auto', playFeedItemId: 'item-auto' }),
+    );
+    f.controller.togglePlayFeed();
+    expect(f.controller.getSnapshot().track?.id).toBe('auto');
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
+    f.controller.save();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(f.port.saveQueue).toHaveBeenLastCalledWith(
+      expect.anything(),
+      'auto',
+      expect.anything(),
+      expect.objectContaining({ playFeedEnabled: false }),
+    );
+  });
+  it('rejects stale last-song refills after a new selection and clears its waiting state', async () => {
+    vi.useFakeTimers();
+    const f = connected();
+    let reply!: (value: FeedPage<Track>) => void;
+    f.port.getPlayFeed = vi.fn(
+      () =>
+        new Promise<FeedPage<Track>>((resolve) => {
+          reply = resolve;
+        }),
+    );
+    await f.controller.play([song('current')]);
+    const next = f.controller.next();
+    await vi.advanceTimersByTimeAsync(1);
+    await f.controller.play([song('different')]);
+    reply({ items: [{ id: 'late-item', track: song('late') }], nextCursor: '', exhausted: true });
+    await next;
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['different']);
+    f.port.getPlayFeed = vi.fn(async () => ({
+      items: [{ id: 'new-item', track: song('new') }],
+      nextCursor: '',
+      exhausted: true,
+    }));
+    f.controller.status({
+      isLoaded: true,
+      currentTime: 1,
+      duration: 200,
+      playing: true,
+      isBuffering: false,
+      didJustFinish: false,
+    });
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['different', 'new']);
+  });
+  it('restores recommendation indices after deleted entries and preserves an explicit opt-out', async () => {
+    const f = setup();
+    f.port.queue = async () => ({
+      trackIds: ['missing', 'current', 'auto'],
+      currentTrackId: 'current',
+      positionMs: 0n,
+      recommendations: [{ index: 2, playFeedItemId: 'restore-item' }],
+      playFeedEnabled: false,
+    });
+    f.port.getPlayFeed = vi.fn(async () => ({ items: [], nextCursor: '', exhausted: true }));
+    f.controller.connect(f.port);
+    controllers.push(f.controller);
+    await vi.waitFor(() => expect(f.controller.getSnapshot().queue).toHaveLength(2));
+    expect(f.controller.recommendation(f.controller.getSnapshot().queue[1])).toBe('restore-item');
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
+    expect(f.port.getPlayFeed).not.toHaveBeenCalled();
   });
 });

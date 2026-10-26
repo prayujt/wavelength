@@ -9,6 +9,7 @@ for (const name of [
   'ingestion',
   'realtime',
   'sharing',
+  'playfeed',
   'listening',
 ]) {
   const path = `src/gen/wavelength/v1/${name}_pb.ts`;

@@ -1,0 +1,33 @@
+syntax = "proto3";
+package wavelength.v1;
+option go_package = "github.com/prayujt/wavelength/gen/wavelength/v1;wavelengthv1";
+import "wavelength/v1/library.proto";
+
+// Personalized, library-only recommendations. A named listener and
+// wavelength:read are required. This never mutates a saved queue or downloads.
+service PlayFeedService {
+  rpc GetPlayFeed(GetPlayFeedRequest) returns (GetPlayFeedResponse);
+}
+message GetPlayFeedRequest {
+  // New UUID per request; retain the ID and inputs across network retries.
+  string request_id = 1;
+  // Empty starts a fresh feed. Otherwise continue with next_cursor.
+  string cursor = 2;
+  // Default 10, maximum 25. Already-issued pages retain their original size.
+  int32 page_size = 3;
+  string seed_track_id = 4;
+  // Current and upcoming manually chosen songs, in queue order.
+  repeated string queued_track_ids = 5;
+  // Songs dismissed from this player's queue; a temporary exclusion, not dislike.
+  repeated string excluded_track_ids = 6;
+}
+message GetPlayFeedResponse {
+  string feed_id = 1;
+  repeated PlayFeedItem items = 2;
+  string next_cursor = 3;
+  bool exhausted = 4;
+}
+message PlayFeedItem {
+  string id = 1;
+  Track track = 2;
+}

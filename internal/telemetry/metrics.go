@@ -17,6 +17,9 @@ type Snapshot struct {
 }
 
 type Metrics struct {
+	playFeedRequests                                                     *prometheus.CounterVec
+	playFeedDuration                                                     *prometheus.HistogramVec
+	playFeedItems                                                        prometheus.Histogram
 	itemQueue                                                            prometheus.Histogram
 	workerWait                                                           *prometheus.HistogramVec
 	selections                                                           *prometheus.CounterVec

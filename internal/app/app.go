@@ -16,6 +16,7 @@ import (
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/listening"
+	"github.com/prayujt/wavelength/internal/playfeed"
 	"github.com/prayujt/wavelength/internal/providers/itunes"
 	"github.com/prayujt/wavelength/internal/providers/jev"
 	"github.com/prayujt/wavelength/internal/providers/youtube"
@@ -74,11 +75,15 @@ func Run(ctx context.Context, c config.Config) error {
 		source := youtube.NewWithConcurrency(concurrency + 1)
 		source.SetMetrics(metrics)
 		var ranking []discovery.Option
+		var recommender playfeed.Ranker
 		if c.Jev.APIKey != "" {
 			client := jev.New(c.Jev.APIKey, c.Jev.Model)
 			client.SetMetrics(metrics)
+			recommender = client
 			ranking = append(ranking, discovery.WithRanking(measuredRanker{client, metrics}, jev.Policy()))
 		}
+		feed := playfeed.New(ctx, lib, database.PlayFeedStore{DB: db}, database.ListeningStore{DB: db}, recommender, metrics)
+		options = append(options, httpserver.WithPlayFeed(feed, manager))
 		metadata := itunes.New()
 		metadata.SetMetrics(metrics)
 		discovery := discovery.New(measuredMetadata{metadata, metrics}, measuredSources{source, metrics}, ranking...)

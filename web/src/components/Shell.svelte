@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import {
     AudioLines,
     ChevronDown,
@@ -110,6 +110,9 @@
       searchOpen = !searchOpen;
     }
   }
+  $effect(() => {
+    if (realtime.libraryVersion) untrack(() => player.refreshRecommendations());
+  });
   onMount(() => {
     const stopRealtime = realtime.start(basket, (id) =>
       player.discardTrack(id),
@@ -120,6 +123,8 @@
       closeMobile();
     };
     window.addEventListener('hashchange', sync);
+    const refresh = () => player.refreshRecommendations();
+    window.addEventListener('online', refresh);
     const controller = new AbortController();
     api.user
       .getCurrentUser({}, { signal: controller.signal })
@@ -133,6 +138,7 @@
       stopRealtime();
       controller.abort();
       window.removeEventListener('hashchange', sync);
+      window.removeEventListener('online', refresh);
     };
   });
   async function logout() {

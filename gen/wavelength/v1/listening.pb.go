@@ -31,13 +31,16 @@ type ListeningSession struct {
 	AlbumId  string `protobuf:"bytes,4,opt,name=album_id,json=albumId,proto3" json:"album_id,omitempty"`
 	Origin   string `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
 	// Empty while unfinished; completed, skipped, or stopped when explicitly reported.
-	Outcome       string                 `protobuf:"bytes,6,opt,name=outcome,proto3" json:"outcome,omitempty"`
-	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	EndedAt       *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
-	ListenedMs    int64                  `protobuf:"varint,10,opt,name=listened_ms,json=listenedMs,proto3" json:"listened_ms,omitempty"`
-	PositionMs    int64                  `protobuf:"varint,11,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
-	Playing       bool                   `protobuf:"varint,12,opt,name=playing,proto3" json:"playing,omitempty"`
+	Outcome        string                 `protobuf:"bytes,6,opt,name=outcome,proto3" json:"outcome,omitempty"`
+	StartedAt      *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	UpdatedAt      *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	EndedAt        *timestamppb.Timestamp `protobuf:"bytes,9,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
+	ListenedMs     int64                  `protobuf:"varint,10,opt,name=listened_ms,json=listenedMs,proto3" json:"listened_ms,omitempty"`
+	PositionMs     int64                  `protobuf:"varint,11,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
+	Playing        bool                   `protobuf:"varint,12,opt,name=playing,proto3" json:"playing,omitempty"`
+	PlayFeedItemId string                 `protobuf:"bytes,13,opt,name=play_feed_item_id,json=playFeedItemId,proto3" json:"play_feed_item_id,omitempty"`
+	// next, previous, selection, ended, or stop; empty for legacy reporters.
+	ChangeReason  string `protobuf:"bytes,14,opt,name=change_reason,json=changeReason,proto3" json:"change_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -156,6 +159,20 @@ func (x *ListeningSession) GetPlaying() bool {
 	return false
 }
 
+func (x *ListeningSession) GetPlayFeedItemId() string {
+	if x != nil {
+		return x.PlayFeedItemId
+	}
+	return ""
+}
+
+func (x *ListeningSession) GetChangeReason() string {
+	if x != nil {
+		return x.ChangeReason
+	}
+	return ""
+}
+
 type StartListeningSessionRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	TrackId string                 `protobuf:"bytes,1,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
@@ -168,9 +185,11 @@ type StartListeningSessionRequest struct {
 	OccurredAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
 	// Count this play atomically with the first insertion of this request ID.
 	// Such clients must not also submit a counting RecordPlay request.
-	CountPlay     bool `protobuf:"varint,5,opt,name=count_play,json=countPlay,proto3" json:"count_play,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CountPlay bool `protobuf:"varint,5,opt,name=count_play,json=countPlay,proto3" json:"count_play,omitempty"`
+	// Optional recommendation attribution; ignored if expired or not owned.
+	PlayFeedItemId string `protobuf:"bytes,6,opt,name=play_feed_item_id,json=playFeedItemId,proto3" json:"play_feed_item_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *StartListeningSessionRequest) Reset() {
@@ -236,6 +255,13 @@ func (x *StartListeningSessionRequest) GetCountPlay() bool {
 		return x.CountPlay
 	}
 	return false
+}
+
+func (x *StartListeningSessionRequest) GetPlayFeedItemId() string {
+	if x != nil {
+		return x.PlayFeedItemId
+	}
+	return ""
 }
 
 type ReportListeningProgressRequest struct {
@@ -322,6 +348,7 @@ type FinishListeningSessionRequest struct {
 	ListenedMs    int64                  `protobuf:"varint,3,opt,name=listened_ms,json=listenedMs,proto3" json:"listened_ms,omitempty"`
 	PositionMs    int64                  `protobuf:"varint,4,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
 	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	ChangeReason  string                 `protobuf:"bytes,6,opt,name=change_reason,json=changeReason,proto3" json:"change_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -389,6 +416,13 @@ func (x *FinishListeningSessionRequest) GetOccurredAt() *timestamppb.Timestamp {
 		return x.OccurredAt
 	}
 	return nil
+}
+
+func (x *FinishListeningSessionRequest) GetChangeReason() string {
+	if x != nil {
+		return x.ChangeReason
+	}
+	return ""
 }
 
 type ListListeningSessionsRequest struct {
@@ -557,7 +591,7 @@ var File_wavelength_v1_listening_proto protoreflect.FileDescriptor
 
 const file_wavelength_v1_listening_proto_rawDesc = "" +
 	"\n" +
-	"\x1dwavelength/v1/listening.proto\x12\rwavelength.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bwavelength/v1/library.proto\"\xc1\x03\n" +
+	"\x1dwavelength/v1/listening.proto\x12\rwavelength.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1bwavelength/v1/library.proto\"\x91\x04\n" +
 	"\x10ListeningSession\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12*\n" +
 	"\x05track\x18\x02 \x01(\v2\x14.wavelength.v1.TrackR\x05track\x12\x1b\n" +
@@ -575,7 +609,9 @@ const file_wavelength_v1_listening_proto_rawDesc = "" +
 	"listenedMs\x12\x1f\n" +
 	"\vposition_ms\x18\v \x01(\x03R\n" +
 	"positionMs\x12\x18\n" +
-	"\aplaying\x18\f \x01(\bR\aplaying\"\xcc\x01\n" +
+	"\aplaying\x18\f \x01(\bR\aplaying\x12)\n" +
+	"\x11play_feed_item_id\x18\r \x01(\tR\x0eplayFeedItemId\x12#\n" +
+	"\rchange_reason\x18\x0e \x01(\tR\fchangeReason\"\xf7\x01\n" +
 	"\x1cStartListeningSessionRequest\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x16\n" +
 	"\x06origin\x18\x02 \x01(\tR\x06origin\x12\x1d\n" +
@@ -584,7 +620,8 @@ const file_wavelength_v1_listening_proto_rawDesc = "" +
 	"\voccurred_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"occurredAt\x12\x1d\n" +
 	"\n" +
-	"count_play\x18\x05 \x01(\bR\tcountPlay\"\xd8\x01\n" +
+	"count_play\x18\x05 \x01(\bR\tcountPlay\x12)\n" +
+	"\x11play_feed_item_id\x18\x06 \x01(\tR\x0eplayFeedItemId\"\xd8\x01\n" +
 	"\x1eReportListeningProgressRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x1f\n" +
@@ -594,7 +631,7 @@ const file_wavelength_v1_listening_proto_rawDesc = "" +
 	"positionMs\x12\x18\n" +
 	"\aplaying\x18\x04 \x01(\bR\aplaying\x12;\n" +
 	"\voccurred_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xd7\x01\n" +
+	"occurredAt\"\xfc\x01\n" +
 	"\x1dFinishListeningSessionRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12\x18\n" +
@@ -604,7 +641,8 @@ const file_wavelength_v1_listening_proto_rawDesc = "" +
 	"\vposition_ms\x18\x04 \x01(\x03R\n" +
 	"positionMs\x12;\n" +
 	"\voccurred_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xb5\x02\n" +
+	"occurredAt\x12#\n" +
+	"\rchange_reason\x18\x06 \x01(\tR\fchangeReason\"\xb5\x02\n" +
 	"\x1cListListeningSessionsRequest\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1b\n" +
 	"\tartist_id\x18\x02 \x01(\tR\bartistId\x12\x19\n" +

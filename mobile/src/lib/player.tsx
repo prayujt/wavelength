@@ -67,6 +67,10 @@ type PlayerState = PlaybackSnapshot &
     PlaybackController,
     | 'play'
     | 'hydrate'
+    | 'jump'
+    | 'recommendation'
+    | 'togglePlayFeed'
+    | 'refreshRecommendations'
     | 'toggle'
     | 'next'
     | 'previous'
@@ -177,9 +181,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const subscription = audio.addListener('playbackStatusUpdate', controller.status);
     const app = AppState.addEventListener('change', (value) => {
       if (value !== 'active') controller.checkpoint();
+      else controller.refreshRecommendations();
     });
     const checkpoint = () => controller.checkpoint();
     if (Platform.OS === 'web') {
+      window.addEventListener('online', controller.refreshRecommendations);
       window.addEventListener('pagehide', checkpoint);
       document.addEventListener('visibilitychange', checkpoint);
     }
@@ -187,6 +193,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       subscription.remove();
       app.remove();
       if (Platform.OS === 'web') {
+        window.removeEventListener('online', controller.refreshRecommendations);
         window.removeEventListener('pagehide', checkpoint);
         document.removeEventListener('visibilitychange', checkpoint);
       }
@@ -195,6 +202,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!api) return;
     const port: PlaybackPort = {
+      getPlayFeed: (input, signal) => api.playfeed.getPlayFeed(input, { signal, timeoutMs: 12000 }),
       async source(id) {
         if (preview)
           return { source: require('../../assets/preview.wav') as number, release: async () => {} };
@@ -220,12 +228,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       async queue() {
         return (await api.user.getQueue({})).queue;
       },
-      saveQueue: (trackIds, currentTrackId, position) =>
+      saveQueue: (trackIds, currentTrackId, position, feed) =>
         api.user.saveQueue(
           {
             trackIds,
             currentTrackId,
             positionMs: BigInt(Math.round(Math.max(0, position) * 1000)),
+            recommendations: feed?.recommendations,
+            playFeedEnabled: feed?.playFeedEnabled,
           },
           { timeoutMs: 5000 },
         ),
@@ -241,6 +251,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       audio,
       play: controller.play,
       hydrate: controller.hydrate,
+      jump: controller.jump,
+      recommendation: controller.recommendation,
+      togglePlayFeed: controller.togglePlayFeed,
+      refreshRecommendations: controller.refreshRecommendations,
       toggle: controller.toggle,
       next: controller.next,
       previous: controller.previous,

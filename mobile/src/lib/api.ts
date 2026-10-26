@@ -4,6 +4,7 @@ import { fetch as nativeFetch } from 'expo/fetch';
 import { LibraryService, UserDataService } from '../gen/wavelength/v1/library_pb';
 import { DiscoveryService, IngestionService } from '../gen/wavelength/v1/ingestion_pb';
 import { SharingService } from '../gen/wavelength/v1/sharing_pb';
+import { PlayFeedService } from '../gen/wavelength/v1/playfeed_pb';
 import { ListeningService } from '../gen/wavelength/v1/listening_pb';
 import { RealtimeService } from '../gen/wavelength/v1/realtime_pb';
 import type { OAuthSession } from '../core/auth';
@@ -49,6 +50,7 @@ export function createAPI(
   const transport = createConnectTransport({ ...options, defaultTimeoutMs: 45000 });
   return {
     library: createClient(LibraryService, transport),
+    playfeed: createClient(PlayFeedService, transport),
     user: createClient(UserDataService, transport),
     discovery: createClient(DiscoveryService, transport),
     ingestion: createClient(IngestionService, transport),
