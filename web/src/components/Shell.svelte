@@ -18,6 +18,7 @@
     Sparkles,
     Sun,
     Users,
+    X,
   } from '@lucide/svelte';
   import type { Track } from '../gen/wavelength/v1/library_pb';
   import { api, session } from '../lib/session.svelte';
@@ -36,7 +37,6 @@
   import Imports from '../views/Imports.svelte';
   import Shares from '../views/Shares.svelte';
   import Playlists from '../views/Playlists.svelte';
-  import PlayFeed from '../views/PlayFeed.svelte';
   import Notice from './Notice.svelte';
   import Player from './Player.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
@@ -80,7 +80,7 @@
   ];
   const pageName = $derived(
     route.page === 'feed'
-      ? 'Play feed'
+      ? 'Library'
       : route.page === 'artist'
         ? 'Artist'
         : route.page === 'album'
@@ -124,10 +124,15 @@
     );
     if (matchMedia('(max-width: 760px)').matches) sidebar = false;
     const sync = () => {
+      if (readRoute(window.location.hash).page === 'feed') {
+        void player.startFeed();
+        go('library');
+      }
       address = window.location.hash;
       closeMobile();
     };
     window.addEventListener('hashchange', sync);
+    sync();
     const refresh = () => player.refreshRecommendations();
     window.addEventListener('online', refresh);
     const controller = new AbortController();
@@ -179,15 +184,35 @@
       <nav class="sidebar-nav" aria-label="Main navigation">
         {#each groups as group}<div class="nav-group">
             <p class="nav-section-label">{group.label}</p>
-            {#each group.items as item}<a
-                href={link(item.page, item.tab ? { tab: item.tab } : {})}
-                class:active={active(item.page, item.tab)}
-                aria-current={active(item.page, item.tab) ? 'page' : undefined}
-                onclick={closeMobile}
-                ><item.icon size={17} strokeWidth={1.7} /><span
-                  >{item.label}</span
-                ></a
-              >{/each}
+            {#each group.items as item}
+              {#if item.page === 'feed'}
+                <button
+                  aria-label="Play feed"
+                  class="feed-mode-nav"
+                  class:active={player.playFeedEnabled}
+                  aria-pressed={player.playFeedEnabled}
+                  onclick={() => {
+                    void player.togglePlayFeed();
+                    closeMobile();
+                  }}
+                  ><item.icon size={17} strokeWidth={1.7} /><span
+                    >Play feed</span
+                  >{#if player.playFeedEnabled}<small>On</small>{/if}</button
+                >
+              {:else}
+                <a
+                  href={link(item.page, item.tab ? { tab: item.tab } : {})}
+                  class:active={active(item.page, item.tab)}
+                  aria-current={active(item.page, item.tab)
+                    ? 'page'
+                    : undefined}
+                  onclick={closeMobile}
+                  ><item.icon size={17} strokeWidth={1.7} /><span
+                    >{item.label}</span
+                  ></a
+                >
+              {/if}
+            {/each}
           </div>{/each}
       </nav>
       <div class="sidebar-bottom">
@@ -238,11 +263,32 @@
         >
       </div>
     </header>
+    {#if player.playFeedEnabled}
+      <div class="play-feed-mode-bar" data-testid="play-feed-mode">
+        <Sparkles size={18} />
+        <div aria-live="polite">
+          <strong>Play feed is on</strong><small
+            >{player.startingFeed
+              ? 'Choosing your first song…'
+              : player.playFeedLoading
+                ? 'Choosing what comes next…'
+                : player.playFeedError
+                  ? 'Suggestions will retry when connected'
+                  : 'Adapts as you listen'}</small
+          >
+        </div>
+        <button
+          class="button secondary compact"
+          aria-label="Turn off play feed"
+          onclick={() => player.stopFeed()}><X size={14} />Turn off</button
+        >
+      </div>
+    {/if}
     <div class="content" class:downloads-page={route.page === 'imports'}>
       <Notice
         message={error}
         dismiss={() => (error = '')}
-      />{#key route.page === 'imports' ? 'imports' : address}{#if route.page === 'library'}<LibraryView
+      />{#key route.page === 'imports' ? 'imports' : address}{#if route.page === 'library' || route.page === 'feed'}<LibraryView
             {player}
             add={(track) => (adding = track)}
             initialTab={libraryTab}
@@ -277,8 +323,6 @@
             {player}
             initialID={route.id}
             {realtime}
-          />{:else if route.page === 'feed'}<PlayFeed
-            {player}
           />{:else if route.page === 'links'}<Shares
           />{:else if route.page === 'playlists'}<Playlists
             {realtime}

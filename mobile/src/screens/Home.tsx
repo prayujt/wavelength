@@ -95,25 +95,44 @@ export function HomeScreen() {
       </FadeIn>
       <View style={{ marginHorizontal: 24, marginBottom: 4 }}>
         <Press
-          label="Open play feed"
-          onPress={() => {
-            void player.startFeed();
-            router.push('/feed');
+          label={player.playFeedEnabled ? 'Turn off play feed from Home' : 'Start play feed'}
+          onPress={() => player.togglePlayFeed()}
+          style={{
+            backgroundColor: player.playFeedEnabled ? '#203D2A' : color.raised,
+            borderColor: player.playFeedEnabled ? '#C7F3CB55' : color.line,
+            borderWidth: 1,
+            borderRadius: 20,
+            padding: 18,
+            gap: 14,
+            flexDirection: 'row',
+            alignItems: 'center',
           }}
-          style={{ backgroundColor: color.raised, borderRadius: 22, padding: 20, gap: 12 }}
         >
-          <View
-            style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <Sparkles color={color.accent} size={26} />
-            <ArrowUpRight color={color.accent} size={22} />
+          <Sparkles color={color.accent} size={24} />
+          <View style={{ flex: 1, gap: 5 }}>
+            <Txt weight="display" size={22}>
+              Play feed
+            </Txt>
+            <Txt muted size={13} style={{ lineHeight: 19 }}>
+              Let your listening shape what plays next.
+            </Txt>
           </View>
-          <Txt weight="display" size={25}>
-            Your play feed
-          </Txt>
-          <Txt muted size={14} style={{ lineHeight: 21 }}>
-            Your queue, recommendations and the next good song.
-          </Txt>
+          <View
+            style={{
+              borderRadius: 16,
+              backgroundColor: player.playFeedEnabled ? color.accent : '#FFFFFF12',
+              paddingVertical: 7,
+              paddingHorizontal: 12,
+            }}
+          >
+            <Txt
+              size={12}
+              weight="bold"
+              style={{ color: player.playFeedEnabled ? color.accentInk : color.text }}
+            >
+              {player.playFeedEnabled ? 'On' : 'Start'}
+            </Txt>
+          </View>
         </Press>
       </View>
       <Section

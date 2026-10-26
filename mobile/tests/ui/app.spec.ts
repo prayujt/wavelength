@@ -54,7 +54,6 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   ).toBeVisible();
   await page.getByRole('button', { name: 'Go back' }).last().click();
   await page.getByRole('button', { name: 'Open play queue' }).click();
-  await page.getByRole('button', { name: 'Autoplay', exact: true }).click();
   await expect(page.getByText('5 songs, in your order.')).toBeVisible();
   await page.getByRole('button', { name: 'Move queued song 2 down' }).click();
   await expect(
@@ -203,29 +202,23 @@ test('phone and tablet screens stay within the viewport with reduced motion', as
   );
 });
 
-test('autoplay refills near the album end and an opt-out preserves manual choices', async ({
-  page,
-}) => {
+test('play feed is an in-place mode and stopping it keeps the current song', async ({ page }) => {
   await preview(page);
   await startAlbum(page);
-  await page.getByRole('button', { name: 'Open now playing' }).click();
-  await page.getByRole('button', { name: 'Pause song', exact: true }).click();
-  await page.getByRole('button', { name: 'Open play queue' }).click();
-  await expect(page.getByText('5 songs, in your order.')).toBeVisible();
-  await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
-  await page.getByRole('button', { name: 'Play queued Coming home', exact: true }).click();
-  await expect(page.getByText('7 songs, in your order.')).toBeVisible();
-  await expect(page.getByText(/^Recommended ·/)).toHaveCount(2);
-  const autoplay = page.getByRole('button', { name: 'Autoplay', exact: true });
-  await autoplay.click();
-  await expect(page.getByText('5 songs, in your order.')).toBeVisible();
+  const home = page.url();
+  await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
+  await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+  expect(page.url()).toBe(home);
+  await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
+  await page.getByRole('button', { name: 'Open play queue', exact: true }).click();
+  await expect(page.getByText(/^Recommended ·/)).toHaveCount(3);
   await expect(
     page.getByRole('button', { name: 'Play queued Weightless', exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByRole('button', { name: 'Play queued After the rain', exact: true }),
-  ).toBeVisible();
+  const current = page.url();
+  await page.getByRole('button', { name: 'Turn off play feed', exact: true }).click();
+  expect(page.url()).toBe(current);
+  await expect(page.getByText('Play feed is on', { exact: true })).toHaveCount(0);
+  await expect(page.getByText('1 songs, in your order.')).toBeVisible();
   await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
-  await autoplay.click();
-  await expect(page.getByText('7 songs, in your order.')).toBeVisible();
 });

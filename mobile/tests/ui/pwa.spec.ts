@@ -333,6 +333,8 @@ test.describe('Mobile polish', () => {
           return Math.round(r.y + r.height);
         })
         .toBe(phone.height);
+      await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
+      await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
       await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
@@ -507,17 +509,16 @@ test.describe('Mobile polish', () => {
       .toBeLessThanOrEqual(52);
   });
 
-  test('Home starts a history-driven play feed without a pre-existing queue', async ({
+  test('play feed stays active in place and direct selections replace the old queue', async ({
     page,
     context,
   }) => {
     await standalone(context);
     const backend = await service(context);
     await connect(page);
-    await expect(page.getByText('FROM YOUR COLLECTION', { exact: true })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Open play feed', exact: true }).click();
-    await expect(page.getByRole('heading', { name: 'Your play feed', exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Pause feed', exact: true })).toBeVisible();
+    const home = page.url();
+    await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
+    await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
     await expect
       .poll(() =>
         page.evaluate(
@@ -525,10 +526,31 @@ test.describe('Mobile polish', () => {
         ),
       )
       .toBeGreaterThan(0.05);
+    expect(page.url()).toBe(home);
     expect(backend.feedRequests).toHaveLength(1);
     expect(backend.feedRequests[0].seedTrackId || '').toBe('');
-    expect(backend.feedRequests[0].queuedTrackIds || []).toEqual([]);
-    expect(backend.feedRequests[0].pageSize).toBe(3);
+    await page.getByRole('tab', { name: 'Library', exact: true }).click();
+    await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Open album Blue hour', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect.poll(() => backend.feedRequests.at(-1)?.seedTrackId).toBe('track-1-0');
+    expect(backend.feedRequests.at(-1)?.queuedTrackIds).toEqual(['track-1-0']);
+    expect(backend.feedRequests.at(-1)?.cursor || '').toBe('');
+    const source = await page.evaluate(
+      () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.src,
+    );
+    const address = page.url();
+    await page.getByRole('button', { name: 'Turn off play feed', exact: true }).click();
+    await expect(page.getByText('Play feed is on', { exact: true })).toHaveCount(0);
+    expect(page.url()).toBe(address);
+    expect(
+      await page.evaluate(() => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.src),
+    ).toBe(source);
+    expect(
+      await page.evaluate(
+        () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.paused,
+      ),
+    ).toBe(false);
   });
   test('compact tabs fill the viewport and keep home-indicator padding inside the bar', async ({
     page,

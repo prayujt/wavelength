@@ -325,19 +325,7 @@ export function PlayerScreen() {
   );
 }
 
-export function FeedScreen() {
-  const player = usePlayer();
-  const start = useRef(player.startFeed);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void start.current();
-    }, 0);
-    return () => clearTimeout(timer);
-  }, []);
-  return <QueueScreen feedEntry />;
-}
-
-export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
+export function QueueScreen() {
   const bottom = usePageBottomInset();
   const player = usePlayer(),
     feedback = useFeedback();
@@ -352,14 +340,12 @@ export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
           <>
             <Header
               back
-              title={feedEntry ? 'Your play feed' : 'Play queue'}
-              eyebrow={feedEntry ? 'MADE FOR YOU' : 'YOUR QUEUE'}
+              title="Play queue"
+              eyebrow="YOUR QUEUE"
               subtitle={
-                player.startingFeed
-                  ? 'Choosing your first songs…'
-                  : feedEntry
-                    ? 'Picked from your listening history. More as you go.'
-                    : `${player.queue.length} songs, in your order.`
+                player.playFeedEnabled
+                  ? 'A few suggestions, updated as you listen.'
+                  : `${player.queue.length} songs, in your order.`
               }
               right={
                 player.queue.length > 0 ? (
@@ -390,7 +376,7 @@ export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
               }}
             >
               <Pill
-                title="Autoplay"
+                title="Play feed"
                 active={player.playFeedEnabled}
                 onPress={player.togglePlayFeed}
                 icon={Sparkles}
@@ -408,28 +394,7 @@ export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
                 icon={Repeat}
               />
             </View>
-            {feedEntry && player.track && (
-              <View
-                style={{ paddingHorizontal: 24, flexDirection: 'row', gap: 10, marginBottom: 14 }}
-              >
-                <Button
-                  title={player.playing ? 'Pause feed' : 'Play feed'}
-                  icon={player.playing ? Pause : Play}
-                  onPress={() => player.toggle()}
-                  small
-                />
-                <IconButton icon={SkipForward} label="Next feed song" onPress={player.next} />
-                <IconButton
-                  icon={Sparkles}
-                  label="Start a new play feed"
-                  onPress={() => {
-                    void player.startFeed(true);
-                  }}
-                  disabled={player.startingFeed}
-                />
-              </View>
-            )}
-            {(player.playFeedLoading || player.playFeedError || (feedEntry && player.error)) && (
+            {(player.playFeedLoading || player.playFeedError) && (
               <Txt muted size={12} style={{ marginHorizontal: 24, marginBottom: 12 }}>
                 {player.playFeedLoading
                   ? player.startingFeed
@@ -514,23 +479,13 @@ export function QueueScreen({ feedEntry = false }: { feedEntry?: boolean }) {
         ListEmptyComponent={
           player.startingFeed ? (
             <Loading rows={3} />
-          ) : feedEntry ? (
+          ) : (
             <Empty
               icon={Sparkles}
               title="Your next song is out there"
-              text={player.error || 'Start listening from your history. No queue needed.'}
-              action="Try play feed again"
-              onPress={() => {
-                void player.startFeed(true);
-              }}
-            />
-          ) : (
-            <Empty
-              icon={ListMusic}
-              title="Start with something you love"
-              text="Choose a playlist or a song. Autoplay will find what comes next."
-              action="Choose a playlist"
-              onPress={() => router.replace('/playlists')}
+              text="Start a play feed from your listening history, or choose a song from your library."
+              action="Start play feed"
+              onPress={() => player.startFeed()}
             />
           )
         }

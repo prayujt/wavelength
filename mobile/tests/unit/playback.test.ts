@@ -224,7 +224,7 @@ describe('native playback orchestration', () => {
     expect(f.released).toContain('a');
     expect(f.port.saveQueue).toHaveBeenLastCalledWith([], '', 0, {
       recommendations: [],
-      playFeedEnabled: true,
+      playFeedEnabled: false,
     });
   });
   it('does not resume a pending source after clear or sign-out', async () => {
@@ -284,50 +284,99 @@ describe('play feed and playback integration', () => {
       expect.any(AbortSignal),
     );
   });
-  it('refreshes after actions, preserves manual entries, and flushes Next feedback first', async () => {
+  it('keeps a mode active across direct selections, clears the queue, and flushes feedback before reseeding', async () => {
     vi.useFakeTimers();
     const f = connected();
     const events: string[] = [];
     f.port.listening.finishListeningSession = vi.fn(async (input) => {
       events.push('finish:' + input.changeReason);
     });
-    f.port.getPlayFeed = vi.fn(async () => {
-      events.push('feed');
+    f.port.getPlayFeed = vi.fn(async (input) => {
+      events.push('feed:' + input.seedTrackId);
+      const id = input.seedTrackId === 'current' ? 'old-auto' : 'new-auto';
       return {
-        items: [{ id: 'item-auto', track: song('auto') }],
+        items: [{ id: 'item-' + id, track: song(id) }],
         nextCursor: 'cursor',
         exhausted: true,
       };
     });
-    await f.controller.play([song('current'), song('manual')]);
-    await vi.advanceTimersByTimeAsync(800);
-    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual([
-      'current',
-      'manual',
-      'auto',
-    ]);
-    const manual = f.controller.getSnapshot().queue[1];
-    await f.controller.next();
-    await vi.advanceTimersByTimeAsync(800);
-    expect(f.controller.getSnapshot().track).toBe(manual);
-    expect(events.indexOf('finish:next')).toBeLessThan(events.lastIndexOf('feed'));
-    await f.controller.next();
-    await vi.advanceTimersByTimeAsync(100);
-    await f.controller.checkpoint();
-    expect(f.port.listening.startListeningSession).toHaveBeenCalledWith(
-      expect.objectContaining({ trackId: 'auto', playFeedItemId: 'item-auto' }),
-    );
-    f.controller.togglePlayFeed();
-    expect(f.controller.getSnapshot().track?.id).toBe('auto');
+    await f.controller.play([song('current'), song('old-manual')]);
     expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
-    f.controller.save();
-    await vi.advanceTimersByTimeAsync(10);
+    f.position(42);
+    f.controller.status({
+      isLoaded: true,
+      currentTime: 42,
+      duration: 200,
+      playing: true,
+      isBuffering: false,
+      didJustFinish: false,
+    });
+    const source = f.sources.at(-1);
+    await f.controller.startFeed();
+    expect(f.sources.at(-1)).toBe(source);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['current']);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['current', 'old-auto']);
+    await f.controller.play([song('unselected'), song('chosen'), song('also-unselected')], 1);
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(true);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['chosen']);
+    await vi.advanceTimersByTimeAsync(800);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['chosen', 'new-auto']);
+    expect(f.port.getPlayFeed).toHaveBeenLastCalledWith(
+      expect.objectContaining({ cursor: '', seedTrackId: 'chosen', queuedTrackIds: ['chosen'] }),
+      expect.any(AbortSignal),
+    );
+    expect(events.indexOf('finish:selection')).toBeLessThan(events.lastIndexOf('feed:chosen'));
+    const selectedSource = f.sources.at(-1);
+    f.controller.stopFeed();
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['chosen']);
+    expect(f.sources.at(-1)).toBe(selectedSource);
+    await f.controller.save();
     expect(f.port.saveQueue).toHaveBeenLastCalledWith(
-      expect.anything(),
-      'auto',
+      ['chosen'],
+      'chosen',
       expect.anything(),
       expect.objectContaining({ playFeedEnabled: false }),
     );
+  });
+  it('turning the mode off discards an in-flight startup without playing a late reply', async () => {
+    const f = connected();
+    let reply!: (page: FeedPage<Track>) => void;
+    f.port.getPlayFeed = vi.fn(
+      () =>
+        new Promise<FeedPage<Track>>((resolve) => {
+          reply = resolve;
+        }),
+    );
+    const pending = f.controller.startFeed();
+    await vi.waitFor(() => expect(f.port.getPlayFeed).toHaveBeenCalledTimes(1));
+    f.controller.stopFeed();
+    reply({ items: [{ id: 'late-item', track: song('late') }], nextCursor: '', exhausted: true });
+    await pending;
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(false);
+    expect(f.controller.getSnapshot().queue).toEqual([]);
+    expect(f.audio.play).not.toHaveBeenCalled();
+    expect(f.controller.getSnapshot().startingFeed).toBe(false);
+  });
+  it('choosing a song during startup keeps mode on and discards the late first batch', async () => {
+    const f = connected();
+    let reply!: (page: FeedPage<Track>) => void;
+    f.port.getPlayFeed = vi.fn(
+      () =>
+        new Promise<FeedPage<Track>>((resolve) => {
+          reply = resolve;
+        }),
+    );
+    const pending = f.controller.startFeed();
+    await vi.waitFor(() => expect(f.port.getPlayFeed).toHaveBeenCalledTimes(1));
+    await f.controller.play([song('unselected'), song('chosen')], 1);
+    expect(f.controller.getSnapshot().startingFeed).toBe(false);
+    expect(f.controller.getSnapshot().playFeedEnabled).toBe(true);
+    reply({ items: [{ id: 'late-item', track: song('late') }], nextCursor: '', exhausted: true });
+    await pending;
+    expect(f.controller.getSnapshot().queue.map((t) => t.id)).toEqual(['chosen']);
+    expect(f.audio.play).toHaveBeenCalledTimes(1);
   });
   it('rejects stale last-song refills after a new selection and clears its waiting state', async () => {
     vi.useFakeTimers();
@@ -340,6 +389,7 @@ describe('play feed and playback integration', () => {
         }),
     );
     await f.controller.play([song('current')]);
+    await f.controller.startFeed();
     const next = f.controller.next();
     await vi.advanceTimersByTimeAsync(1);
     await f.controller.play([song('different')]);
