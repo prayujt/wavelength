@@ -193,6 +193,14 @@ func TestExplicitEarlySkipChangesUnissuedPagesAndAttributionIsOwned(t *testing.T
 	if len(latest.Preferences) != 1 || latest.Preferences[0].EarlySkips != 1 || latest.Preferences[0].Track.Path != "" {
 		t.Fatal(latest)
 	}
+	// An old offline receipt does not attribute forever, even before feed cleanup runs.
+	if _, err := f.store.DB.Exec("UPDATE play_feed_items SET created_at=0 WHERE id=?", selected.ID); err != nil {
+		t.Fatal(err)
+	}
+	expired, err := f.history.Create(context.Background(), listening.Session{ID: "expired-attribution", Owner: "alice", RootID: f.root, Track: selected.Track, PlayFeedItemID: selected.ID, StartedAt: time.Now()})
+	if err != nil || expired.PlayFeedItemID != "" {
+		t.Fatal("expired receipt retained attribution", expired, err)
+	}
 	// Stopping or abandoning a session is not a negative listening preference.
 	if _, err := f.history.Create(context.Background(), listening.Session{ID: "listen-stopped", Owner: "alice", RootID: f.root, Track: f.tracks[1], Outcome: "stopped", StartedAt: time.Now()}); err != nil {
 		t.Fatal(err)

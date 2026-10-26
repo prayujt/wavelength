@@ -37,7 +37,7 @@ func (s ListeningStore) Create(ctx context.Context, session listening.Session) (
 	}
 	if session.PlayFeedItemID != "" {
 		var track string
-		err = tx.QueryRowContext(ctx, "SELECT track_id FROM play_feed_items WHERE id=? AND owner=? AND root_id=?", session.PlayFeedItemID, session.Owner, session.RootID).Scan(&track)
+		err = tx.QueryRowContext(ctx, "SELECT track_id FROM play_feed_items WHERE id=? AND owner=? AND root_id=? AND created_at>?", session.PlayFeedItemID, session.Owner, session.RootID, time.Now().Add(-30*24*time.Hour).Unix()).Scan(&track)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return listening.Session{}, err
 		}
