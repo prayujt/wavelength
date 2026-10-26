@@ -1845,7 +1845,7 @@ for (const location of ['#album/album-1', '#library?track=track-1']) {
   });
 }
 
-test('web play feed entry starts from history without a manual queue and continues in small batches', async ({
+test('play feed is a persistent mode that starts from history and continues in small batches', async ({
   page,
 }) => {
   await signedIn(page);
@@ -1885,31 +1885,46 @@ test('web play feed entry starts from history without a manual queue and continu
     });
   });
   await page.goto('/');
-  await page.getByRole('link', { name: 'Play feed', exact: true }).click();
-  await expect(
-    page.getByRole('heading', { name: 'Your play feed', exact: true }),
-  ).toBeVisible();
+  const homeURL = page.url();
+  const toggle = page.getByRole('button', { name: 'Play feed', exact: true });
+  await toggle.click();
+  await expect(page.getByTestId('play-feed-mode')).toBeVisible();
+  await expect(toggle).toHaveAttribute('aria-pressed', 'true');
+  expect(page.url()).toBe(homeURL);
   await expect(page.locator('.now-playing strong')).toHaveText('History One');
   await expect(
-    page.getByRole('button', { name: 'Pause feed', exact: true }),
+    page.getByRole('button', { name: 'Pause', exact: true }),
   ).toBeVisible();
   expect(requests).toHaveLength(1);
   expect(requests[0].seedTrackId || '').toBe('');
   expect(requests[0].queuedTrackIds || []).toEqual([]);
   expect(requests[0].pageSize).toBe(3);
-  await page.getByRole('button', { name: 'Next song', exact: true }).click();
+  await page
+    .getByRole('navigation', { name: 'Main navigation' })
+    .getByRole('link', { name: 'Albums', exact: true })
+    .click();
+  await expect(page.getByTestId('play-feed-mode')).toBeVisible();
+  await page.getByRole('button', { name: 'Next track', exact: true }).click();
   await expect.poll(() => requests.length).toBe(2);
   expect(requests[1]).toMatchObject({
     cursor: 'history-cursor',
     seedTrackId: 'history-1',
     pageSize: 2,
   });
+  const currentURL = page.url();
+  await page
+    .getByRole('button', { name: 'Turn off play feed', exact: true })
+    .click();
+  await expect(page.getByTestId('play-feed-mode')).toHaveCount(0);
+  await expect(toggle).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('.now-playing strong')).toHaveText('History Two');
   await expect(
-    page.getByRole('button', { name: /History Three/ }),
+    page.getByRole('button', { name: 'Pause', exact: true }),
   ).toBeVisible();
+  expect(page.url()).toBe(currentURL);
 });
 
-test('autoplay refills a short buffer, preserves manual choices and attributes explicit skips', async ({
+test('feed mode clears old queue on selection, reseeds suggestions and attributes explicit skips', async ({
   page,
 }) => {
   await signedIn(page);
@@ -2010,7 +2025,18 @@ test('autoplay refills a short buffer, preserves manual choices and attributes e
   await expect(
     queue.getByRole('button', { name: 'Feed Three', exact: true }),
   ).toBeVisible();
-  chosen = [];
+  await expect(
+    queue.getByRole('button', { name: 'Manual Choice', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    queue.getByRole('button', { name: 'Feed Two', exact: true }),
+  ).toHaveCount(0);
+  expect(requests.at(-1)).toMatchObject({
+    seedTrackId: 'feed-3',
+    queuedTrackIds: ['feed-3'],
+  });
+  expect(requests.at(-1)?.cursor || '').toBe('');
+  chosen = ['feed-4'];
   await page.getByRole('button', { name: 'Next track', exact: true }).click();
   await expect
     .poll(
@@ -2019,22 +2045,24 @@ test('autoplay refills a short buffer, preserves manual choices and attributes e
           .changeReason,
     )
     .toBe('next');
-  await expect(
-    queue.getByRole('button', { name: 'Feed Three', exact: true }),
-  ).toBeVisible();
-  await expect(page.locator('.now-playing strong')).toHaveText('Feed Two');
+  await expect(page.locator('.now-playing strong')).toHaveText('Feed Three');
   await expect
     .poll(() => requests.at(-1))
     .toMatchObject({
-      seedTrackId: 'feed-4',
+      seedTrackId: 'feed-5',
       excludedTrackIds: expect.arrayContaining(['feed-3']),
     });
-  await queue.getByRole('button', { name: 'Autoplay on', exact: true }).click();
   await expect(
-    queue.getByRole('button', { name: 'Feed Three', exact: true }),
+    queue.getByRole('button', { name: 'Feed Two', exact: true }),
+  ).toBeVisible();
+  await queue
+    .getByRole('button', { name: 'Play feed on', exact: true })
+    .click();
+  await expect(
+    queue.getByRole('button', { name: 'Feed Two', exact: true }),
   ).toHaveCount(0);
-  await expect(page.locator('.now-playing strong')).toHaveText('Feed Two');
+  await expect(page.locator('.now-playing strong')).toHaveText('Feed Three');
   await expect(
-    queue.getByRole('button', { name: 'Autoplay off', exact: true }),
+    queue.getByRole('button', { name: 'Play feed off', exact: true }),
   ).toHaveAttribute('aria-pressed', 'false');
 });

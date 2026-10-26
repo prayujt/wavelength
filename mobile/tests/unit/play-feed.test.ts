@@ -39,6 +39,7 @@ describe('mobile play-feed queue', () => {
       },
       uuid: () => 'request-' + Math.random(),
     });
+    controller.restore([], true);
     return {
       controller,
       fetch,

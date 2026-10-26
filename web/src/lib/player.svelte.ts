@@ -18,11 +18,12 @@ export class PlayerState {
   error = $state('');
   track = $derived(this.tracks[this.index]);
   audio?: HTMLAudioElement;
-  playFeedEnabled = $state(true);
+  playFeedEnabled = $state(false);
   playFeedLoading = $state(false);
   playFeedError = $state(false);
   startingFeed = $state(false);
   private startingFeedRequest?: Promise<void>;
+  private feedStartToken?: object;
   private feed = new PlayFeedQueue<Track>({
     read: () => ({ tracks: this.tracks, index: this.index }),
     apply: (tracks, index) => {
@@ -55,36 +56,65 @@ export class PlayerState {
   }
   startFeed(fresh = false): Promise<void> {
     if (this.startingFeedRequest) return this.startingFeedRequest;
-    if (
-      !fresh &&
-      this.track &&
-      this.tracks.every((track) => this.feed.recommendation(track))
-    )
-      return this.playing ? Promise.resolve() : this.toggle();
+    if (!fresh && this.playFeedEnabled && this.track)
+      return this.playing || this.loading ? Promise.resolve() : this.toggle();
+    if (!fresh && this.track) {
+      const track = this.track;
+      const recommendation = this.feed.recommendation(track);
+      this.feed.reset();
+      this.tracks = [track];
+      this.index = 0;
+      this.feed.restore(
+        recommendation ? [{ index: 0, playFeedItemId: recommendation }] : [],
+        true,
+      );
+      this.save();
+      if (this.loading) return Promise.resolve();
+      this.feed.schedule();
+      return this.audio?.paused ? this.toggle() : Promise.resolve();
+    }
     ++this.generation;
     this.startingFeed = true;
     this.error = '';
-    const request = (async () => {
+    const token = {};
+    this.feedStartToken = token;
+    const request: Promise<void> = (async () => {
       try {
-        // The feed route can mount before the persistent audio element.
+        await Promise.resolve();
         if (!this.audio)
           await new Promise<void>((resolve) =>
             requestAnimationFrame(() => resolve()),
           );
+        if (this.feedStartToken !== token) return;
         if (await this.feed.start()) await this.open(0, true, 0, 'queue');
       } catch (error) {
-        this.error = errorMessage(error);
+        if (this.feedStartToken === token) this.error = errorMessage(error);
       } finally {
-        this.startingFeed = false;
-        this.startingFeedRequest = undefined;
+        if (this.feedStartToken === token) {
+          this.startingFeed = false;
+          this.startingFeedRequest = undefined;
+          this.feedStartToken = undefined;
+        }
       }
     })();
     this.startingFeedRequest = request;
     return request;
   }
-  togglePlayFeed() {
-    this.feed.setEnabled(!this.playFeedEnabled);
+  stopFeed() {
+    this.startingFeedRequest = undefined;
+    this.feedStartToken = undefined;
+    this.feed.setEnabled(false);
+    this.startingFeed = false;
     this.save();
+  }
+  togglePlayFeed() {
+    return this.playFeedEnabled ? this.stopFeed() : this.startFeed();
+  }
+  select(index: number) {
+    if (!this.tracks[index]) return;
+    return this.playFeedEnabled
+      ? this.play([this.tracks[index]])
+      : this.open(index, true);
   }
   remove(index: number) {
     if (index <= this.index || index >= this.tracks.length) return;
@@ -136,7 +166,7 @@ export class PlayerState {
         (track) => track.id === queue.currentTrackId,
       );
       this.index = Math.max(0, index);
-      this.feed.restore(recommendations, queue.playFeedEnabled ?? true);
+      this.feed.restore(recommendations, queue.playFeedEnabled ?? false);
       if (this.tracks.length)
         await this.open(
           Math.max(0, index),
@@ -150,10 +180,23 @@ export class PlayerState {
   }
 
   async play(tracks: Track[], index = 0) {
+    if (!tracks[index]) return;
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
+    this.startingFeed = false;
+    const enabled = this.playFeedEnabled;
+    const recommendation = enabled
+      ? this.feed.recommendation(tracks[index])
+      : '';
     this.finishListen('skipped', 'selection');
     this.feed.reset();
-    this.tracks = tracks.map((track) => ({ ...track }));
-    await this.open(index, true, 0, 'direct');
+    this.tracks = (enabled ? [tracks[index]] : tracks).map((track) => ({
+      ...track,
+    }));
+    this.index = enabled ? 0 : index;
+    if (recommendation)
+      this.feed.restore([{ index: 0, playFeedItemId: recommendation }], true);
+    await this.open(this.index, true, 0, 'direct');
   }
 
   async open(
@@ -394,6 +437,8 @@ export class PlayerState {
     }
   }
   dispose() {
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
     this.feed.cancel();
     this.finishListen('stopped');
     ++this.generation;

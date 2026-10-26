@@ -33,7 +33,7 @@ export class PlayFeedQueue<T extends { id: string }> {
   private request?: AbortController;
   private cursor = '';
   private exhausted = false;
-  private enabled = true;
+  private enabled = false;
   private loading = false;
   private error = false;
   private retryAt = 0;
@@ -107,6 +107,7 @@ export class PlayFeedQueue<T extends { id: string }> {
     this.enabled = enabled;
     this.cancel();
     if (!enabled) {
+      this.error = false;
       const { tracks, index } = this.deps.read();
       const kept = tracks.filter(
         (track, at) => at <= index || !this.generated.has(track),

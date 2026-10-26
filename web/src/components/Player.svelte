@@ -66,7 +66,7 @@
         class="button secondary"
         aria-pressed={player.playFeedEnabled}
         onclick={() => player.togglePlayFeed()}
-        ><Sparkles size={14} /> Autoplay {player.playFeedEnabled
+        ><Sparkles size={14} /> Play feed {player.playFeedEnabled
           ? 'on'
           : 'off'}</button
       >
@@ -75,7 +75,7 @@
           ? 'Updating recommendations…'
           : player.playFeedError
             ? 'Recommendations will retry when available.'
-            : 'Your choices stay in place.'}</span
+            : 'Pick a song to steer what plays next.'}</span
       >
     </div>
     {#if !player.tracks.length}<p class="muted">
@@ -90,7 +90,7 @@
           artwork={track.artworkPath}
           small
         /><span
-          ><button class="text-button" onclick={() => player.open(index, true)}
+          ><button class="text-button" onclick={() => player.select(index)}
             ><strong>{track.title}</strong></button
           ><SongCredits {track} />{#if player.recommendation(track)}<small
               class="muted">Recommended</small

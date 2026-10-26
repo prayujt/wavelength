@@ -18,6 +18,7 @@ import { color } from '../lib/theme';
 import { DeviceProvider, DeviceStatus } from '../components/device';
 import { AppFrame } from '../components/app-frame';
 import { useAppViewport } from '../lib/viewport';
+import { FeedModeStatus } from '../components/feed-mode-status';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 export const unstable_settings = { anchor: 'index' };
@@ -81,6 +82,7 @@ export default function RootLayout() {
                 <AppFrame>
                   <View onLayout={(event) => setNoticeHeight(event.nativeEvent.layout.height)}>
                     <DeviceStatus />
+                    <FeedModeStatus />
                   </View>
                   <Navigation />
                 </AppFrame>

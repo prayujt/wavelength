@@ -70,7 +70,7 @@ const empty = (): PlaybackSnapshot => ({
   error: '',
   repeat: 'off',
   shuffle: false,
-  playFeedEnabled: true,
+  playFeedEnabled: false,
   playFeedLoading: false,
   playFeedError: false,
   startingFeed: false,
@@ -86,6 +86,7 @@ export class PlaybackController {
   private navigation = 0;
   private waitingForFeed = 0;
   private startingFeedRequest?: Promise<void>;
+  private feedStartToken?: object;
   private loaded: string | null = null;
   private ended = false;
   private pendingSeek: number | null = null;
@@ -114,38 +115,58 @@ export class PlaybackController {
   refreshRecommendations = () => this.feed.schedule();
   startFeed = (fresh = false): Promise<void> => {
     if (this.startingFeedRequest) return this.startingFeedRequest;
-    if (
-      !fresh &&
-      this.snapshot.track &&
-      this.snapshot.queue.every((track) => this.feed.recommendation(track))
-    )
-      return this.snapshot.playing ? Promise.resolve() : this.toggle();
+    const { track, playing, loading, playFeedEnabled } = this.snapshot;
+    if (!fresh && playFeedEnabled && track)
+      return playing || loading ? Promise.resolve() : this.toggle();
     const port = this.port;
     if (!port) return Promise.resolve();
+    if (!fresh && track) {
+      const recommendation = this.feed.recommendation(track);
+      this.feed.reset();
+      this.patch({ repeat: 'off', shuffle: false, error: '' });
+      this.commit([track], 0, false);
+      this.feed.restore(recommendation ? [{ index: 0, playFeedItemId: recommendation }] : [], true);
+      this.original = [track];
+      this.scheduleSave();
+      if (loading) return Promise.resolve();
+      this.feed.schedule();
+      return playing ? Promise.resolve() : this.toggle();
+    }
     ++this.serial;
     this.patch({ repeat: 'off', shuffle: false, startingFeed: true, error: '' });
-    const request = (async () => {
+    const token = {};
+    this.feedStartToken = token;
+    const request: Promise<void> = (async () => {
       try {
         if (await this.feed.start()) {
           this.original = [...this.snapshot.queue];
           await this.load(this.snapshot.queue[0], 0, 'queue');
         }
       } catch (error) {
-        if (this.port === port) this.patch({ error: this.message(error) });
+        if (this.port === port && this.feedStartToken === token)
+          this.patch({ error: this.message(error) });
       } finally {
-        if (this.port === port) this.patch({ startingFeed: false });
-        this.startingFeedRequest = undefined;
+        if (this.feedStartToken === token) {
+          if (this.port === port) this.patch({ startingFeed: false });
+          this.startingFeedRequest = undefined;
+          this.feedStartToken = undefined;
+        }
       }
     })();
     this.startingFeedRequest = request;
     return request;
   };
-  togglePlayFeed = () => {
-    this.feed.setEnabled(!this.snapshot.playFeedEnabled);
+  stopFeed = () => {
+    this.startingFeedRequest = undefined;
+    this.feedStartToken = undefined;
+    this.feed.setEnabled(false);
+    this.patch({ startingFeed: false });
     this.scheduleSave();
   };
+  togglePlayFeed = () => (this.snapshot.playFeedEnabled ? this.stopFeed() : this.startFeed());
   jump = async (index: number) => {
     if (index < 0 || index >= this.snapshot.queue.length) return;
+    if (this.snapshot.playFeedEnabled) return this.play([this.snapshot.queue[index]]);
     this.commit(this.snapshot.queue, index);
     await this.load(this.snapshot.queue[index], 0, 'direct', 'skipped', 'selection');
   };
@@ -255,7 +276,7 @@ export class PlaybackController {
         const index = Math.max(0, restoredIndex);
         this.restoredPosition = restoredIndex >= 0 ? Number(queue.positionMs) / 1000 : 0;
         this.patch({ queue: tracks, index, track: tracks[index] });
-        this.feed.restore(references, queue.playFeedEnabled ?? true);
+        this.feed.restore(references, queue.playFeedEnabled ?? false);
         this.original = [...this.snapshot.queue];
         this.feed.schedule();
       } catch {
@@ -267,6 +288,8 @@ export class PlaybackController {
     }, 15000);
   }
   disconnect() {
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
     ++this.navigation;
     this.waitingForFeed = 0;
     this.feed.reset();
@@ -286,7 +309,7 @@ export class PlaybackController {
     this.restoredPosition = 0;
     this.original = [];
     this.snapshot = empty();
-    this.feed.restore([], true);
+    this.feed.restore([], false);
     for (const listener of this.subscribers) listener();
   }
   private async load(
@@ -389,12 +412,20 @@ export class PlaybackController {
   };
   play = async (tracks: Track[], index = 0, position = 0) => {
     if (!tracks.length || index < 0 || index >= tracks.length) return;
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
+    this.patch({ startingFeed: false });
+    const enabled = this.snapshot.playFeedEnabled;
+    const recommendation = enabled ? this.feed.recommendation(tracks[index]) : '';
     this.feed.reset();
-    const manual = tracks.map((track) => ({ ...track }));
+    const selected = enabled ? [tracks[index]] : tracks;
+    const manual = selected.map((track) => ({ ...track }));
+    const at = enabled ? 0 : index;
     this.original = manual;
     this.patch({ shuffle: false });
-    this.commit(manual, index);
-    await this.load(manual[index], position);
+    this.commit(manual, at, false);
+    if (recommendation) this.feed.restore([{ index: 0, playFeedItemId: recommendation }], true);
+    await this.load(manual[at], position);
   };
   toggle = async () => {
     ++this.navigation;
@@ -553,9 +584,12 @@ export class PlaybackController {
     this.feed.schedule();
   };
   clear = async () => {
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
     ++this.navigation;
     this.waitingForFeed = 0;
     this.feed.reset();
+    this.feed.setEnabled(false);
     this.serial++;
     const position = this.audio.position();
     this.audio.pause();
@@ -566,7 +600,7 @@ export class PlaybackController {
     this.original = [];
     this.restoredPosition = 0;
     this.commit([], 0);
-    this.patch({ error: '', playing: false });
+    this.patch({ error: '', playing: false, startingFeed: false });
     await this.revoke();
     await this.save();
   };
