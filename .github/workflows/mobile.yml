@@ -41,6 +41,7 @@ jobs:
       - run: npx expo export --platform all --max-workers 2
       - run: npm run build:pwa
       - run: npx playwright install --with-deps --only-shell chromium
+      - run: npx playwright install --with-deps webkit
       - run: npm run test:ui
       - uses: actions/upload-artifact@v4
         if: failure()

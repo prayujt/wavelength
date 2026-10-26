@@ -5,7 +5,7 @@ import { router, useSegments } from 'expo-router';
 import { Pause, Play, SkipForward } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../lib/player';
-import { color } from '../lib/theme';
+import { color, TAB_BAR_HEIGHT } from '../lib/theme';
 import { Artwork } from './artwork';
 import { IconButton, Press, Txt } from './ui';
 
@@ -24,7 +24,7 @@ export function PlayerDock() {
         position: 'absolute',
         left: 12,
         right: 12,
-        bottom: (tabs ? 75 : 12) + insets.bottom,
+        bottom: (tabs ? TAB_BAR_HEIGHT + 6 : 12) + insets.bottom,
         alignItems: 'center',
       }}
     >

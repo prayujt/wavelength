@@ -1,6 +1,5 @@
-import React, { useEffect, useId, useState } from 'react';
-import { View, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { Image } from 'expo-image';
+import React, { useEffect, useId, useMemo, useState } from 'react';
+import { View, type StyleProp, type ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Stop, Rect, Path, Circle, G } from 'react-native-svg';
 import { authenticatedURL } from '../core/auth';
 import { useSession } from '../lib/session';
@@ -8,6 +7,7 @@ import { colors, seed } from '../lib/theme';
 import { Txt } from './ui';
 import { installed } from '../lib/device-store';
 import { localArtwork } from '../lib/device-library';
+import { CoverImage } from './cover-image';
 
 export function Artwork({
   path,
@@ -28,7 +28,7 @@ export function Artwork({
   style?: StyleProp<ViewStyle>;
   label?: boolean;
 }) {
-  const gradient = useId().replace(/:/g, '');
+  const gradient = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const sky = gradient + '-sky',
     sun = gradient + '-sun';
   const session = useSession(),
@@ -53,18 +53,24 @@ export function Artwork({
       if (uri) URL.revokeObjectURL(uri);
     };
   }, [path, session.account, imageKey]);
-  let source: { uri: string; headers?: Record<string, string> } | undefined;
-  try {
-    if (savedUri) source = { uri: savedUri };
-    else if (path && session.grant)
-      source = {
-        uri: authenticatedURL(session.grant.server, path),
-        headers: { Authorization: 'Bearer ' + session.grant.accessToken },
-      };
-    else if (uri && new URL(uri).protocol === 'https:') source = { uri };
-  } catch {
-    /* A missing or unsafe image uses a local generative cover. */
-  }
+  // expo-image's authenticated web loader keys its fetch effect by source
+  // identity. Playback ticks must never create a new request/blob URL.
+  const server = session.grant?.server,
+    token = session.grant?.accessToken;
+  const source = useMemo(() => {
+    try {
+      if (savedUri) return { uri: savedUri };
+      if (path && server && token)
+        return {
+          uri: authenticatedURL(server, path),
+          headers: { Authorization: 'Bearer ' + token },
+        };
+      if (uri && new URL(uri).protocol === 'https:') return { uri };
+    } catch {
+      /* A missing or unsafe image uses a local generative cover. */
+    }
+    return undefined;
+  }, [savedUri, path, server, token, uri]);
   const variant = seed(id) % 3;
   return (
     <View
@@ -173,19 +179,5 @@ export function Artwork({
         <CoverImage key={source.uri + (source.headers?.Authorization || '')} source={source} />
       )}
     </View>
-  );
-}
-
-function CoverImage({ source }: { source: { uri: string; headers?: Record<string, string> } }) {
-  const [failed, setFailed] = useState(false);
-  return failed ? null : (
-    <Image
-      source={source}
-      style={StyleSheet.absoluteFill}
-      contentFit="cover"
-      transition={200}
-      cachePolicy="memory"
-      onError={() => setFailed(true)}
-    />
   );
 }

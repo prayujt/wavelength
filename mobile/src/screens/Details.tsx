@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { FlatList, View, useWindowDimensions } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
+import { create } from '@bufbuild/protobuf';
 import { ArrowLeft, Edit3, Play, Plus, Share2, Shuffle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { Track } from '../gen/wavelength/v1/library_pb';
+import { TrackSchema, type Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
 import { useTracks, useUser } from '../lib/queries';
@@ -101,10 +102,12 @@ function CollectionActions({
   tracks,
   onShare,
   edit,
+  downloading = tracks,
 }: {
   tracks: Track[];
   onShare: () => unknown;
   edit?: () => unknown;
+  downloading?: Track[];
 }) {
   const player = usePlayer();
   return (
@@ -118,7 +121,7 @@ function CollectionActions({
       }}
     >
       <View style={{ flexDirection: 'row', gap: 5 }}>
-        <DeviceDownload tracks={tracks} />
+        <DeviceDownload tracks={downloading} />
         {edit && <IconButton icon={Edit3} label="Edit playlist" onPress={edit} />}
         <IconButton
           icon={Share2}
@@ -282,6 +285,10 @@ export function PlaylistScreen() {
     queryFn: () => api.user.getPlaylist({ id }),
   });
   const tracks = useTracks(data.data?.playlist?.trackIds || []);
+  const hydrate = player.hydrate;
+  useEffect(() => {
+    hydrate(tracks.data || []);
+  }, [tracks.data, hydrate]);
   if (data.isPending)
     return (
       <Screen>
@@ -300,10 +307,24 @@ export function PlaylistScreen() {
   const playlist = data.data.playlist,
     items = tracks.data || [],
     own = user.data?.user?.id === playlist.ownerId;
+  const queued = tracks.isFetching
+    ? playlist.trackIds.map(
+        (id) => items.find((track) => track.id === id) || create(TrackSchema, { id }),
+      )
+    : items;
   return (
     <TrackCollection
       tracks={items}
-      onPlay={(i) => player.play(items, i)}
+      onPlay={(i) => {
+        if (!tracks.isFetching) return player.play(queued, i);
+        const id = items[i].id,
+          occurrence = items.slice(0, i).filter((track) => track.id === id).length;
+        let seen = -1;
+        const index = playlist.trackIds.findIndex(
+          (trackId) => trackId === id && ++seen === occurrence,
+        );
+        return player.play(queued, index);
+      }}
       header={
         <>
           <CollectionHero
@@ -314,18 +335,21 @@ export function PlaylistScreen() {
             extra={`${playlist.trackIds.length} songs · ${duration(items.reduce((sum, t) => sum + t.durationSeconds, 0))}`}
           />
           <CollectionActions
-            tracks={items}
-            onShare={() =>
-              menu.share(
-                items.map((t) => t.id),
-                playlist.name,
-              )
-            }
+            tracks={queued}
+            downloading={tracks.isFetching ? [] : items}
+            onShare={() => menu.share(playlist.trackIds, playlist.name)}
             edit={
               own ? () => router.push({ pathname: '/playlist-edit', params: { id } }) : undefined
             }
           />
-          {!tracks.isPending && !tracks.error && items.length < playlist.trackIds.length && (
+          {tracks.isFetching && items.length > 0 && items.length < playlist.trackIds.length && (
+            <View style={{ paddingHorizontal: 24, paddingBottom: 14 }}>
+              <Txt muted size={12}>
+                Loading the rest of your playlist…
+              </Txt>
+            </View>
+          )}
+          {!tracks.isFetching && !tracks.error && items.length < playlist.trackIds.length && (
             <View style={{ paddingHorizontal: 24, paddingBottom: 14 }}>
               <Txt muted size={12}>
                 Some songs are no longer available in the library.

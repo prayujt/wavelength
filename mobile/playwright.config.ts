@@ -13,9 +13,19 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     ...devices['iPhone 13'],
-    defaultBrowserType: 'chromium',
-    browserName: 'chromium',
   },
+  projects: [
+    { name: 'chromium', use: { browserName: 'chromium' } },
+    {
+      name: 'webkit',
+      testMatch: '**/pwa.spec.ts',
+      grep: /Mobile polish/,
+      dependencies: ['chromium'],
+      // Fixture RPC routing cannot intercept WebKit's service-worker requests.
+      // Chromium exercises offline/update behavior; real-server checks cover WebKit's worker.
+      use: { browserName: 'webkit', serviceWorkers: 'block' },
+    },
+  ],
   webServer: {
     command: 'node scripts/serve.mjs',
     url: 'http://127.0.0.1:4174',

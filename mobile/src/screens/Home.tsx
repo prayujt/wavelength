@@ -15,7 +15,7 @@ import { useAPI, useSession } from '../lib/session';
 import { usePlaylists, useUser } from '../lib/queries';
 import { usePlayer } from '../lib/player';
 import { color, colors } from '../lib/theme';
-import { AlbumCard, PlaylistCard, TrackRow } from '../components/media';
+import { AlbumCard, PlaylistCard } from '../components/media';
 import { Artwork } from '../components/artwork';
 import {
   Button,
@@ -40,10 +40,6 @@ export function HomeScreen() {
   const albums = useQuery({
     queryKey: ['library', 'albums', 'home'],
     queryFn: () => api.library.listAlbums({ limit: 12 }),
-  });
-  const tracks = useQuery({
-    queryKey: ['library', 'tracks', 'home'],
-    queryFn: () => api.library.listTracks({ limit: 8 }),
   });
   const featured = albums.data?.albums[0],
     tint = colors(featured?.id || 'album-0');
@@ -123,158 +119,11 @@ export function HomeScreen() {
           </Txt>
         </View>
       </FadeIn>
-      {albums.isPending ? (
-        <Loading rows={3} />
-      ) : albums.error ? (
-        <Failure error={albums.error} retry={albums.refetch} />
-      ) : featured ? (
-        <FadeIn delay={80} style={{ marginHorizontal: 24 }}>
-          <Press
-            label={`Explore ${featured.name}`}
-            onPress={() => router.push({ pathname: '/album/[id]', params: { id: featured.id } })}
-            style={{
-              borderRadius: 24,
-              overflow: 'hidden',
-              backgroundColor: tint[0],
-              minHeight: 295,
-            }}
-          >
-            <View
-              style={{
-                position: 'absolute',
-                right: -30,
-                top: -20,
-                transform: [{ rotate: '14deg' }],
-              }}
-            >
-              <Artwork
-                title={featured.name}
-                id={featured.id}
-                path={featured.artworkPath}
-                size={240}
-                radius={14}
-              />
-            </View>
-            <LinearGradient
-              colors={[tint[0] + '30', tint[0] + 'CC', tint[0]]}
-              start={{ x: 0.1, y: 0 }}
-              end={{ x: 0.4, y: 1 }}
-              style={{ position: 'absolute', inset: 0 }}
-            />
-            <View style={{ padding: 24, minHeight: 295, justifyContent: 'space-between' }}>
-              <View
-                style={{
-                  flexDirection: 'row',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <View
-                  style={{
-                    backgroundColor: '#FFFFFF18',
-                    paddingHorizontal: 11,
-                    paddingVertical: 6,
-                    borderRadius: 20,
-                    flexDirection: 'row',
-                    gap: 6,
-                    alignItems: 'center',
-                  }}
-                >
-                  <Headphones size={12} color={tint[2]} />
-                  <Txt size={9} weight="bold" style={{ letterSpacing: 1.2, color: tint[2] }}>
-                    FROM YOUR COLLECTION
-                  </Txt>
-                </View>
-                <ArrowUpRight size={20} color={tint[2]} />
-              </View>
-              <View style={{ marginTop: 60, gap: 11, alignItems: 'flex-start' }}>
-                <Txt
-                  size={32}
-                  weight="heavy"
-                  numberOfLines={2}
-                  style={{ letterSpacing: -1.3, lineHeight: 37, maxWidth: '85%' }}
-                >
-                  {featured.name}
-                </Txt>
-                <Txt size={13} style={{ color: tint[2] }}>
-                  {featured.artist} · {featured.trackCount} songs
-                </Txt>
-                <View style={{ marginTop: 6 }}>
-                  <Button
-                    title="Press play. Stay awhile."
-                    small
-                    icon={Play}
-                    onPress={playFeatured}
-                    style={{ backgroundColor: '#F5F3EA' }}
-                  />
-                </View>
-              </View>
-            </View>
-          </Press>
-        </FadeIn>
-      ) : (
-        <Empty
-          title="Your collection starts here"
-          text="Find a favorite, add it to your library, and make yourself at home."
-          action="Discover music"
-          onPress={() => router.push('/search')}
-        />
-      )}
-      <FadeIn delay={140}>
-        <View style={{ flexDirection: 'row', paddingHorizontal: 24, marginTop: 18, gap: 10 }}>
-          {[
-            { title: 'Your playlists', icon: ListMusic, route: '/library' as const },
-            { title: 'Downloads', icon: ArrowDownToLine, route: '/activity' as const },
-          ].map(({ title, icon: Icon, route }) => (
-            <View key={title} style={{ flex: 1 }}>
-              <Press
-                label={title}
-                onPress={() => router.push(route)}
-                style={{
-                  backgroundColor: color.surface,
-                  borderRadius: 15,
-                  minHeight: 58,
-                  paddingHorizontal: 15,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <Icon size={18} strokeWidth={1.5} color={color.accent} />
-                <Txt size={12} weight="medium">
-                  {title}
-                </Txt>
-              </Press>
-            </View>
-          ))}
-        </View>
-      </FadeIn>
-      {albums.data && albums.data.albums.length > 0 && (
-        <Section
-          title="A collection worth keeping"
-          eyebrow="YOUR ALBUMS"
-          action="See all"
-          onPress={() => router.push({ pathname: '/library', params: { tab: 'Albums' } })}
-        >
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 15, paddingHorizontal: 24 }}
-          >
-            {albums.data.albums
-              .slice(1)
-              .concat(albums.data.albums.slice(0, 1))
-              .map((album) => (
-                <AlbumCard key={album.id} album={album} width={cardWidth} />
-              ))}
-          </ScrollView>
-        </Section>
-      )}
       <Section
-        title="Made by you"
+        title="Your playlists"
         eyebrow="YOUR PLAYLISTS"
-        action="Create new"
-        onPress={() => router.push('/playlist-edit')}
+        action="See all"
+        onPress={() => router.navigate('/playlists')}
       >
         {playlists.data?.playlists.length ? (
           <ScrollView
@@ -313,20 +162,151 @@ export function HomeScreen() {
           </View>
         )}
       </Section>
-      {!!tracks.data?.tracks.length && (
-        <Section
-          title="Good music, close at hand"
-          eyebrow="IN YOUR LIBRARY"
-          action="All songs"
-          onPress={() => router.push('/library')}
-        >
-          {tracks.data.tracks.slice(0, 5).map((track, i) => (
-            <TrackRow
-              key={track.id}
-              track={track}
-              onPlay={() => player.play(tracks.data!.tracks, i)}
+      {albums.isPending ? (
+        <Loading rows={3} />
+      ) : albums.error ? (
+        <Failure error={albums.error} retry={albums.refetch} />
+      ) : featured ? (
+        <FadeIn delay={80} style={{ marginHorizontal: 24 }}>
+          <Press
+            label={`Explore ${featured.name}`}
+            onPress={() => router.push({ pathname: '/album/[id]', params: { id: featured.id } })}
+            style={{
+              borderRadius: 24,
+              overflow: 'hidden',
+              backgroundColor: tint[0],
+              minHeight: 235,
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                right: -30,
+                top: -20,
+                transform: [{ rotate: '14deg' }],
+              }}
+            >
+              <Artwork
+                title={featured.name}
+                id={featured.id}
+                path={featured.artworkPath}
+                size={200}
+                radius={14}
+              />
+            </View>
+            <LinearGradient
+              colors={[tint[0] + '30', tint[0] + 'CC', tint[0]]}
+              start={{ x: 0.1, y: 0 }}
+              end={{ x: 0.4, y: 1 }}
+              style={{ position: 'absolute', inset: 0 }}
             />
+            <View style={{ padding: 24, minHeight: 235, justifyContent: 'space-between' }}>
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <View
+                  style={{
+                    backgroundColor: '#FFFFFF18',
+                    paddingHorizontal: 11,
+                    paddingVertical: 6,
+                    borderRadius: 20,
+                    flexDirection: 'row',
+                    gap: 6,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Headphones size={12} color={tint[2]} />
+                  <Txt size={9} weight="bold" style={{ letterSpacing: 1.2, color: tint[2] }}>
+                    FROM YOUR COLLECTION
+                  </Txt>
+                </View>
+                <ArrowUpRight size={20} color={tint[2]} />
+              </View>
+              <View style={{ marginTop: 32, gap: 11, alignItems: 'flex-start' }}>
+                <Txt
+                  size={32}
+                  weight="heavy"
+                  numberOfLines={2}
+                  style={{ letterSpacing: -1.3, lineHeight: 37, maxWidth: '85%' }}
+                >
+                  {featured.name}
+                </Txt>
+                <Txt size={13} style={{ color: tint[2] }}>
+                  {featured.artist} · {featured.trackCount} songs
+                </Txt>
+                <View style={{ marginTop: 6 }}>
+                  <Button
+                    title="Press play. Stay awhile."
+                    small
+                    icon={Play}
+                    onPress={playFeatured}
+                    style={{ backgroundColor: '#F5F3EA' }}
+                  />
+                </View>
+              </View>
+            </View>
+          </Press>
+        </FadeIn>
+      ) : (
+        <Empty
+          title="Your collection starts here"
+          text="Find a favorite, add it to your library, and make yourself at home."
+          action="Discover music"
+          onPress={() => router.push('/search')}
+        />
+      )}
+      <FadeIn delay={140}>
+        <View style={{ flexDirection: 'row', paddingHorizontal: 24, marginTop: 18, gap: 10 }}>
+          {[
+            { title: 'Your playlists', icon: ListMusic, route: '/playlists' as const },
+            { title: 'Downloads', icon: ArrowDownToLine, route: '/activity' as const },
+          ].map(({ title, icon: Icon, route }) => (
+            <View key={title} style={{ flex: 1 }}>
+              <Press
+                label={title}
+                onPress={() => router.push(route)}
+                style={{
+                  backgroundColor: color.surface,
+                  borderRadius: 15,
+                  minHeight: 58,
+                  paddingHorizontal: 15,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                }}
+              >
+                <Icon size={18} strokeWidth={1.5} color={color.accent} />
+                <Txt size={12} weight="medium">
+                  {title}
+                </Txt>
+              </Press>
+            </View>
           ))}
+        </View>
+      </FadeIn>
+      {albums.data && albums.data.albums.length > 0 && (
+        <Section
+          title="A collection worth keeping"
+          eyebrow="YOUR ALBUMS"
+          action="See all"
+          onPress={() => router.push({ pathname: '/library/catalog', params: { tab: 'Albums' } })}
+        >
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 15, paddingHorizontal: 24 }}
+          >
+            {albums.data.albums
+              .slice(1)
+              .concat(albums.data.albums.slice(0, 1))
+              .map((album) => (
+                <AlbumCard key={album.id} album={album} width={cardWidth} />
+              ))}
+          </ScrollView>
         </Section>
       )}
       <View style={{ paddingHorizontal: 24, marginTop: 36 }}>
