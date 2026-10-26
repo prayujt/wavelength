@@ -2,10 +2,12 @@ import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import { MediaMenuProvider } from '../../components/media';
 import { PlayerDock } from '../../components/player-dock';
+import { usePlayer } from '../../lib/player';
 import { useLibraryPulse } from '../../lib/queries';
 import { color } from '../../lib/theme';
 export default function AppLayout() {
-  useLibraryPulse();
+  const player = usePlayer();
+  useLibraryPulse(player.refreshRecommendations);
   return (
     <MediaMenuProvider>
       <View style={{ flex: 1, backgroundColor: color.bg }}>

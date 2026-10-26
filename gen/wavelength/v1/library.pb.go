@@ -723,20 +723,74 @@ func (x *DeletePlaylistRequest) GetId() string {
 }
 
 // Playback position is in milliseconds in the native API and MCP.
-type Queue struct {
+type QueueRecommendation struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	TrackIds       []string               `protobuf:"bytes,1,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
-	CurrentTrackId string                 `protobuf:"bytes,2,opt,name=current_track_id,json=currentTrackId,proto3" json:"current_track_id,omitempty"`
-	PositionMs     int64                  `protobuf:"varint,3,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
-	ChangedAt      string                 `protobuf:"bytes,4,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
-	ChangedBy      string                 `protobuf:"bytes,5,opt,name=changed_by,json=changedBy,proto3" json:"changed_by,omitempty"`
+	Index          int32                  `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	PlayFeedItemId string                 `protobuf:"bytes,2,opt,name=play_feed_item_id,json=playFeedItemId,proto3" json:"play_feed_item_id,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
 
+func (x *QueueRecommendation) Reset() {
+	*x = QueueRecommendation{}
+	mi := &file_wavelength_v1_library_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueRecommendation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueRecommendation) ProtoMessage() {}
+
+func (x *QueueRecommendation) ProtoReflect() protoreflect.Message {
+	mi := &file_wavelength_v1_library_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use QueueRecommendation.ProtoReflect.Descriptor instead.
+func (*QueueRecommendation) Descriptor() ([]byte, []int) {
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *QueueRecommendation) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *QueueRecommendation) GetPlayFeedItemId() string {
+	if x != nil {
+		return x.PlayFeedItemId
+	}
+	return ""
+}
+
+type Queue struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TrackIds        []string               `protobuf:"bytes,1,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
+	CurrentTrackId  string                 `protobuf:"bytes,2,opt,name=current_track_id,json=currentTrackId,proto3" json:"current_track_id,omitempty"`
+	PositionMs      int64                  `protobuf:"varint,3,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
+	ChangedAt       string                 `protobuf:"bytes,4,opt,name=changed_at,json=changedAt,proto3" json:"changed_at,omitempty"`
+	ChangedBy       string                 `protobuf:"bytes,5,opt,name=changed_by,json=changedBy,proto3" json:"changed_by,omitempty"`
+	Recommendations []*QueueRecommendation `protobuf:"bytes,6,rep,name=recommendations,proto3" json:"recommendations,omitempty"`
+	PlayFeedEnabled *bool                  `protobuf:"varint,7,opt,name=play_feed_enabled,json=playFeedEnabled,proto3,oneof" json:"play_feed_enabled,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
 func (x *Queue) Reset() {
 	*x = Queue{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[13]
+	mi := &file_wavelength_v1_library_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -748,7 +802,7 @@ func (x *Queue) String() string {
 func (*Queue) ProtoMessage() {}
 
 func (x *Queue) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[13]
+	mi := &file_wavelength_v1_library_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -761,7 +815,7 @@ func (x *Queue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Queue.ProtoReflect.Descriptor instead.
 func (*Queue) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{13}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Queue) GetTrackIds() []string {
@@ -799,6 +853,20 @@ func (x *Queue) GetChangedBy() string {
 	return ""
 }
 
+func (x *Queue) GetRecommendations() []*QueueRecommendation {
+	if x != nil {
+		return x.Recommendations
+	}
+	return nil
+}
+
+func (x *Queue) GetPlayFeedEnabled() bool {
+	if x != nil && x.PlayFeedEnabled != nil {
+		return *x.PlayFeedEnabled
+	}
+	return false
+}
+
 type GetQueueRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -807,7 +875,7 @@ type GetQueueRequest struct {
 
 func (x *GetQueueRequest) Reset() {
 	*x = GetQueueRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[14]
+	mi := &file_wavelength_v1_library_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +887,7 @@ func (x *GetQueueRequest) String() string {
 func (*GetQueueRequest) ProtoMessage() {}
 
 func (x *GetQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[14]
+	mi := &file_wavelength_v1_library_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +900,7 @@ func (x *GetQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQueueRequest.ProtoReflect.Descriptor instead.
 func (*GetQueueRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{14}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{15}
 }
 
 type GetQueueResponse struct {
@@ -844,7 +912,7 @@ type GetQueueResponse struct {
 
 func (x *GetQueueResponse) Reset() {
 	*x = GetQueueResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[15]
+	mi := &file_wavelength_v1_library_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -856,7 +924,7 @@ func (x *GetQueueResponse) String() string {
 func (*GetQueueResponse) ProtoMessage() {}
 
 func (x *GetQueueResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[15]
+	mi := &file_wavelength_v1_library_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -869,7 +937,7 @@ func (x *GetQueueResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetQueueResponse.ProtoReflect.Descriptor instead.
 func (*GetQueueResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{15}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetQueueResponse) GetQueue() *Queue {
@@ -880,17 +948,19 @@ func (x *GetQueueResponse) GetQueue() *Queue {
 }
 
 type SaveQueueRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	TrackIds       []string               `protobuf:"bytes,1,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
-	CurrentTrackId string                 `protobuf:"bytes,2,opt,name=current_track_id,json=currentTrackId,proto3" json:"current_track_id,omitempty"`
-	PositionMs     int64                  `protobuf:"varint,3,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	TrackIds        []string               `protobuf:"bytes,1,rep,name=track_ids,json=trackIds,proto3" json:"track_ids,omitempty"`
+	CurrentTrackId  string                 `protobuf:"bytes,2,opt,name=current_track_id,json=currentTrackId,proto3" json:"current_track_id,omitempty"`
+	PositionMs      int64                  `protobuf:"varint,3,opt,name=position_ms,json=positionMs,proto3" json:"position_ms,omitempty"`
+	Recommendations []*QueueRecommendation `protobuf:"bytes,4,rep,name=recommendations,proto3" json:"recommendations,omitempty"`
+	PlayFeedEnabled *bool                  `protobuf:"varint,5,opt,name=play_feed_enabled,json=playFeedEnabled,proto3,oneof" json:"play_feed_enabled,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *SaveQueueRequest) Reset() {
 	*x = SaveQueueRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[16]
+	mi := &file_wavelength_v1_library_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -902,7 +972,7 @@ func (x *SaveQueueRequest) String() string {
 func (*SaveQueueRequest) ProtoMessage() {}
 
 func (x *SaveQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[16]
+	mi := &file_wavelength_v1_library_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -915,7 +985,7 @@ func (x *SaveQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveQueueRequest.ProtoReflect.Descriptor instead.
 func (*SaveQueueRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{16}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SaveQueueRequest) GetTrackIds() []string {
@@ -939,6 +1009,20 @@ func (x *SaveQueueRequest) GetPositionMs() int64 {
 	return 0
 }
 
+func (x *SaveQueueRequest) GetRecommendations() []*QueueRecommendation {
+	if x != nil {
+		return x.Recommendations
+	}
+	return nil
+}
+
+func (x *SaveQueueRequest) GetPlayFeedEnabled() bool {
+	if x != nil && x.PlayFeedEnabled != nil {
+		return *x.PlayFeedEnabled
+	}
+	return false
+}
+
 type Bookmark struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TrackId       string                 `protobuf:"bytes,1,opt,name=track_id,json=trackId,proto3" json:"track_id,omitempty"`
@@ -952,7 +1036,7 @@ type Bookmark struct {
 
 func (x *Bookmark) Reset() {
 	*x = Bookmark{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[17]
+	mi := &file_wavelength_v1_library_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -964,7 +1048,7 @@ func (x *Bookmark) String() string {
 func (*Bookmark) ProtoMessage() {}
 
 func (x *Bookmark) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[17]
+	mi := &file_wavelength_v1_library_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -977,7 +1061,7 @@ func (x *Bookmark) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Bookmark.ProtoReflect.Descriptor instead.
 func (*Bookmark) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{17}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Bookmark) GetTrackId() string {
@@ -1025,7 +1109,7 @@ type ListBookmarksRequest struct {
 
 func (x *ListBookmarksRequest) Reset() {
 	*x = ListBookmarksRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[18]
+	mi := &file_wavelength_v1_library_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1037,7 +1121,7 @@ func (x *ListBookmarksRequest) String() string {
 func (*ListBookmarksRequest) ProtoMessage() {}
 
 func (x *ListBookmarksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[18]
+	mi := &file_wavelength_v1_library_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1050,7 +1134,7 @@ func (x *ListBookmarksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBookmarksRequest.ProtoReflect.Descriptor instead.
 func (*ListBookmarksRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{18}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListBookmarksRequest) GetLimit() int32 {
@@ -1077,7 +1161,7 @@ type ListBookmarksResponse struct {
 
 func (x *ListBookmarksResponse) Reset() {
 	*x = ListBookmarksResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[19]
+	mi := &file_wavelength_v1_library_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +1173,7 @@ func (x *ListBookmarksResponse) String() string {
 func (*ListBookmarksResponse) ProtoMessage() {}
 
 func (x *ListBookmarksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[19]
+	mi := &file_wavelength_v1_library_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +1186,7 @@ func (x *ListBookmarksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBookmarksResponse.ProtoReflect.Descriptor instead.
 func (*ListBookmarksResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{19}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ListBookmarksResponse) GetBookmarks() []*Bookmark {
@@ -1130,7 +1214,7 @@ type SaveBookmarkRequest struct {
 
 func (x *SaveBookmarkRequest) Reset() {
 	*x = SaveBookmarkRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[20]
+	mi := &file_wavelength_v1_library_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1142,7 +1226,7 @@ func (x *SaveBookmarkRequest) String() string {
 func (*SaveBookmarkRequest) ProtoMessage() {}
 
 func (x *SaveBookmarkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[20]
+	mi := &file_wavelength_v1_library_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1155,7 +1239,7 @@ func (x *SaveBookmarkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveBookmarkRequest.ProtoReflect.Descriptor instead.
 func (*SaveBookmarkRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{20}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SaveBookmarkRequest) GetTrackId() string {
@@ -1188,7 +1272,7 @@ type DeleteBookmarkRequest struct {
 
 func (x *DeleteBookmarkRequest) Reset() {
 	*x = DeleteBookmarkRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[21]
+	mi := &file_wavelength_v1_library_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1200,7 +1284,7 @@ func (x *DeleteBookmarkRequest) String() string {
 func (*DeleteBookmarkRequest) ProtoMessage() {}
 
 func (x *DeleteBookmarkRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[21]
+	mi := &file_wavelength_v1_library_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1213,7 +1297,7 @@ func (x *DeleteBookmarkRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteBookmarkRequest.ProtoReflect.Descriptor instead.
 func (*DeleteBookmarkRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{21}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DeleteBookmarkRequest) GetTrackId() string {
@@ -1233,7 +1317,7 @@ type GetHistoryRequest struct {
 
 func (x *GetHistoryRequest) Reset() {
 	*x = GetHistoryRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[22]
+	mi := &file_wavelength_v1_library_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1245,7 +1329,7 @@ func (x *GetHistoryRequest) String() string {
 func (*GetHistoryRequest) ProtoMessage() {}
 
 func (x *GetHistoryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[22]
+	mi := &file_wavelength_v1_library_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1258,7 +1342,7 @@ func (x *GetHistoryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHistoryRequest.ProtoReflect.Descriptor instead.
 func (*GetHistoryRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{22}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GetHistoryRequest) GetLimit() int32 {
@@ -1286,7 +1370,7 @@ type HistoryEntry struct {
 
 func (x *HistoryEntry) Reset() {
 	*x = HistoryEntry{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[23]
+	mi := &file_wavelength_v1_library_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1298,7 +1382,7 @@ func (x *HistoryEntry) String() string {
 func (*HistoryEntry) ProtoMessage() {}
 
 func (x *HistoryEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[23]
+	mi := &file_wavelength_v1_library_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1311,7 +1395,7 @@ func (x *HistoryEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HistoryEntry.ProtoReflect.Descriptor instead.
 func (*HistoryEntry) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{23}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *HistoryEntry) GetTrackId() string {
@@ -1345,7 +1429,7 @@ type GetHistoryResponse struct {
 
 func (x *GetHistoryResponse) Reset() {
 	*x = GetHistoryResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[24]
+	mi := &file_wavelength_v1_library_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1357,7 +1441,7 @@ func (x *GetHistoryResponse) String() string {
 func (*GetHistoryResponse) ProtoMessage() {}
 
 func (x *GetHistoryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[24]
+	mi := &file_wavelength_v1_library_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1370,7 +1454,7 @@ func (x *GetHistoryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetHistoryResponse.ProtoReflect.Descriptor instead.
 func (*GetHistoryResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{24}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetHistoryResponse) GetEntries() []*HistoryEntry {
@@ -1398,7 +1482,7 @@ type RecordPlayRequest struct {
 
 func (x *RecordPlayRequest) Reset() {
 	*x = RecordPlayRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[25]
+	mi := &file_wavelength_v1_library_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1410,7 +1494,7 @@ func (x *RecordPlayRequest) String() string {
 func (*RecordPlayRequest) ProtoMessage() {}
 
 func (x *RecordPlayRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[25]
+	mi := &file_wavelength_v1_library_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1423,7 +1507,7 @@ func (x *RecordPlayRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RecordPlayRequest.ProtoReflect.Descriptor instead.
 func (*RecordPlayRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{25}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *RecordPlayRequest) GetTrackId() string {
@@ -1455,7 +1539,7 @@ type GetNowPlayingRequest struct {
 
 func (x *GetNowPlayingRequest) Reset() {
 	*x = GetNowPlayingRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[26]
+	mi := &file_wavelength_v1_library_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1467,7 +1551,7 @@ func (x *GetNowPlayingRequest) String() string {
 func (*GetNowPlayingRequest) ProtoMessage() {}
 
 func (x *GetNowPlayingRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[26]
+	mi := &file_wavelength_v1_library_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1480,7 +1564,7 @@ func (x *GetNowPlayingRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNowPlayingRequest.ProtoReflect.Descriptor instead.
 func (*GetNowPlayingRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{26}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{27}
 }
 
 type NowPlaying struct {
@@ -1493,7 +1577,7 @@ type NowPlaying struct {
 
 func (x *NowPlaying) Reset() {
 	*x = NowPlaying{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[27]
+	mi := &file_wavelength_v1_library_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1505,7 +1589,7 @@ func (x *NowPlaying) String() string {
 func (*NowPlaying) ProtoMessage() {}
 
 func (x *NowPlaying) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[27]
+	mi := &file_wavelength_v1_library_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1518,7 +1602,7 @@ func (x *NowPlaying) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NowPlaying.ProtoReflect.Descriptor instead.
 func (*NowPlaying) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{27}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *NowPlaying) GetTrackId() string {
@@ -1544,7 +1628,7 @@ type GetNowPlayingResponse struct {
 
 func (x *GetNowPlayingResponse) Reset() {
 	*x = GetNowPlayingResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[28]
+	mi := &file_wavelength_v1_library_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1556,7 +1640,7 @@ func (x *GetNowPlayingResponse) String() string {
 func (*GetNowPlayingResponse) ProtoMessage() {}
 
 func (x *GetNowPlayingResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[28]
+	mi := &file_wavelength_v1_library_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1569,7 +1653,7 @@ func (x *GetNowPlayingResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNowPlayingResponse.ProtoReflect.Descriptor instead.
 func (*GetNowPlayingResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{28}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *GetNowPlayingResponse) GetEntries() []*NowPlaying {
@@ -1607,7 +1691,7 @@ type Track struct {
 
 func (x *Track) Reset() {
 	*x = Track{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[29]
+	mi := &file_wavelength_v1_library_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +1703,7 @@ func (x *Track) String() string {
 func (*Track) ProtoMessage() {}
 
 func (x *Track) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[29]
+	mi := &file_wavelength_v1_library_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1632,7 +1716,7 @@ func (x *Track) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Track.ProtoReflect.Descriptor instead.
 func (*Track) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{29}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Track) GetId() string {
@@ -1773,7 +1857,7 @@ type Artist struct {
 
 func (x *Artist) Reset() {
 	*x = Artist{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[30]
+	mi := &file_wavelength_v1_library_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1785,7 +1869,7 @@ func (x *Artist) String() string {
 func (*Artist) ProtoMessage() {}
 
 func (x *Artist) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[30]
+	mi := &file_wavelength_v1_library_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1798,7 +1882,7 @@ func (x *Artist) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Artist.ProtoReflect.Descriptor instead.
 func (*Artist) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{30}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Artist) GetId() string {
@@ -1847,7 +1931,7 @@ type Album struct {
 
 func (x *Album) Reset() {
 	*x = Album{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[31]
+	mi := &file_wavelength_v1_library_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1859,7 +1943,7 @@ func (x *Album) String() string {
 func (*Album) ProtoMessage() {}
 
 func (x *Album) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[31]
+	mi := &file_wavelength_v1_library_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1872,7 +1956,7 @@ func (x *Album) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Album.ProtoReflect.Descriptor instead.
 func (*Album) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{31}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Album) GetId() string {
@@ -1956,7 +2040,7 @@ type ListTracksRequest struct {
 
 func (x *ListTracksRequest) Reset() {
 	*x = ListTracksRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[32]
+	mi := &file_wavelength_v1_library_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1968,7 +2052,7 @@ func (x *ListTracksRequest) String() string {
 func (*ListTracksRequest) ProtoMessage() {}
 
 func (x *ListTracksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[32]
+	mi := &file_wavelength_v1_library_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1981,7 +2065,7 @@ func (x *ListTracksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTracksRequest.ProtoReflect.Descriptor instead.
 func (*ListTracksRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{32}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ListTracksRequest) GetQuery() string {
@@ -2015,7 +2099,7 @@ type ListTracksResponse struct {
 
 func (x *ListTracksResponse) Reset() {
 	*x = ListTracksResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[33]
+	mi := &file_wavelength_v1_library_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2027,7 +2111,7 @@ func (x *ListTracksResponse) String() string {
 func (*ListTracksResponse) ProtoMessage() {}
 
 func (x *ListTracksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[33]
+	mi := &file_wavelength_v1_library_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2040,7 +2124,7 @@ func (x *ListTracksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTracksResponse.ProtoReflect.Descriptor instead.
 func (*ListTracksResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{33}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *ListTracksResponse) GetTracks() []*Track {
@@ -2068,7 +2152,7 @@ type DeleteTrackRequest struct {
 
 func (x *DeleteTrackRequest) Reset() {
 	*x = DeleteTrackRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[34]
+	mi := &file_wavelength_v1_library_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2080,7 +2164,7 @@ func (x *DeleteTrackRequest) String() string {
 func (*DeleteTrackRequest) ProtoMessage() {}
 
 func (x *DeleteTrackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[34]
+	mi := &file_wavelength_v1_library_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2093,7 +2177,7 @@ func (x *DeleteTrackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteTrackRequest.ProtoReflect.Descriptor instead.
 func (*DeleteTrackRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{34}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *DeleteTrackRequest) GetId() string {
@@ -2119,7 +2203,7 @@ type GetTrackRequest struct {
 
 func (x *GetTrackRequest) Reset() {
 	*x = GetTrackRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[35]
+	mi := &file_wavelength_v1_library_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2131,7 +2215,7 @@ func (x *GetTrackRequest) String() string {
 func (*GetTrackRequest) ProtoMessage() {}
 
 func (x *GetTrackRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[35]
+	mi := &file_wavelength_v1_library_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2144,7 +2228,7 @@ func (x *GetTrackRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTrackRequest.ProtoReflect.Descriptor instead.
 func (*GetTrackRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{35}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *GetTrackRequest) GetId() string {
@@ -2163,7 +2247,7 @@ type GetTrackResponse struct {
 
 func (x *GetTrackResponse) Reset() {
 	*x = GetTrackResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[36]
+	mi := &file_wavelength_v1_library_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2175,7 +2259,7 @@ func (x *GetTrackResponse) String() string {
 func (*GetTrackResponse) ProtoMessage() {}
 
 func (x *GetTrackResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[36]
+	mi := &file_wavelength_v1_library_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2188,7 +2272,7 @@ func (x *GetTrackResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetTrackResponse.ProtoReflect.Descriptor instead.
 func (*GetTrackResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{36}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *GetTrackResponse) GetTrack() *Track {
@@ -2209,7 +2293,7 @@ type ListArtistsRequest struct {
 
 func (x *ListArtistsRequest) Reset() {
 	*x = ListArtistsRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[37]
+	mi := &file_wavelength_v1_library_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2221,7 +2305,7 @@ func (x *ListArtistsRequest) String() string {
 func (*ListArtistsRequest) ProtoMessage() {}
 
 func (x *ListArtistsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[37]
+	mi := &file_wavelength_v1_library_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2234,7 +2318,7 @@ func (x *ListArtistsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtistsRequest.ProtoReflect.Descriptor instead.
 func (*ListArtistsRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{37}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListArtistsRequest) GetQuery() string {
@@ -2268,7 +2352,7 @@ type ListArtistsResponse struct {
 
 func (x *ListArtistsResponse) Reset() {
 	*x = ListArtistsResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[38]
+	mi := &file_wavelength_v1_library_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2280,7 +2364,7 @@ func (x *ListArtistsResponse) String() string {
 func (*ListArtistsResponse) ProtoMessage() {}
 
 func (x *ListArtistsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[38]
+	mi := &file_wavelength_v1_library_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2293,7 +2377,7 @@ func (x *ListArtistsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListArtistsResponse.ProtoReflect.Descriptor instead.
 func (*ListArtistsResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{38}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *ListArtistsResponse) GetArtists() []*Artist {
@@ -2319,7 +2403,7 @@ type GetArtistRequest struct {
 
 func (x *GetArtistRequest) Reset() {
 	*x = GetArtistRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[39]
+	mi := &file_wavelength_v1_library_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2331,7 +2415,7 @@ func (x *GetArtistRequest) String() string {
 func (*GetArtistRequest) ProtoMessage() {}
 
 func (x *GetArtistRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[39]
+	mi := &file_wavelength_v1_library_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2344,7 +2428,7 @@ func (x *GetArtistRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetArtistRequest.ProtoReflect.Descriptor instead.
 func (*GetArtistRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{39}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *GetArtistRequest) GetId() string {
@@ -2364,7 +2448,7 @@ type GetArtistResponse struct {
 
 func (x *GetArtistResponse) Reset() {
 	*x = GetArtistResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[40]
+	mi := &file_wavelength_v1_library_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2460,7 @@ func (x *GetArtistResponse) String() string {
 func (*GetArtistResponse) ProtoMessage() {}
 
 func (x *GetArtistResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[40]
+	mi := &file_wavelength_v1_library_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2389,7 +2473,7 @@ func (x *GetArtistResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetArtistResponse.ProtoReflect.Descriptor instead.
 func (*GetArtistResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{40}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *GetArtistResponse) GetArtist() *Artist {
@@ -2418,7 +2502,7 @@ type ListAlbumsRequest struct {
 
 func (x *ListAlbumsRequest) Reset() {
 	*x = ListAlbumsRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[41]
+	mi := &file_wavelength_v1_library_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2430,7 +2514,7 @@ func (x *ListAlbumsRequest) String() string {
 func (*ListAlbumsRequest) ProtoMessage() {}
 
 func (x *ListAlbumsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[41]
+	mi := &file_wavelength_v1_library_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2443,7 +2527,7 @@ func (x *ListAlbumsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlbumsRequest.ProtoReflect.Descriptor instead.
 func (*ListAlbumsRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{41}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *ListAlbumsRequest) GetQuery() string {
@@ -2484,7 +2568,7 @@ type ListAlbumsResponse struct {
 
 func (x *ListAlbumsResponse) Reset() {
 	*x = ListAlbumsResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[42]
+	mi := &file_wavelength_v1_library_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2496,7 +2580,7 @@ func (x *ListAlbumsResponse) String() string {
 func (*ListAlbumsResponse) ProtoMessage() {}
 
 func (x *ListAlbumsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[42]
+	mi := &file_wavelength_v1_library_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2509,7 +2593,7 @@ func (x *ListAlbumsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAlbumsResponse.ProtoReflect.Descriptor instead.
 func (*ListAlbumsResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{42}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *ListAlbumsResponse) GetAlbums() []*Album {
@@ -2535,7 +2619,7 @@ type GetAlbumRequest struct {
 
 func (x *GetAlbumRequest) Reset() {
 	*x = GetAlbumRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[43]
+	mi := &file_wavelength_v1_library_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2547,7 +2631,7 @@ func (x *GetAlbumRequest) String() string {
 func (*GetAlbumRequest) ProtoMessage() {}
 
 func (x *GetAlbumRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[43]
+	mi := &file_wavelength_v1_library_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2560,7 +2644,7 @@ func (x *GetAlbumRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAlbumRequest.ProtoReflect.Descriptor instead.
 func (*GetAlbumRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{43}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *GetAlbumRequest) GetId() string {
@@ -2580,7 +2664,7 @@ type GetAlbumResponse struct {
 
 func (x *GetAlbumResponse) Reset() {
 	*x = GetAlbumResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[44]
+	mi := &file_wavelength_v1_library_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2592,7 +2676,7 @@ func (x *GetAlbumResponse) String() string {
 func (*GetAlbumResponse) ProtoMessage() {}
 
 func (x *GetAlbumResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[44]
+	mi := &file_wavelength_v1_library_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2605,7 +2689,7 @@ func (x *GetAlbumResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAlbumResponse.ProtoReflect.Descriptor instead.
 func (*GetAlbumResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{44}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *GetAlbumResponse) GetAlbum() *Album {
@@ -2631,7 +2715,7 @@ type GetPlaybackInfoRequest struct {
 
 func (x *GetPlaybackInfoRequest) Reset() {
 	*x = GetPlaybackInfoRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[45]
+	mi := &file_wavelength_v1_library_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2643,7 +2727,7 @@ func (x *GetPlaybackInfoRequest) String() string {
 func (*GetPlaybackInfoRequest) ProtoMessage() {}
 
 func (x *GetPlaybackInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[45]
+	mi := &file_wavelength_v1_library_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2656,7 +2740,7 @@ func (x *GetPlaybackInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPlaybackInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetPlaybackInfoRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{45}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *GetPlaybackInfoRequest) GetId() string {
@@ -2677,7 +2761,7 @@ type GetPlaybackInfoResponse struct {
 
 func (x *GetPlaybackInfoResponse) Reset() {
 	*x = GetPlaybackInfoResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[46]
+	mi := &file_wavelength_v1_library_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2689,7 +2773,7 @@ func (x *GetPlaybackInfoResponse) String() string {
 func (*GetPlaybackInfoResponse) ProtoMessage() {}
 
 func (x *GetPlaybackInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[46]
+	mi := &file_wavelength_v1_library_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2702,7 +2786,7 @@ func (x *GetPlaybackInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetPlaybackInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetPlaybackInfoResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{46}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetPlaybackInfoResponse) GetTrack() *Track {
@@ -2735,7 +2819,7 @@ type GetLyricsRequest struct {
 
 func (x *GetLyricsRequest) Reset() {
 	*x = GetLyricsRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[47]
+	mi := &file_wavelength_v1_library_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2747,7 +2831,7 @@ func (x *GetLyricsRequest) String() string {
 func (*GetLyricsRequest) ProtoMessage() {}
 
 func (x *GetLyricsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[47]
+	mi := &file_wavelength_v1_library_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2760,7 +2844,7 @@ func (x *GetLyricsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLyricsRequest.ProtoReflect.Descriptor instead.
 func (*GetLyricsRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{47}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetLyricsRequest) GetId() string {
@@ -2779,7 +2863,7 @@ type GetLyricsResponse struct {
 
 func (x *GetLyricsResponse) Reset() {
 	*x = GetLyricsResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[48]
+	mi := &file_wavelength_v1_library_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2791,7 +2875,7 @@ func (x *GetLyricsResponse) String() string {
 func (*GetLyricsResponse) ProtoMessage() {}
 
 func (x *GetLyricsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[48]
+	mi := &file_wavelength_v1_library_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2804,7 +2888,7 @@ func (x *GetLyricsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetLyricsResponse.ProtoReflect.Descriptor instead.
 func (*GetLyricsResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{48}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetLyricsResponse) GetLyrics() string {
@@ -2825,7 +2909,7 @@ type StreamAudioRequest struct {
 
 func (x *StreamAudioRequest) Reset() {
 	*x = StreamAudioRequest{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[49]
+	mi := &file_wavelength_v1_library_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2837,7 +2921,7 @@ func (x *StreamAudioRequest) String() string {
 func (*StreamAudioRequest) ProtoMessage() {}
 
 func (x *StreamAudioRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[49]
+	mi := &file_wavelength_v1_library_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +2934,7 @@ func (x *StreamAudioRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamAudioRequest.ProtoReflect.Descriptor instead.
 func (*StreamAudioRequest) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{49}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *StreamAudioRequest) GetId() string {
@@ -2884,7 +2968,7 @@ type StreamAudioResponse struct {
 
 func (x *StreamAudioResponse) Reset() {
 	*x = StreamAudioResponse{}
-	mi := &file_wavelength_v1_library_proto_msgTypes[50]
+	mi := &file_wavelength_v1_library_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2896,7 +2980,7 @@ func (x *StreamAudioResponse) String() string {
 func (*StreamAudioResponse) ProtoMessage() {}
 
 func (x *StreamAudioResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_wavelength_v1_library_proto_msgTypes[50]
+	mi := &file_wavelength_v1_library_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2909,7 +2993,7 @@ func (x *StreamAudioResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StreamAudioResponse.ProtoReflect.Descriptor instead.
 func (*StreamAudioResponse) Descriptor() ([]byte, []int) {
-	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{50}
+	return file_wavelength_v1_library_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *StreamAudioResponse) GetData() []byte {
@@ -2978,7 +3062,10 @@ const file_wavelength_v1_library_proto_rawDesc = "" +
 	"\b_commentB\t\n" +
 	"\a_public\"'\n" +
 	"\x15DeletePlaylistRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\xad\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"V\n" +
+	"\x13QueueRecommendation\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\x05R\x05index\x12)\n" +
+	"\x11play_feed_item_id\x18\x02 \x01(\tR\x0eplayFeedItemId\"\xc2\x02\n" +
 	"\x05Queue\x12\x1b\n" +
 	"\ttrack_ids\x18\x01 \x03(\tR\btrackIds\x12(\n" +
 	"\x10current_track_id\x18\x02 \x01(\tR\x0ecurrentTrackId\x12\x1f\n" +
@@ -2987,15 +3074,21 @@ const file_wavelength_v1_library_proto_rawDesc = "" +
 	"\n" +
 	"changed_at\x18\x04 \x01(\tR\tchangedAt\x12\x1d\n" +
 	"\n" +
-	"changed_by\x18\x05 \x01(\tR\tchangedBy\"\x11\n" +
+	"changed_by\x18\x05 \x01(\tR\tchangedBy\x12L\n" +
+	"\x0frecommendations\x18\x06 \x03(\v2\".wavelength.v1.QueueRecommendationR\x0frecommendations\x12/\n" +
+	"\x11play_feed_enabled\x18\a \x01(\bH\x00R\x0fplayFeedEnabled\x88\x01\x01B\x14\n" +
+	"\x12_play_feed_enabled\"\x11\n" +
 	"\x0fGetQueueRequest\">\n" +
 	"\x10GetQueueResponse\x12*\n" +
-	"\x05queue\x18\x01 \x01(\v2\x14.wavelength.v1.QueueR\x05queue\"z\n" +
+	"\x05queue\x18\x01 \x01(\v2\x14.wavelength.v1.QueueR\x05queue\"\x8f\x02\n" +
 	"\x10SaveQueueRequest\x12\x1b\n" +
 	"\ttrack_ids\x18\x01 \x03(\tR\btrackIds\x12(\n" +
 	"\x10current_track_id\x18\x02 \x01(\tR\x0ecurrentTrackId\x12\x1f\n" +
 	"\vposition_ms\x18\x03 \x01(\x03R\n" +
-	"positionMs\"\x9e\x01\n" +
+	"positionMs\x12L\n" +
+	"\x0frecommendations\x18\x04 \x03(\v2\".wavelength.v1.QueueRecommendationR\x0frecommendations\x12/\n" +
+	"\x11play_feed_enabled\x18\x05 \x01(\bH\x00R\x0fplayFeedEnabled\x88\x01\x01B\x14\n" +
+	"\x12_play_feed_enabled\"\x9e\x01\n" +
 	"\bBookmark\x12\x19\n" +
 	"\btrack_id\x18\x01 \x01(\tR\atrackId\x12\x1f\n" +
 	"\vposition_ms\x18\x02 \x01(\x03R\n" +
@@ -3182,7 +3275,7 @@ func file_wavelength_v1_library_proto_rawDescGZIP() []byte {
 	return file_wavelength_v1_library_proto_rawDescData
 }
 
-var file_wavelength_v1_library_proto_msgTypes = make([]protoimpl.MessageInfo, 51)
+var file_wavelength_v1_library_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
 var file_wavelength_v1_library_proto_goTypes = []any{
 	(*EmptyResponse)(nil),           // 0: wavelength.v1.EmptyResponse
 	(*User)(nil),                    // 1: wavelength.v1.User
@@ -3197,121 +3290,124 @@ var file_wavelength_v1_library_proto_goTypes = []any{
 	(*TrackIDs)(nil),                // 10: wavelength.v1.TrackIDs
 	(*UpdatePlaylistRequest)(nil),   // 11: wavelength.v1.UpdatePlaylistRequest
 	(*DeletePlaylistRequest)(nil),   // 12: wavelength.v1.DeletePlaylistRequest
-	(*Queue)(nil),                   // 13: wavelength.v1.Queue
-	(*GetQueueRequest)(nil),         // 14: wavelength.v1.GetQueueRequest
-	(*GetQueueResponse)(nil),        // 15: wavelength.v1.GetQueueResponse
-	(*SaveQueueRequest)(nil),        // 16: wavelength.v1.SaveQueueRequest
-	(*Bookmark)(nil),                // 17: wavelength.v1.Bookmark
-	(*ListBookmarksRequest)(nil),    // 18: wavelength.v1.ListBookmarksRequest
-	(*ListBookmarksResponse)(nil),   // 19: wavelength.v1.ListBookmarksResponse
-	(*SaveBookmarkRequest)(nil),     // 20: wavelength.v1.SaveBookmarkRequest
-	(*DeleteBookmarkRequest)(nil),   // 21: wavelength.v1.DeleteBookmarkRequest
-	(*GetHistoryRequest)(nil),       // 22: wavelength.v1.GetHistoryRequest
-	(*HistoryEntry)(nil),            // 23: wavelength.v1.HistoryEntry
-	(*GetHistoryResponse)(nil),      // 24: wavelength.v1.GetHistoryResponse
-	(*RecordPlayRequest)(nil),       // 25: wavelength.v1.RecordPlayRequest
-	(*GetNowPlayingRequest)(nil),    // 26: wavelength.v1.GetNowPlayingRequest
-	(*NowPlaying)(nil),              // 27: wavelength.v1.NowPlaying
-	(*GetNowPlayingResponse)(nil),   // 28: wavelength.v1.GetNowPlayingResponse
-	(*Track)(nil),                   // 29: wavelength.v1.Track
-	(*Artist)(nil),                  // 30: wavelength.v1.Artist
-	(*Album)(nil),                   // 31: wavelength.v1.Album
-	(*ListTracksRequest)(nil),       // 32: wavelength.v1.ListTracksRequest
-	(*ListTracksResponse)(nil),      // 33: wavelength.v1.ListTracksResponse
-	(*DeleteTrackRequest)(nil),      // 34: wavelength.v1.DeleteTrackRequest
-	(*GetTrackRequest)(nil),         // 35: wavelength.v1.GetTrackRequest
-	(*GetTrackResponse)(nil),        // 36: wavelength.v1.GetTrackResponse
-	(*ListArtistsRequest)(nil),      // 37: wavelength.v1.ListArtistsRequest
-	(*ListArtistsResponse)(nil),     // 38: wavelength.v1.ListArtistsResponse
-	(*GetArtistRequest)(nil),        // 39: wavelength.v1.GetArtistRequest
-	(*GetArtistResponse)(nil),       // 40: wavelength.v1.GetArtistResponse
-	(*ListAlbumsRequest)(nil),       // 41: wavelength.v1.ListAlbumsRequest
-	(*ListAlbumsResponse)(nil),      // 42: wavelength.v1.ListAlbumsResponse
-	(*GetAlbumRequest)(nil),         // 43: wavelength.v1.GetAlbumRequest
-	(*GetAlbumResponse)(nil),        // 44: wavelength.v1.GetAlbumResponse
-	(*GetPlaybackInfoRequest)(nil),  // 45: wavelength.v1.GetPlaybackInfoRequest
-	(*GetPlaybackInfoResponse)(nil), // 46: wavelength.v1.GetPlaybackInfoResponse
-	(*GetLyricsRequest)(nil),        // 47: wavelength.v1.GetLyricsRequest
-	(*GetLyricsResponse)(nil),       // 48: wavelength.v1.GetLyricsResponse
-	(*StreamAudioRequest)(nil),      // 49: wavelength.v1.StreamAudioRequest
-	(*StreamAudioResponse)(nil),     // 50: wavelength.v1.StreamAudioResponse
-	(*timestamppb.Timestamp)(nil),   // 51: google.protobuf.Timestamp
+	(*QueueRecommendation)(nil),     // 13: wavelength.v1.QueueRecommendation
+	(*Queue)(nil),                   // 14: wavelength.v1.Queue
+	(*GetQueueRequest)(nil),         // 15: wavelength.v1.GetQueueRequest
+	(*GetQueueResponse)(nil),        // 16: wavelength.v1.GetQueueResponse
+	(*SaveQueueRequest)(nil),        // 17: wavelength.v1.SaveQueueRequest
+	(*Bookmark)(nil),                // 18: wavelength.v1.Bookmark
+	(*ListBookmarksRequest)(nil),    // 19: wavelength.v1.ListBookmarksRequest
+	(*ListBookmarksResponse)(nil),   // 20: wavelength.v1.ListBookmarksResponse
+	(*SaveBookmarkRequest)(nil),     // 21: wavelength.v1.SaveBookmarkRequest
+	(*DeleteBookmarkRequest)(nil),   // 22: wavelength.v1.DeleteBookmarkRequest
+	(*GetHistoryRequest)(nil),       // 23: wavelength.v1.GetHistoryRequest
+	(*HistoryEntry)(nil),            // 24: wavelength.v1.HistoryEntry
+	(*GetHistoryResponse)(nil),      // 25: wavelength.v1.GetHistoryResponse
+	(*RecordPlayRequest)(nil),       // 26: wavelength.v1.RecordPlayRequest
+	(*GetNowPlayingRequest)(nil),    // 27: wavelength.v1.GetNowPlayingRequest
+	(*NowPlaying)(nil),              // 28: wavelength.v1.NowPlaying
+	(*GetNowPlayingResponse)(nil),   // 29: wavelength.v1.GetNowPlayingResponse
+	(*Track)(nil),                   // 30: wavelength.v1.Track
+	(*Artist)(nil),                  // 31: wavelength.v1.Artist
+	(*Album)(nil),                   // 32: wavelength.v1.Album
+	(*ListTracksRequest)(nil),       // 33: wavelength.v1.ListTracksRequest
+	(*ListTracksResponse)(nil),      // 34: wavelength.v1.ListTracksResponse
+	(*DeleteTrackRequest)(nil),      // 35: wavelength.v1.DeleteTrackRequest
+	(*GetTrackRequest)(nil),         // 36: wavelength.v1.GetTrackRequest
+	(*GetTrackResponse)(nil),        // 37: wavelength.v1.GetTrackResponse
+	(*ListArtistsRequest)(nil),      // 38: wavelength.v1.ListArtistsRequest
+	(*ListArtistsResponse)(nil),     // 39: wavelength.v1.ListArtistsResponse
+	(*GetArtistRequest)(nil),        // 40: wavelength.v1.GetArtistRequest
+	(*GetArtistResponse)(nil),       // 41: wavelength.v1.GetArtistResponse
+	(*ListAlbumsRequest)(nil),       // 42: wavelength.v1.ListAlbumsRequest
+	(*ListAlbumsResponse)(nil),      // 43: wavelength.v1.ListAlbumsResponse
+	(*GetAlbumRequest)(nil),         // 44: wavelength.v1.GetAlbumRequest
+	(*GetAlbumResponse)(nil),        // 45: wavelength.v1.GetAlbumResponse
+	(*GetPlaybackInfoRequest)(nil),  // 46: wavelength.v1.GetPlaybackInfoRequest
+	(*GetPlaybackInfoResponse)(nil), // 47: wavelength.v1.GetPlaybackInfoResponse
+	(*GetLyricsRequest)(nil),        // 48: wavelength.v1.GetLyricsRequest
+	(*GetLyricsResponse)(nil),       // 49: wavelength.v1.GetLyricsResponse
+	(*StreamAudioRequest)(nil),      // 50: wavelength.v1.StreamAudioRequest
+	(*StreamAudioResponse)(nil),     // 51: wavelength.v1.StreamAudioResponse
+	(*timestamppb.Timestamp)(nil),   // 52: google.protobuf.Timestamp
 }
 var file_wavelength_v1_library_proto_depIdxs = []int32{
 	1,  // 0: wavelength.v1.GetCurrentUserResponse.user:type_name -> wavelength.v1.User
 	4,  // 1: wavelength.v1.ListPlaylistsResponse.playlists:type_name -> wavelength.v1.Playlist
 	4,  // 2: wavelength.v1.GetPlaylistResponse.playlist:type_name -> wavelength.v1.Playlist
 	10, // 3: wavelength.v1.UpdatePlaylistRequest.replace_tracks:type_name -> wavelength.v1.TrackIDs
-	13, // 4: wavelength.v1.GetQueueResponse.queue:type_name -> wavelength.v1.Queue
-	17, // 5: wavelength.v1.ListBookmarksResponse.bookmarks:type_name -> wavelength.v1.Bookmark
-	23, // 6: wavelength.v1.GetHistoryResponse.entries:type_name -> wavelength.v1.HistoryEntry
-	51, // 7: wavelength.v1.RecordPlayRequest.played_at:type_name -> google.protobuf.Timestamp
-	27, // 8: wavelength.v1.GetNowPlayingResponse.entries:type_name -> wavelength.v1.NowPlaying
-	51, // 9: wavelength.v1.Track.created_at:type_name -> google.protobuf.Timestamp
-	51, // 10: wavelength.v1.Track.modified_at:type_name -> google.protobuf.Timestamp
-	51, // 11: wavelength.v1.Album.created_at:type_name -> google.protobuf.Timestamp
-	29, // 12: wavelength.v1.ListTracksResponse.tracks:type_name -> wavelength.v1.Track
-	29, // 13: wavelength.v1.GetTrackResponse.track:type_name -> wavelength.v1.Track
-	30, // 14: wavelength.v1.ListArtistsResponse.artists:type_name -> wavelength.v1.Artist
-	30, // 15: wavelength.v1.GetArtistResponse.artist:type_name -> wavelength.v1.Artist
-	31, // 16: wavelength.v1.GetArtistResponse.albums:type_name -> wavelength.v1.Album
-	31, // 17: wavelength.v1.ListAlbumsResponse.albums:type_name -> wavelength.v1.Album
-	31, // 18: wavelength.v1.GetAlbumResponse.album:type_name -> wavelength.v1.Album
-	29, // 19: wavelength.v1.GetAlbumResponse.tracks:type_name -> wavelength.v1.Track
-	29, // 20: wavelength.v1.GetPlaybackInfoResponse.track:type_name -> wavelength.v1.Track
-	32, // 21: wavelength.v1.LibraryService.ListTracks:input_type -> wavelength.v1.ListTracksRequest
-	35, // 22: wavelength.v1.LibraryService.GetTrack:input_type -> wavelength.v1.GetTrackRequest
-	34, // 23: wavelength.v1.LibraryService.DeleteTrack:input_type -> wavelength.v1.DeleteTrackRequest
-	37, // 24: wavelength.v1.LibraryService.ListArtists:input_type -> wavelength.v1.ListArtistsRequest
-	39, // 25: wavelength.v1.LibraryService.GetArtist:input_type -> wavelength.v1.GetArtistRequest
-	41, // 26: wavelength.v1.LibraryService.ListAlbums:input_type -> wavelength.v1.ListAlbumsRequest
-	43, // 27: wavelength.v1.LibraryService.GetAlbum:input_type -> wavelength.v1.GetAlbumRequest
-	45, // 28: wavelength.v1.LibraryService.GetPlaybackInfo:input_type -> wavelength.v1.GetPlaybackInfoRequest
-	47, // 29: wavelength.v1.LibraryService.GetLyrics:input_type -> wavelength.v1.GetLyricsRequest
-	49, // 30: wavelength.v1.LibraryService.StreamAudio:input_type -> wavelength.v1.StreamAudioRequest
-	2,  // 31: wavelength.v1.UserDataService.GetCurrentUser:input_type -> wavelength.v1.GetCurrentUserRequest
-	5,  // 32: wavelength.v1.UserDataService.ListPlaylists:input_type -> wavelength.v1.ListPlaylistsRequest
-	7,  // 33: wavelength.v1.UserDataService.GetPlaylist:input_type -> wavelength.v1.GetPlaylistRequest
-	9,  // 34: wavelength.v1.UserDataService.CreatePlaylist:input_type -> wavelength.v1.CreatePlaylistRequest
-	11, // 35: wavelength.v1.UserDataService.UpdatePlaylist:input_type -> wavelength.v1.UpdatePlaylistRequest
-	12, // 36: wavelength.v1.UserDataService.DeletePlaylist:input_type -> wavelength.v1.DeletePlaylistRequest
-	14, // 37: wavelength.v1.UserDataService.GetQueue:input_type -> wavelength.v1.GetQueueRequest
-	16, // 38: wavelength.v1.UserDataService.SaveQueue:input_type -> wavelength.v1.SaveQueueRequest
-	18, // 39: wavelength.v1.UserDataService.ListBookmarks:input_type -> wavelength.v1.ListBookmarksRequest
-	20, // 40: wavelength.v1.UserDataService.SaveBookmark:input_type -> wavelength.v1.SaveBookmarkRequest
-	21, // 41: wavelength.v1.UserDataService.DeleteBookmark:input_type -> wavelength.v1.DeleteBookmarkRequest
-	22, // 42: wavelength.v1.UserDataService.GetHistory:input_type -> wavelength.v1.GetHistoryRequest
-	25, // 43: wavelength.v1.UserDataService.RecordPlay:input_type -> wavelength.v1.RecordPlayRequest
-	26, // 44: wavelength.v1.UserDataService.GetNowPlaying:input_type -> wavelength.v1.GetNowPlayingRequest
-	33, // 45: wavelength.v1.LibraryService.ListTracks:output_type -> wavelength.v1.ListTracksResponse
-	36, // 46: wavelength.v1.LibraryService.GetTrack:output_type -> wavelength.v1.GetTrackResponse
-	0,  // 47: wavelength.v1.LibraryService.DeleteTrack:output_type -> wavelength.v1.EmptyResponse
-	38, // 48: wavelength.v1.LibraryService.ListArtists:output_type -> wavelength.v1.ListArtistsResponse
-	40, // 49: wavelength.v1.LibraryService.GetArtist:output_type -> wavelength.v1.GetArtistResponse
-	42, // 50: wavelength.v1.LibraryService.ListAlbums:output_type -> wavelength.v1.ListAlbumsResponse
-	44, // 51: wavelength.v1.LibraryService.GetAlbum:output_type -> wavelength.v1.GetAlbumResponse
-	46, // 52: wavelength.v1.LibraryService.GetPlaybackInfo:output_type -> wavelength.v1.GetPlaybackInfoResponse
-	48, // 53: wavelength.v1.LibraryService.GetLyrics:output_type -> wavelength.v1.GetLyricsResponse
-	50, // 54: wavelength.v1.LibraryService.StreamAudio:output_type -> wavelength.v1.StreamAudioResponse
-	3,  // 55: wavelength.v1.UserDataService.GetCurrentUser:output_type -> wavelength.v1.GetCurrentUserResponse
-	6,  // 56: wavelength.v1.UserDataService.ListPlaylists:output_type -> wavelength.v1.ListPlaylistsResponse
-	8,  // 57: wavelength.v1.UserDataService.GetPlaylist:output_type -> wavelength.v1.GetPlaylistResponse
-	8,  // 58: wavelength.v1.UserDataService.CreatePlaylist:output_type -> wavelength.v1.GetPlaylistResponse
-	8,  // 59: wavelength.v1.UserDataService.UpdatePlaylist:output_type -> wavelength.v1.GetPlaylistResponse
-	0,  // 60: wavelength.v1.UserDataService.DeletePlaylist:output_type -> wavelength.v1.EmptyResponse
-	15, // 61: wavelength.v1.UserDataService.GetQueue:output_type -> wavelength.v1.GetQueueResponse
-	15, // 62: wavelength.v1.UserDataService.SaveQueue:output_type -> wavelength.v1.GetQueueResponse
-	19, // 63: wavelength.v1.UserDataService.ListBookmarks:output_type -> wavelength.v1.ListBookmarksResponse
-	0,  // 64: wavelength.v1.UserDataService.SaveBookmark:output_type -> wavelength.v1.EmptyResponse
-	0,  // 65: wavelength.v1.UserDataService.DeleteBookmark:output_type -> wavelength.v1.EmptyResponse
-	24, // 66: wavelength.v1.UserDataService.GetHistory:output_type -> wavelength.v1.GetHistoryResponse
-	0,  // 67: wavelength.v1.UserDataService.RecordPlay:output_type -> wavelength.v1.EmptyResponse
-	28, // 68: wavelength.v1.UserDataService.GetNowPlaying:output_type -> wavelength.v1.GetNowPlayingResponse
-	45, // [45:69] is the sub-list for method output_type
-	21, // [21:45] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	13, // 4: wavelength.v1.Queue.recommendations:type_name -> wavelength.v1.QueueRecommendation
+	14, // 5: wavelength.v1.GetQueueResponse.queue:type_name -> wavelength.v1.Queue
+	13, // 6: wavelength.v1.SaveQueueRequest.recommendations:type_name -> wavelength.v1.QueueRecommendation
+	18, // 7: wavelength.v1.ListBookmarksResponse.bookmarks:type_name -> wavelength.v1.Bookmark
+	24, // 8: wavelength.v1.GetHistoryResponse.entries:type_name -> wavelength.v1.HistoryEntry
+	52, // 9: wavelength.v1.RecordPlayRequest.played_at:type_name -> google.protobuf.Timestamp
+	28, // 10: wavelength.v1.GetNowPlayingResponse.entries:type_name -> wavelength.v1.NowPlaying
+	52, // 11: wavelength.v1.Track.created_at:type_name -> google.protobuf.Timestamp
+	52, // 12: wavelength.v1.Track.modified_at:type_name -> google.protobuf.Timestamp
+	52, // 13: wavelength.v1.Album.created_at:type_name -> google.protobuf.Timestamp
+	30, // 14: wavelength.v1.ListTracksResponse.tracks:type_name -> wavelength.v1.Track
+	30, // 15: wavelength.v1.GetTrackResponse.track:type_name -> wavelength.v1.Track
+	31, // 16: wavelength.v1.ListArtistsResponse.artists:type_name -> wavelength.v1.Artist
+	31, // 17: wavelength.v1.GetArtistResponse.artist:type_name -> wavelength.v1.Artist
+	32, // 18: wavelength.v1.GetArtistResponse.albums:type_name -> wavelength.v1.Album
+	32, // 19: wavelength.v1.ListAlbumsResponse.albums:type_name -> wavelength.v1.Album
+	32, // 20: wavelength.v1.GetAlbumResponse.album:type_name -> wavelength.v1.Album
+	30, // 21: wavelength.v1.GetAlbumResponse.tracks:type_name -> wavelength.v1.Track
+	30, // 22: wavelength.v1.GetPlaybackInfoResponse.track:type_name -> wavelength.v1.Track
+	33, // 23: wavelength.v1.LibraryService.ListTracks:input_type -> wavelength.v1.ListTracksRequest
+	36, // 24: wavelength.v1.LibraryService.GetTrack:input_type -> wavelength.v1.GetTrackRequest
+	35, // 25: wavelength.v1.LibraryService.DeleteTrack:input_type -> wavelength.v1.DeleteTrackRequest
+	38, // 26: wavelength.v1.LibraryService.ListArtists:input_type -> wavelength.v1.ListArtistsRequest
+	40, // 27: wavelength.v1.LibraryService.GetArtist:input_type -> wavelength.v1.GetArtistRequest
+	42, // 28: wavelength.v1.LibraryService.ListAlbums:input_type -> wavelength.v1.ListAlbumsRequest
+	44, // 29: wavelength.v1.LibraryService.GetAlbum:input_type -> wavelength.v1.GetAlbumRequest
+	46, // 30: wavelength.v1.LibraryService.GetPlaybackInfo:input_type -> wavelength.v1.GetPlaybackInfoRequest
+	48, // 31: wavelength.v1.LibraryService.GetLyrics:input_type -> wavelength.v1.GetLyricsRequest
+	50, // 32: wavelength.v1.LibraryService.StreamAudio:input_type -> wavelength.v1.StreamAudioRequest
+	2,  // 33: wavelength.v1.UserDataService.GetCurrentUser:input_type -> wavelength.v1.GetCurrentUserRequest
+	5,  // 34: wavelength.v1.UserDataService.ListPlaylists:input_type -> wavelength.v1.ListPlaylistsRequest
+	7,  // 35: wavelength.v1.UserDataService.GetPlaylist:input_type -> wavelength.v1.GetPlaylistRequest
+	9,  // 36: wavelength.v1.UserDataService.CreatePlaylist:input_type -> wavelength.v1.CreatePlaylistRequest
+	11, // 37: wavelength.v1.UserDataService.UpdatePlaylist:input_type -> wavelength.v1.UpdatePlaylistRequest
+	12, // 38: wavelength.v1.UserDataService.DeletePlaylist:input_type -> wavelength.v1.DeletePlaylistRequest
+	15, // 39: wavelength.v1.UserDataService.GetQueue:input_type -> wavelength.v1.GetQueueRequest
+	17, // 40: wavelength.v1.UserDataService.SaveQueue:input_type -> wavelength.v1.SaveQueueRequest
+	19, // 41: wavelength.v1.UserDataService.ListBookmarks:input_type -> wavelength.v1.ListBookmarksRequest
+	21, // 42: wavelength.v1.UserDataService.SaveBookmark:input_type -> wavelength.v1.SaveBookmarkRequest
+	22, // 43: wavelength.v1.UserDataService.DeleteBookmark:input_type -> wavelength.v1.DeleteBookmarkRequest
+	23, // 44: wavelength.v1.UserDataService.GetHistory:input_type -> wavelength.v1.GetHistoryRequest
+	26, // 45: wavelength.v1.UserDataService.RecordPlay:input_type -> wavelength.v1.RecordPlayRequest
+	27, // 46: wavelength.v1.UserDataService.GetNowPlaying:input_type -> wavelength.v1.GetNowPlayingRequest
+	34, // 47: wavelength.v1.LibraryService.ListTracks:output_type -> wavelength.v1.ListTracksResponse
+	37, // 48: wavelength.v1.LibraryService.GetTrack:output_type -> wavelength.v1.GetTrackResponse
+	0,  // 49: wavelength.v1.LibraryService.DeleteTrack:output_type -> wavelength.v1.EmptyResponse
+	39, // 50: wavelength.v1.LibraryService.ListArtists:output_type -> wavelength.v1.ListArtistsResponse
+	41, // 51: wavelength.v1.LibraryService.GetArtist:output_type -> wavelength.v1.GetArtistResponse
+	43, // 52: wavelength.v1.LibraryService.ListAlbums:output_type -> wavelength.v1.ListAlbumsResponse
+	45, // 53: wavelength.v1.LibraryService.GetAlbum:output_type -> wavelength.v1.GetAlbumResponse
+	47, // 54: wavelength.v1.LibraryService.GetPlaybackInfo:output_type -> wavelength.v1.GetPlaybackInfoResponse
+	49, // 55: wavelength.v1.LibraryService.GetLyrics:output_type -> wavelength.v1.GetLyricsResponse
+	51, // 56: wavelength.v1.LibraryService.StreamAudio:output_type -> wavelength.v1.StreamAudioResponse
+	3,  // 57: wavelength.v1.UserDataService.GetCurrentUser:output_type -> wavelength.v1.GetCurrentUserResponse
+	6,  // 58: wavelength.v1.UserDataService.ListPlaylists:output_type -> wavelength.v1.ListPlaylistsResponse
+	8,  // 59: wavelength.v1.UserDataService.GetPlaylist:output_type -> wavelength.v1.GetPlaylistResponse
+	8,  // 60: wavelength.v1.UserDataService.CreatePlaylist:output_type -> wavelength.v1.GetPlaylistResponse
+	8,  // 61: wavelength.v1.UserDataService.UpdatePlaylist:output_type -> wavelength.v1.GetPlaylistResponse
+	0,  // 62: wavelength.v1.UserDataService.DeletePlaylist:output_type -> wavelength.v1.EmptyResponse
+	16, // 63: wavelength.v1.UserDataService.GetQueue:output_type -> wavelength.v1.GetQueueResponse
+	16, // 64: wavelength.v1.UserDataService.SaveQueue:output_type -> wavelength.v1.GetQueueResponse
+	20, // 65: wavelength.v1.UserDataService.ListBookmarks:output_type -> wavelength.v1.ListBookmarksResponse
+	0,  // 66: wavelength.v1.UserDataService.SaveBookmark:output_type -> wavelength.v1.EmptyResponse
+	0,  // 67: wavelength.v1.UserDataService.DeleteBookmark:output_type -> wavelength.v1.EmptyResponse
+	25, // 68: wavelength.v1.UserDataService.GetHistory:output_type -> wavelength.v1.GetHistoryResponse
+	0,  // 69: wavelength.v1.UserDataService.RecordPlay:output_type -> wavelength.v1.EmptyResponse
+	29, // 70: wavelength.v1.UserDataService.GetNowPlaying:output_type -> wavelength.v1.GetNowPlayingResponse
+	47, // [47:71] is the sub-list for method output_type
+	23, // [23:47] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_wavelength_v1_library_proto_init() }
@@ -3320,13 +3416,15 @@ func file_wavelength_v1_library_proto_init() {
 		return
 	}
 	file_wavelength_v1_library_proto_msgTypes[11].OneofWrappers = []any{}
+	file_wavelength_v1_library_proto_msgTypes[14].OneofWrappers = []any{}
+	file_wavelength_v1_library_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_wavelength_v1_library_proto_rawDesc), len(file_wavelength_v1_library_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   51,
+			NumMessages:   52,
 			NumExtensions: 0,
 			NumServices:   2,
 		},

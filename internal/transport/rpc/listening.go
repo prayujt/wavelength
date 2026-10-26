@@ -20,7 +20,7 @@ func ListeningHandler(data *listening.Service, manager *auth.Manager) (string, h
 	return path, protect(handler, manager)
 }
 func listeningSession(s listening.Session) *pb.ListeningSession {
-	out := &pb.ListeningSession{Id: s.ID, Track: track(s.Track), ArtistId: s.ArtistID, AlbumId: s.AlbumID, Origin: s.Origin, Outcome: s.Outcome, StartedAt: timestamppb.New(s.StartedAt), UpdatedAt: timestamppb.New(s.UpdatedAt), ListenedMs: s.ListenedMS, PositionMs: s.PositionMS, Playing: s.Playing}
+	out := &pb.ListeningSession{Id: s.ID, Track: track(s.Track), ArtistId: s.ArtistID, AlbumId: s.AlbumID, Origin: s.Origin, Outcome: s.Outcome, StartedAt: timestamppb.New(s.StartedAt), UpdatedAt: timestamppb.New(s.UpdatedAt), ListenedMs: s.ListenedMS, PositionMs: s.PositionMS, Playing: s.Playing, PlayFeedItemId: s.PlayFeedItemID, ChangeReason: s.ChangeReason}
 	if !s.EndedAt.IsZero() {
 		out.EndedAt = timestamppb.New(s.EndedAt)
 	}
@@ -32,7 +32,7 @@ func (s *listeningService) StartListeningSession(ctx context.Context, r *connect
 		return nil, failure(err)
 	}
 	return personal(ctx, true, func(owner string) (*pb.ListeningSession, error) {
-		item, err := s.data.Start(ctx, owner, r.Msg.TrackId, r.Msg.Origin, r.Msg.RequestId, listening.StartOptions{At: at, CountPlay: r.Msg.CountPlay})
+		item, err := s.data.Start(ctx, owner, r.Msg.TrackId, r.Msg.Origin, r.Msg.RequestId, listening.StartOptions{At: at, CountPlay: r.Msg.CountPlay, PlayFeedItemID: r.Msg.PlayFeedItemId})
 		return listeningSession(item), err
 	})
 }
@@ -52,7 +52,7 @@ func (s *listeningService) FinishListeningSession(ctx context.Context, r *connec
 		return nil, failure(err)
 	}
 	return personal(ctx, true, func(owner string) (*pb.ListeningSession, error) {
-		item, err := s.data.Finish(ctx, owner, r.Msg.SessionId, r.Msg.Outcome, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs, At: at})
+		item, err := s.data.Finish(ctx, owner, r.Msg.SessionId, r.Msg.Outcome, listening.Progress{ListenedMS: r.Msg.ListenedMs, PositionMS: r.Msg.PositionMs, At: at, ChangeReason: r.Msg.ChangeReason})
 		return listeningSession(item), err
 	})
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/prayujt/wavelength/internal/auth"
 	"github.com/prayujt/wavelength/internal/library"
+	"github.com/prayujt/wavelength/internal/playfeed"
 	"github.com/prayujt/wavelength/internal/telemetry"
 	transportmcp "github.com/prayujt/wavelength/internal/transport/mcp"
 	"github.com/prayujt/wavelength/internal/transport/media"
@@ -126,5 +127,13 @@ func WithPersonal(lib *library.Library, data *userdata.Service, manager *auth.Ma
 		if manager.OAuthEnabled() {
 			mux.Handle("/mcp", transportmcp.Handler(lib, data, manager, features...))
 		}
+	}
+}
+
+// WithPlayFeed registers native-only recommendations; no MCP tool is added.
+func WithPlayFeed(feed *playfeed.Service, manager *auth.Manager) Option {
+	return func(mux *http.ServeMux) {
+		path, handler := rpc.PlayFeedHandler(feed, manager)
+		mux.Handle(path, handler)
 	}
 }

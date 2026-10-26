@@ -89,7 +89,7 @@ func TestDeleteRemovesFilesOriginsAndEveryListenersReferences(t *testing.T) {
 		if _, err := data.CreatePlaylist(f.ctx, owner, owner, []string{one.ID, two.ID, one.ID}); err != nil {
 			t.Fatal(err)
 		}
-		if err := data.SaveQueue(f.ctx, owner, userdata.Queue{IDs: []string{one.ID, two.ID, one.ID}, Current: one.ID, Position: 123}); err != nil {
+		if err := data.SaveQueue(f.ctx, owner, userdata.Queue{IDs: []string{one.ID, two.ID, one.ID}, Current: one.ID, Position: 123, Recommendations: []userdata.QueueRecommendation{{Index: 1, PlayFeedItemID: "keep-recommendation"}, {Index: 2, PlayFeedItemID: "deleted-recommendation"}}}); err != nil {
 			t.Fatal(err)
 		}
 		if err := data.SaveBookmark(f.ctx, owner, userdata.Bookmark{ID: one.ID}); err != nil {
@@ -137,6 +137,9 @@ func TestDeleteRemovesFilesOriginsAndEveryListenersReferences(t *testing.T) {
 			t.Fatal(ps, err)
 		}
 		q, err := data.Queue(f.ctx, owner)
+		if err == nil && (len(q.Recommendations) != 1 || q.Recommendations[0].Index != 0 || q.Recommendations[0].PlayFeedItemID != "keep-recommendation") {
+			t.Fatal("queue origin indices were not remapped", q)
+		}
 		if err != nil || !reflect.DeepEqual(q.IDs, []string{two.ID}) || q.Current != "" || q.Position != 0 {
 			t.Fatal(q, err)
 		}

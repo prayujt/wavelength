@@ -15,10 +15,15 @@ export interface ListeningPort {
     origin: string;
     requestId: string;
     occurredAt?: EventTime;
+    playFeedItemId?: string;
   }): Promise<unknown>;
   reportListeningProgress(input: Progress & { sessionId: string }): Promise<unknown>;
   finishListeningSession(
-    input: Omit<Progress, 'playing'> & { sessionId: string; outcome: string },
+    input: Omit<Progress, 'playing'> & {
+      sessionId: string;
+      outcome: string;
+      changeReason?: string;
+    },
   ): Promise<unknown>;
 }
 
@@ -28,6 +33,7 @@ export class ListeningReporter {
     id: string;
     trackId: string;
     origin: string;
+    playFeedItemId: string;
     listened: number;
     started: boolean;
     at: EventTime;
@@ -41,11 +47,12 @@ export class ListeningReporter {
     private now = Date.now,
   ) {}
 
-  start(trackId: string, origin: string) {
+  start(trackId: string, origin: string, playFeedItemId = '') {
     this.current = {
       id: this.random(),
       trackId,
       origin,
+      playFeedItemId,
       listened: 0,
       started: false,
       at: eventTime(this.now()),
@@ -67,7 +74,7 @@ export class ListeningReporter {
     this.baseline = { position, time: now };
     if (this.current && now - this.lastReport >= 5000) this.report(position, playing);
   }
-  report(position: number, playing: boolean, outcome?: string) {
+  report(position: number, playing: boolean, outcome?: string, changeReason?: string) {
     const session = this.current;
     if (!session) return this.writes;
     this.lastReport = this.now();
@@ -85,10 +92,11 @@ export class ListeningReporter {
             origin: session.origin,
             requestId: session.id,
             occurredAt: session.at,
+            playFeedItemId: session.playFeedItemId,
           });
           session.started = true;
         }
-        if (outcome) await this.api.finishListeningSession({ ...progress, outcome });
+        if (outcome) await this.api.finishListeningSession({ ...progress, outcome, changeReason });
         else await this.api.reportListeningProgress({ ...progress, playing });
       })
       .catch(() => {
@@ -96,8 +104,15 @@ export class ListeningReporter {
       });
     return this.writes;
   }
-  finish(position: number, outcome: string) {
-    const write = this.report(position, false, outcome);
+  flush() {
+    return this.writes;
+  }
+  finish(
+    position: number,
+    outcome: string,
+    changeReason = outcome === 'completed' ? 'ended' : outcome === 'stopped' ? 'stop' : 'selection',
+  ) {
+    const write = this.report(position, false, outcome, changeReason);
     this.current = undefined;
     this.baseline = undefined;
     return write;

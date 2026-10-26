@@ -13,6 +13,7 @@ import (
 	"github.com/prayujt/wavelength/internal/ingest"
 	"github.com/prayujt/wavelength/internal/library"
 	"github.com/prayujt/wavelength/internal/listening"
+	"github.com/prayujt/wavelength/internal/playfeed"
 	"github.com/prayujt/wavelength/internal/sharing"
 	"github.com/prayujt/wavelength/internal/state"
 	"github.com/prayujt/wavelength/internal/userdata"
@@ -56,6 +57,18 @@ func failure(err error) error {
 			code = connect.CodeUnauthenticated
 		}
 		return connect.NewError(code, err)
+	}
+	if errors.Is(err, playfeed.ErrInvalid) {
+		return invalid("invalid play feed request")
+	}
+	if errors.Is(err, playfeed.ErrConflict) {
+		return connect.NewError(connect.CodeAlreadyExists, playfeed.ErrConflict)
+	}
+	if errors.Is(err, playfeed.ErrNotFound) {
+		return connect.NewError(connect.CodeFailedPrecondition, playfeed.ErrNotFound)
+	}
+	if errors.Is(err, playfeed.ErrCapacity) {
+		return connect.NewError(connect.CodeResourceExhausted, playfeed.ErrCapacity)
 	}
 	if errors.Is(err, library.ErrBusy) {
 		return connect.NewError(connect.CodeFailedPrecondition, library.ErrBusy)

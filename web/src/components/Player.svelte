@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import {
     ListMusic,
+    Sparkles,
     Mic2,
     Pause,
     Play,
@@ -60,6 +61,23 @@
         onclick={() => (showQueue = false)}><X size={19} /></button
       >
     </div>
+    <div class="queue-feed-controls">
+      <button
+        class="button secondary"
+        aria-pressed={player.playFeedEnabled}
+        onclick={() => player.togglePlayFeed()}
+        ><Sparkles size={14} /> Autoplay {player.playFeedEnabled
+          ? 'on'
+          : 'off'}</button
+      >
+      <span class="muted" role="status"
+        >{player.playFeedLoading
+          ? 'Updating recommendations…'
+          : player.playFeedError
+            ? 'Recommendations will retry when available.'
+            : 'Your choices stay in place.'}</span
+      >
+    </div>
     {#if !player.tracks.length}<p class="muted">
         Add a song to start your queue.
       </p>{/if}
@@ -74,8 +92,15 @@
         /><span
           ><button class="text-button" onclick={() => player.open(index, true)}
             ><strong>{track.title}</strong></button
-          ><SongCredits {track} /></span
-        >{#if index === player.index}<span class="playing-dot"></span>{/if}
+          ><SongCredits {track} />{#if player.recommendation(track)}<small
+              class="muted">Recommended</small
+            >{/if}</span
+        >{#if index === player.index}<span class="playing-dot"
+          ></span>{:else if index > player.index}<button
+            class="icon-button"
+            aria-label={`Remove queued ${track.title}`}
+            onclick={() => player.remove(index)}><X size={15} /></button
+          >{/if}
       </div>{/each}
   </aside>
 {/if}
@@ -114,7 +139,8 @@
       ><button
         class="icon-button"
         aria-label="Next track"
-        disabled={player.index + 1 >= player.tracks.length}
+        disabled={!player.track ||
+          (!player.playFeedEnabled && player.index + 1 >= player.tracks.length)}
         onclick={() => player.next()}
         ><SkipForward size={18} fill="currentColor" /></button
       >
@@ -161,6 +187,7 @@
       max="1"
       step="0.01"
       bind:value={volume}
+      oninput={() => player.refreshRecommendations()}
     />
   </div>
 </footer>

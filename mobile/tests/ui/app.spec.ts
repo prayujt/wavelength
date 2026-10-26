@@ -49,6 +49,7 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   ).toBeVisible();
   await page.getByRole('button', { name: 'Go back' }).last().click();
   await page.getByRole('button', { name: 'Open play queue' }).click();
+  await page.getByRole('button', { name: 'Autoplay', exact: true }).click();
   await expect(page.getByText('5 songs, in your order.')).toBeVisible();
   await page.getByRole('button', { name: 'Move queued song 2 down' }).click();
   await expect(
@@ -195,4 +196,28 @@ test('phone and tablet screens stay within the viewport with reduced motion', as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
+});
+
+test('autoplay appends recommendations and an opt-out preserves the manual album', async ({
+  page,
+}) => {
+  await preview(page);
+  await page.getByRole('button', { name: 'Press play. Stay awhile.' }).click();
+  await page.getByRole('button', { name: 'Open now playing' }).click();
+  await page.getByRole('button', { name: 'Pause song', exact: true }).click();
+  await page.getByRole('button', { name: 'Open play queue' }).click();
+  await expect(page.getByText('15 songs, in your order.')).toBeVisible();
+  await expect(page.getByText(/^Recommended ·/)).toHaveCount(10);
+  const autoplay = page.getByRole('button', { name: 'Autoplay', exact: true });
+  await autoplay.click();
+  await expect(page.getByText('5 songs, in your order.')).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Play queued Weightless', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Play queued After the rain', exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
+  await autoplay.click();
+  await expect(page.getByText('15 songs, in your order.')).toBeVisible();
 });

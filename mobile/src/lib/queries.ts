@@ -62,7 +62,7 @@ export function useImports() {
       query.state.data?.imports.some((j) => ['queued', 'running'].includes(j.state)) ? 3000 : 15000,
   });
 }
-export function useLibraryPulse() {
+export function useLibraryPulse(onLibraryChanged?: () => void) {
   const api = useAPI(),
     cache = useQueryClient();
   const { preview, online } = useSession();
@@ -103,6 +103,7 @@ export function useLibraryPulse() {
             for await (const event of api.realtime.subscribe({}, { signal: controller.signal })) {
               if (controller.signal.aborted || stopped) break;
               if (event.payload.case === 'ready') {
+                onLibraryChanged?.();
                 setLive(true);
                 backoff = 2000;
                 invalidate(
@@ -122,7 +123,8 @@ export function useLibraryPulse() {
                 );
               }
               if (event.payload.case === 'importUpdated') invalidate('imports');
-              if (event.payload.case === 'libraryUpdated')
+              if (event.payload.case === 'libraryUpdated') {
+                onLibraryChanged?.();
                 invalidate(
                   'library',
                   'album',
@@ -132,6 +134,7 @@ export function useLibraryPulse() {
                   'imported',
                   'release-matches',
                 );
+              }
             }
           } catch {
             /* Restricted networks can fall back to collection polling. */
@@ -157,7 +160,7 @@ export function useLibraryPulse() {
       app.remove();
       if (refresh) clearTimeout(refresh);
     };
-  }, [api, cache, preview, online]);
+  }, [api, cache, preview, online, onLibraryChanged]);
   return useQuery({
     queryKey: ['library-pulse'],
     queryFn: async () => {
@@ -168,6 +171,7 @@ export function useLibraryPulse() {
         .join('|');
       const previous = cache.getQueryData<string>(['library-version']);
       if (previous !== undefined && previous !== version) {
+        onLibraryChanged?.();
         for (const key of [
           'library',
           'album',

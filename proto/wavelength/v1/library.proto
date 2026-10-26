@@ -64,13 +64,20 @@ message UpdatePlaylistRequest {
 }
 message DeletePlaylistRequest { string id = 1; }
 // Playback position is in milliseconds in the native API and MCP.
+message QueueRecommendation { int32 index = 1; string play_feed_item_id = 2; }
 message Queue {
   repeated string track_ids = 1; string current_track_id = 2;
   int64 position_ms = 3; string changed_at = 4; string changed_by = 5;
+  repeated QueueRecommendation recommendations = 6;
+  optional bool play_feed_enabled = 7;
 }
 message GetQueueRequest {}
 message GetQueueResponse { Queue queue = 1; }
-message SaveQueueRequest { repeated string track_ids = 1; string current_track_id = 2; int64 position_ms = 3; }
+message SaveQueueRequest {
+  repeated string track_ids = 1; string current_track_id = 2; int64 position_ms = 3;
+  repeated QueueRecommendation recommendations = 4;
+  optional bool play_feed_enabled = 5;
+}
 message Bookmark { string track_id = 1; int64 position_ms = 2; string comment = 3; string created_at = 4; string changed_at = 5; }
 message ListBookmarksRequest { int32 limit = 1; int32 offset = 2; }
 message ListBookmarksResponse { repeated Bookmark bookmarks = 1; int32 total = 2; }

@@ -12,6 +12,11 @@ import (
 )
 
 func (m *Metrics) initOperations() {
+	m.playFeedRequests = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "wavelength_play_feed_requests_total", Help: "New play feed pages by ranking source and outcome; no listener or track labels."}, []string{"source", "outcome"})
+	m.playFeedDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "wavelength_play_feed_duration_seconds", Help: "Play feed generation latency including candidate selection and ranking.", Buckets: []float64{.001, .01, .05, .1, .25, .5, 1, 2, 4, 8, 12}}, []string{"source", "outcome"})
+	m.playFeedItems = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "wavelength_play_feed_items", Help: "Tracks returned in a generated play feed page.", Buckets: []float64{0, 1, 3, 5, 10, 15, 25}})
+	m.Registry.MustRegister(m.playFeedRequests, m.playFeedDuration, m.playFeedItems)
+
 	m.selections = prometheus.NewCounterVec(prometheus.CounterOpts{Name: "wavelength_source_selections_total", Help: "Recording selection attempts: automatic, explicit or manual_required."}, []string{"decision"})
 	m.candidates = prometheus.NewHistogram(prometheus.HistogramOpts{Name: "wavelength_source_candidates", Help: "Number of YouTube candidates returned by a successful source search.", Buckets: []float64{0, 1, 2, 5, 10, 15, 20, 50}})
 	m.Registry.MustRegister(m.selections, m.candidates)
@@ -101,4 +106,20 @@ func (m *Metrics) HTTP(listener string, next http.Handler) http.Handler {
 	h = promhttp.InstrumentHandlerRequestSize(m.httpRequestSize.MustCurryWith(labels), h)
 	h = promhttp.InstrumentHandlerResponseSize(m.httpResponseSize.MustCurryWith(labels), h)
 	return promhttp.InstrumentHandlerInFlight(m.httpActive.WithLabelValues(listener), h)
+}
+
+func (m *Metrics) PlayFeed(source string, items int, err error, duration time.Duration) {
+	if m == nil {
+		return
+	}
+	switch source {
+	case "jev", "fallback", "replay", "empty":
+	default:
+		source = "error"
+	}
+	m.playFeedRequests.WithLabelValues(source, outcome(err)).Inc()
+	m.playFeedDuration.WithLabelValues(source, outcome(err)).Observe(duration.Seconds())
+	if err == nil {
+		m.playFeedItems.Observe(float64(items))
+	}
 }

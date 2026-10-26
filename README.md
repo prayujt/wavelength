@@ -141,7 +141,8 @@ URLs, serves artwork, reads stored lyrics, and streams audio. Its `UserDataServi
 playlists, queue, bookmarks, listening history, and now-playing state. The contract
 is [library.proto](proto/wavelength/v1/library.proto), extended by
 [discovery and ingestion](proto/wavelength/v1/ingestion.proto) and
-[sharing](proto/wavelength/v1/sharing.proto), with
+[sharing](proto/wavelength/v1/sharing.proto), and
+[play feeds](proto/wavelength/v1/playfeed.proto), with
 generated Go messages and Connect clients under `gen/`. The Connect handler serves
 Connect, gRPC, and gRPC-Web clients.
 
@@ -225,7 +226,7 @@ Configuration is read from environment variables at startup.
 | `WAVELENGTH_OIDC_ISSUER` | OIDC provider issuer URL. |
 | `WAVELENGTH_OIDC_CLIENT_ID` | OIDC client ID. |
 | `WAVELENGTH_OIDC_CLIENT_SECRET` | OIDC client secret, if required by your provider. |
-| `WAVELENGTH_JEV_API_KEY` | Optional backend-only TypeSafe API key; enables Jev recording ranking. Unset preserves heuristic ranking. |
+| `WAVELENGTH_JEV_API_KEY` | Optional backend-only TypeSafe API key; enables Jev recording ranking and personal play-feed ranking. Unset uses local fallback ranking. |
 | `WAVELENGTH_JEV_MODEL` | Jev model; pinned to `jev-1.14.0` by default. |
 | `WAVELENGTH_INGEST_CONCURRENCY` | Concurrent acquisition items across jobs and within albums; `2`, allowed range `1`–`8`. |
 | `WAVELENGTH_METRICS_ADDR` | Separate Prometheus listener, such as `127.0.0.1:9090`; unset disables the listener. Keep it private. |

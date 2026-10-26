@@ -2203,3 +2203,14 @@ a.album-column:hover {
 .shared-player:has(.shared-lyrics) .shared-audio {
   position: static;
 }
+
+.queue-feed-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 16px;
+  flex-wrap: wrap;
+}
+.queue-feed-controls .muted {
+  font-size: 11px;
+}

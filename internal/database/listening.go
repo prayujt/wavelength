@@ -27,16 +27,26 @@ func scanSession(row interface{ Scan(...any) error }) (listening.Session, error)
 }
 
 func (s ListeningStore) Create(ctx context.Context, session listening.Session) (listening.Session, error) {
-	body, err := json.Marshal(session)
-	if err != nil {
-		return listening.Session{}, err
-	}
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return listening.Session{}, err
 	}
 	defer tx.Rollback()
 	if err = rejectDeletedTracks(ctx, tx, []string{session.Track.ID}); err != nil {
+		return listening.Session{}, err
+	}
+	if session.PlayFeedItemID != "" {
+		var track string
+		err = tx.QueryRowContext(ctx, "SELECT track_id FROM play_feed_items WHERE id=? AND owner=? AND root_id=?", session.PlayFeedItemID, session.Owner, session.RootID).Scan(&track)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return listening.Session{}, err
+		}
+		if track != session.Track.ID {
+			session.PlayFeedItemID = ""
+		}
+	}
+	body, err := json.Marshal(session)
+	if err != nil {
 		return listening.Session{}, err
 	}
 	result, err := tx.ExecContext(ctx, `INSERT INTO listening_sessions(owner,root_id,id,track_id,artist_id,album_id,origin,started_at,session_json) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,root_id,id) DO NOTHING`, session.Owner, session.RootID, session.ID, session.Track.ID, session.ArtistID, session.AlbumID, session.Origin, session.StartedAt.UnixMilli(), string(body))

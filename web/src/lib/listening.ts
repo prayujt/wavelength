@@ -1,12 +1,14 @@
 import { api, session } from './session.svelte';
 
 export type ListeningOrigin = 'direct' | 'queue' | 'restored';
+export type ChangeReason = 'next' | 'previous' | 'selection' | 'ended' | 'stop';
 type Outcome = 'completed' | 'skipped' | 'stopped';
 type Listen = {
   id: string;
   owner: string;
   trackId: string;
   origin: ListeningOrigin;
+  playFeedItemId: string;
   started: boolean;
   listened: number;
 };
@@ -18,7 +20,12 @@ export class ListeningReporter {
   private writes = Promise.resolve();
   private lastReport = 0;
 
-  start(trackId: string, origin: ListeningOrigin, position: number) {
+  start(
+    trackId: string,
+    origin: ListeningOrigin,
+    position: number,
+    playFeedItemId = '',
+  ) {
     if (session.status !== 'signed_in' || !session.user) return;
     if (!this.current) {
       this.current = {
@@ -26,6 +33,7 @@ export class ListeningReporter {
         owner: session.user.id,
         trackId,
         origin,
+        playFeedItemId,
         started: false,
         listened: 0,
       };
@@ -51,7 +59,12 @@ export class ListeningReporter {
       this.report(position, playing);
   }
 
-  report(position: number, playing: boolean, outcome?: Outcome) {
+  report(
+    position: number,
+    playing: boolean,
+    outcome?: Outcome,
+    changeReason?: ChangeReason,
+  ) {
     const listen = this.current;
     if (!listen) return;
     this.lastReport = performance.now();
@@ -70,11 +83,16 @@ export class ListeningReporter {
             trackId: listen.trackId,
             origin: listen.origin,
             requestId: listen.id,
+            playFeedItemId: listen.playFeedItemId,
           });
           listen.started = true;
         }
         if (outcome)
-          await api.listening.finishListeningSession({ ...progress, outcome });
+          await api.listening.finishListeningSession({
+            ...progress,
+            outcome,
+            changeReason,
+          });
         else
           await api.listening.reportListeningProgress({ ...progress, playing });
       })
@@ -83,10 +101,24 @@ export class ListeningReporter {
       });
   }
 
-  finish(position: number, playing: boolean, outcome: Outcome) {
+  flush() {
+    return this.writes;
+  }
+
+  finish(
+    position: number,
+    playing: boolean,
+    outcome: Outcome,
+    changeReason: ChangeReason = outcome === 'completed'
+      ? 'ended'
+      : outcome === 'stopped'
+        ? 'stop'
+        : 'selection',
+  ) {
     this.sample(position, playing);
-    this.report(position, false, outcome);
+    this.report(position, false, outcome, changeReason);
     this.current = undefined;
     this.baseline = undefined;
+    return this.writes;
   }
 }
