@@ -178,6 +178,30 @@ async function connect(page: Page) {
   }
   await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  // Home can render optimistically after the code exchange. Expiry/race tests
+  // must start after identity binding and the local profile are durable, so a
+  // reload does not cancel the initial login's writes or refresh requests.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const database = await new Promise<IDBDatabase>((resolve) => {
+          const open = indexedDB.open('wavelength-device-v1');
+          open.onsuccess = () => resolve(open.result);
+        });
+          const read = <T>(key: string) =>
+            new Promise<T | undefined>((resolve) => {
+            const request = database.transaction('state').objectStore('state').get(key);
+            request.onsuccess = () => resolve(request.result);
+          });
+        const [grant, account] = await Promise.all([
+            read<string>('credential:wavelength.oauth.grant.v1'),
+            read<{ user: { id: string } }>('active-account'),
+        ]);
+        database.close();
+        return !!account && JSON.parse(grant || '{}').accountId === account.user.id;
+      }),
+    )
+    .toBe(true);
 }
 async function downloadSong(page: Page) {
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
