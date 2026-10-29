@@ -287,7 +287,7 @@ func (s *Service) generate(ctx context.Context, owner string, in Request) (Page,
 	if len(state.Upcoming) > 0 {
 		anchor = state.Upcoming[len(state.Upcoming)-1].Artist
 	}
-	selected := selectTracks(usable.tracks, usable.scores, in.PageSize, anchor)
+	selected := selectExploring(state, usable.tracks, usable.scores, in.PageSize, anchor)
 	for _, track := range selected {
 		page.Items = append(page.Items, Item{ID: rand.Text(), Track: track})
 	}
@@ -397,7 +397,13 @@ func (s *Service) candidates(ctx context.Context, key string, state Context, exc
 		if ok && time.Since(cached.at) < time.Minute {
 			return cached, nil
 		}
-		tracks, err := s.store.Candidates(ctx, s.root, favoriteArtists(state), excluded, MaxCandidates)
+		artists := favoriteArtists(state)
+		// Until listening has substantial breadth, never reserve most candidates
+		// for artists inferred from a tiny sample or the current queue.
+		if ExplorationFor(state).Confidence < .5 {
+			artists = nil
+		}
+		tracks, err := s.store.Candidates(ctx, s.root, artists, excluded, MaxCandidates)
 		if err != nil {
 			return pool{}, err
 		}
@@ -474,28 +480,4 @@ func fallbackScore(state Context, t library.Track) float64 {
 		}
 	}
 	return math.Max(0, math.Min(1, score))
-}
-func selectTracks(tracks []library.Track, scores map[string]float64, n int, anchor string) []library.Track {
-	remaining := append([]library.Track{}, tracks...)
-	out := []library.Track{}
-	artists := map[string]int{}
-	for len(out) < n && len(remaining) > 0 {
-		best := 0
-		value := math.Inf(-1)
-		for i, t := range remaining {
-			score := scores[t.ID] - .08*float64(artists[t.Artist])
-			if t.Artist != "" && t.Artist == anchor {
-				score -= .3
-			}
-			if score > value {
-				best, value = i, score
-			}
-		}
-		selected := remaining[best]
-		out = append(out, selected)
-		artists[selected.Artist]++
-		anchor = selected.Artist
-		remaining = append(remaining[:best], remaining[best+1:]...)
-	}
-	return out
 }

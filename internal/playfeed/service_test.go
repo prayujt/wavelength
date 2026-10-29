@@ -360,3 +360,30 @@ func TestCanonicalRetriesAndRequestRateLimit(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestColdStartCandidatesAreArtistBalanced(t *testing.T) {
+	f := setup(t, nil, 150)
+	for i, track := range f.tracks {
+		artist := "Overrepresented Artist"
+		if i >= 120 {
+			artist = fmt.Sprintf("Discovery Artist %d", i)
+		}
+		if _, err := f.store.DB.Exec("UPDATE tracks SET artist=?,album_artist='' WHERE id=?", artist, track.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	candidates, err := f.store.Candidates(context.Background(), f.root, nil, []string{f.tracks[149].ID}, playfeed.MaxCandidates)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artists := map[string]bool{}
+	for _, track := range candidates {
+		artists[track.Artist] = true
+		if track.ID == f.tracks[149].ID {
+			t.Fatal("excluded track sampled")
+		}
+	}
+	if len(artists) != 30 {
+		t.Fatalf("candidate pool omitted minority artists: %d", len(artists))
+	}
+}

@@ -119,3 +119,24 @@ without discarding the listening report, so delayed offline sync still works.
 `FinishListeningSession.change_reason` is `next`, `previous`, `selection`,
 `ended`, or `stop`; clients may omit it for legacy behavior. Only `next` qualifies
 as an intentional early skip. The first finished outcome/reason is immutable.
+
+### Sparse-history exploration
+
+Autoplay treats a small listening sample as weak evidence, not an established taste
+profile. Empty histories explore entirely; small histories use approximately 95%
+weighted-random exploration, with only a light Jev/personal-preference nudge. The 95% exploration floor remains until confidence passes 25%; then the
+exploration rate tapers quadratically with the minimum of meaningful distinct tracks
+(200), artist breadth (40), and capped actual listening evidence (10 hours), retaining
+20% exploration once all three evidence targets are met. Repeat plays alone cannot
+move a narrow history out of cold start; sub-30-second totals do not establish taste.
+
+Cold-start candidate pools do not reserve two-thirds of slots for inferred favorite
+artists. Catalog sampling balances artists so large discographies and soundtrack
+albums cannot dominate the candidate pool by track count. Exploratory selection
+favors unfamiliar artists/genres, downweights repeats within the batch, and preserves
+queued/seed/recent-skip exclusions. Jev receives the same confidence/exploration
+policy rather than being instructed to overfit sparse lifetime totals.
+
+Request and cursor replay semantics are unchanged: an issued page stays stable on
+retry; only newly generated pages sample fresh exploration. Existing queued tracks
+are not rewritten by this policy change.
