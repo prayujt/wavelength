@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayerStatus } from '../lib/audio';
 import { router, useSegments } from 'expo-router';
 import { Pause, Play, SkipForward } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

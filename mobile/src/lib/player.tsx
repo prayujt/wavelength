@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { AppState, Platform } from 'react-native';
 import { Code, ConnectError } from '@connectrpc/connect';
-import { setAudioModeAsync, useAudioPlayer, type AudioPlayer } from 'expo-audio';
+import { configureAudio, useAppAudio, type AppAudio } from './audio';
 import * as Crypto from 'expo-crypto';
 import {
   PlaybackController,
@@ -26,7 +26,7 @@ import type { Track } from '../gen/wavelength/v1/library_pb';
 
 // A native player is an imperative host object, separate from immutable React state.
 function audioPort(
-  audio: AudioPlayer,
+  audio: AppAudio,
   controls: () => PlaybackController,
   nowPlaying: (track?: Track) => void,
 ): AudioPort {
@@ -84,12 +84,12 @@ type PlayerState = PlaybackSnapshot &
     | 'toggleRepeat'
     | 'clear'
     | 'setVolume'
-  > & { audio: AudioPlayer };
+  > & { audio: AppAudio };
 const Context = createContext<PlayerState | null>(null);
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const session = useSession(),
     api = session.api,
-    audio = useAudioPlayer(null, { updateInterval: 500 });
+    audio = useAppAudio();
   const [metadataTrack, setMetadataTrack] = useState<Track>();
   const [controller] = useState(() => {
     const instance: PlaybackController = new PlaybackController(
@@ -175,11 +175,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const server = session.account?.server || session.grant?.server,
     preview = session.preview;
   useEffect(() => {
-    void setAudioModeAsync({
-      playsInSilentMode: true,
-      shouldPlayInBackground: true,
-      interruptionMode: 'doNotMix',
-    }).catch(() => {});
+    void configureAudio().catch(() => {});
     const subscription = audio.addListener('playbackStatusUpdate', controller.status);
     const app = AppState.addEventListener('change', (value) => {
       if (value !== 'active') controller.checkpoint();
@@ -204,6 +200,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!api) return;
     const port: PlaybackPort = {
+      background: () =>
+        Platform.OS === 'web'
+          ? document.visibilityState === 'hidden'
+          : AppState.currentState !== 'active',
       getPlayFeed: (input, signal) => api.playfeed.getPlayFeed(input, { signal, timeoutMs: 12000 }),
       async source(id) {
         if (preview)

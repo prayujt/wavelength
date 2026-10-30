@@ -450,3 +450,51 @@ describe('play feed and playback integration', () => {
     expect(f.controller.getSnapshot().track?.id).toBe('current');
   });
 });
+
+it('prepares the next source and starts it synchronously from ended without a network wait', async () => {
+  const f = connected();
+  const source = vi.fn(f.port.source);
+  f.port.source = source;
+  await f.controller.play([song('a'), song('b'), song('c')]);
+  await vi.waitFor(() => expect(source).toHaveBeenCalledWith('b'));
+  await Promise.resolve();
+  f.position(200);
+  f.controller.status({
+    isLoaded: true,
+    currentTime: 200,
+    duration: 200,
+    playing: false,
+    isBuffering: false,
+    didJustFinish: true,
+  });
+  // No await: a hidden document must request play before its ended task returns.
+  expect(f.sources.at(-1)).toEqual({ uri: 'https://music.example/temporary/b' });
+  expect(f.audio.play).toHaveBeenCalledTimes(2);
+  expect(source.mock.calls.filter(([id]) => id === 'b')).toHaveLength(1);
+  expect(f.controller.getSnapshot().track?.id).toBe('b');
+});
+
+it('releases prepared grants after queue edits, clear, and late replies after sign-out', async () => {
+  const f = connected();
+  await f.controller.play([song('a'), song('b'), song('c')]);
+  await Promise.resolve();
+  f.controller.remove(1);
+  await vi.waitFor(() => expect(f.released).toContain('b'));
+  await f.controller.clear();
+  await vi.waitFor(() => expect(f.released).toContain('c'));
+  expect(f.released.filter((id) => id === 'b')).toHaveLength(1);
+  let reply!: (recording: Awaited<ReturnType<PlaybackPort['source']>>) => void;
+  const original = f.port.source;
+  f.port.source = (id) =>
+    id === 'late'
+      ? new Promise((resolve) => {
+          reply = resolve;
+        })
+      : original(id);
+  await f.controller.play([song('a'), song('late')]);
+  f.controller.disconnect();
+  const release = vi.fn(async () => {});
+  reply({ source: { uri: 'late' }, release });
+  await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1));
+  expect(f.sources.at(-1)).toBeNull();
+});

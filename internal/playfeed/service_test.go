@@ -167,7 +167,7 @@ func TestPaginationReplayPersistenceAndOwnerIsolation(t *testing.T) {
 func TestExplicitEarlySkipChangesUnissuedPagesAndAttributionIsOwned(t *testing.T) {
 	r := &ranker{seen: make(chan playfeed.Context, 5)}
 	f := setup(t, r, 30)
-	first := get(t, f, "alice", playfeed.Request{RequestID: "feedback-first", PageSize: 2})
+	first := get(t, f, "alice", playfeed.Request{RequestID: "feedback-first", PageSize: 2, SeedTrackID: f.tracks[0].ID})
 	selected := first.Items[0]
 	// A same-account recommendation is attributed; another account cannot claim it.
 	alice, err := f.history.Create(context.Background(), listening.Session{ID: "listen-alice", Owner: "alice", RootID: f.root, Track: selected.Track, PlayFeedItemID: selected.ID, StartedAt: time.Now().Add(-time.Minute), Outcome: "skipped", ChangeReason: "next", ListenedMS: 1000})
@@ -178,7 +178,7 @@ func TestExplicitEarlySkipChangesUnissuedPagesAndAttributionIsOwned(t *testing.T
 	if err != nil || bob.PlayFeedItemID != "" {
 		t.Fatal("cross-account attribution", bob, err)
 	}
-	fresh := get(t, f, "alice", playfeed.Request{RequestID: "feedback-refresh", PageSize: 25})
+	fresh := get(t, f, "alice", playfeed.Request{RequestID: "feedback-refresh", PageSize: 25, SeedTrackID: f.tracks[0].ID})
 	for _, item := range fresh.Items {
 		if item.Track.ID == selected.Track.ID {
 			t.Fatal("fresh feed repeated an intentional early skip")
@@ -210,14 +210,14 @@ func TestExplicitEarlySkipChangesUnissuedPagesAndAttributionIsOwned(t *testing.T
 func TestFallbackDeletedTracksExpiryAndInputLimits(t *testing.T) {
 	for _, r := range []*ranker{{fail: true}, {invalid: true}} {
 		f := setup(t, r, 6)
-		p := get(t, f, "alice", playfeed.Request{RequestID: "fallback-first", PageSize: 2})
+		p := get(t, f, "alice", playfeed.Request{RequestID: "fallback-first", PageSize: 2, SeedTrackID: f.tracks[0].ID})
 		if len(p.Items) != 2 {
 			t.Fatal("provider failure blocked local recommendations")
 		}
 		if err := f.lib.Delete(context.Background(), p.Items[0].Track.ID); err != nil {
 			t.Fatal(err)
 		}
-		replay := get(t, f, "alice", playfeed.Request{RequestID: "fallback-first", PageSize: 2})
+		replay := get(t, f, "alice", playfeed.Request{RequestID: "fallback-first", PageSize: 2, SeedTrackID: f.tracks[0].ID})
 		if len(replay.Items) != 1 {
 			t.Fatal("a replay exposed a deleted catalog track", replay)
 		}
@@ -249,7 +249,7 @@ func TestConcurrentRetriesShareOnePageAndRanking(t *testing.T) {
 		workers.Add(1)
 		go func() {
 			defer workers.Done()
-			p, err := f.service.Get(context.Background(), "alice", playfeed.Request{RequestID: "concurrent-request"})
+			p, err := f.service.Get(context.Background(), "alice", playfeed.Request{RequestID: "concurrent-request", SeedTrackID: f.tracks[0].ID})
 			responses <- p
 			failures <- err
 		}()
@@ -368,7 +368,7 @@ func TestColdStartCandidatesAreArtistBalanced(t *testing.T) {
 		if i >= 120 {
 			artist = fmt.Sprintf("Discovery Artist %d", i)
 		}
-		if _, err := f.store.DB.Exec("UPDATE tracks SET artist=?,album_artist='' WHERE id=?", artist, track.ID); err != nil {
+		if _, err := f.store.DB.Exec("UPDATE tracks SET artist=?,album_artist='   ' WHERE id=?", artist, track.ID); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -385,5 +385,30 @@ func TestColdStartCandidatesAreArtistBalanced(t *testing.T) {
 	}
 	if len(artists) != 30 {
 		t.Fatalf("candidate pool omitted minority artists: %d", len(artists))
+	}
+}
+
+type timeoutRanker struct{ calls atomic.Int32 }
+
+func (r *timeoutRanker) Recommend(ctx context.Context, _ playfeed.Context, _ []library.Track) ([]playfeed.Score, error) {
+	r.calls.Add(1)
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+func TestEmptyHistoryStartsWithoutProviderAndSlowRankingFallsBack(t *testing.T) {
+	r := &timeoutRanker{}
+	f := setup(t, r, 10)
+	empty := get(t, f, "alice", playfeed.Request{RequestID: "unseeded-bootstrap"})
+	if len(empty.Items) != 3 || r.calls.Load() != 0 {
+		t.Fatal("unseeded empty history waited for ranker", empty, r.calls.Load())
+	}
+	started := time.Now()
+	page := get(t, f, "alice", playfeed.Request{RequestID: "seeded-slow-provider", SeedTrackID: f.tracks[0].ID})
+	if len(page.Items) != 3 || r.calls.Load() != 1 || time.Since(started) > 5*time.Second {
+		t.Fatal("provider timeout prevented local fallback", page, r.calls.Load())
+	}
+	replay := get(t, f, "alice", playfeed.Request{RequestID: "seeded-slow-provider", SeedTrackID: f.tracks[0].ID})
+	if !reflect.DeepEqual(page, replay) || r.calls.Load() != 1 {
+		t.Fatal("fallback receipt was not stable")
 	}
 }

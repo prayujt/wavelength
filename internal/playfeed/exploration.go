@@ -24,7 +24,7 @@ func ExplorationFor(state Context) ExplorationPolicy {
 	tracks := map[string]bool{}
 	for _, pref := range state.Preferences {
 		// Tiny skips, seeks and zero-time session reports do not establish taste.
-		if pref.ListenedMS < 30000 {
+		if !meaningful(pref) {
 			continue
 		}
 		if tracks[pref.Track.ID] {
@@ -39,7 +39,12 @@ func ExplorationFor(state Context) ExplorationPolicy {
 		p.ListenedMS += min(pref.ListenedMS, 300000)
 	}
 	p.Artists = len(artists)
-	p.Confidence = min(1, float64(p.MeaningfulTracks)/200, float64(p.Artists)/40, float64(p.ListenedMS)/float64(10*60*60*1000))
+	// Broad listening establishes confidence sooner. Focused taste can also become
+	// well established, but needs up to twice the distinct tracks/time. Artist
+	// breadth is not a permanent ceiling on what a narrow library can learn.
+	breadth := min(1, float64(p.Artists)/40)
+	evidenceTarget := 2 - breadth
+	p.Confidence = min(1, float64(p.MeaningfulTracks)/(200*evidenceTarget), float64(p.ListenedMS)/(float64(10*60*60*1000)*evidenceTarget))
 	// A slow quadratic ramp keeps small histories overwhelmingly exploratory.
 	progress := max(0, (p.Confidence-.25)/.75)
 	p.Fraction = .95 - .75*progress*progress
@@ -47,6 +52,13 @@ func ExplorationFor(state Context) ExplorationPolicy {
 		p.Fraction = 1
 	}
 	return p
+}
+func meaningful(p Preference) bool {
+	return p.ListenedMS >= 30000 && !(p.Sessions > 0 && p.EarlySkips == p.Sessions && p.Completed == 0)
+}
+func albumKey(t library.Track) string {
+	identity := t.AlbumIdentity()
+	return strings.ToLower(strings.TrimSpace(identity.Artist)) + "\x00" + strings.ToLower(strings.TrimSpace(identity.Album))
 }
 func artistKey(t library.Track) string {
 	artist := t.AlbumArtist
@@ -65,13 +77,13 @@ func exploratorySelection(state Context, tracks []library.Track, scores map[stri
 	heardGenres := map[string]bool{}
 	negative := map[string]int{}
 	for _, p := range state.Preferences {
-		if p.ListenedMS >= 30000 {
+		if meaningful(p) {
 			heardArtists[artistKey(p.Track)] = true
 			if g := genreKey(p.Track); g != "" {
 				heardGenres[g] = true
 			}
 		}
-		negative[p.Track.ID] += p.EarlySkips
+		negative[p.Track.ID] += max(0, p.EarlySkips-p.Completed)
 	}
 	artistCounts := map[string]int{}
 	genreCounts := map[string]int{}
@@ -82,6 +94,11 @@ func exploratorySelection(state Context, tracks []library.Track, scores map[stri
 	usedArtists := map[string]int{}
 	usedAlbums := map[string]int{}
 	usedGenres := map[string]int{}
+	if len(state.Upcoming) > 0 {
+		usedAlbums[albumKey(state.Upcoming[len(state.Upcoming)-1])]++
+	} else if state.Seed.ID != "" {
+		usedAlbums[albumKey(state.Seed)]++
+	}
 	anchor = strings.ToLower(strings.TrimSpace(anchor))
 	for len(out) < n && len(remaining) > 0 {
 		explore := draw() < policy.Fraction
@@ -92,13 +109,15 @@ func exploratorySelection(state Context, tracks []library.Track, scores map[stri
 		for i, t := range remaining {
 			artist := artistKey(t)
 			genre := genreKey(t)
-			album := artist + "\x00" + strings.ToLower(strings.TrimSpace(t.Album))
+			album := albumKey(t)
 			value := scores[t.ID] - .3*float64(usedArtists[artist]) - .2*float64(usedAlbums[album])
 			if artist != "" && (artist == anchor || strings.EqualFold(t.Artist, anchor)) {
 				value -= .35
 			}
 			if explore {
-				weight := 1 / float64(artistCounts[artist])
+				// Keep Jev's opinion a bounded nudge even while exploring. A
+				// maximum score cannot overwhelm artist/genre diversity weights.
+				weight := (.9 + .2*scores[t.ID]) / float64(artistCounts[artist])
 				weight /= math.Sqrt(float64(genreCounts[genre]))
 				if heardArtists[artist] {
 					weight *= .15
@@ -111,7 +130,7 @@ func exploratorySelection(state Context, tracks []library.Track, scores map[stri
 					weight *= .1
 				}
 				if negative[t.ID] > 0 {
-					weight *= .05
+					weight /= 1 + 19*float64(negative[t.ID])
 				}
 				// Independent exponential clocks implement weighted sampling without replacement.
 				value = math.Log(max(draw(), math.SmallestNonzeroFloat64)) / weight
@@ -126,7 +145,7 @@ func exploratorySelection(state Context, tracks []library.Track, scores map[stri
 		genre := genreKey(selected)
 		usedArtists[artist]++
 		usedGenres[genre]++
-		usedAlbums[artist+"\x00"+strings.ToLower(strings.TrimSpace(selected.Album))]++
+		usedAlbums[albumKey(selected)]++
 		anchor = artist
 		remaining = append(remaining[:best], remaining[best+1:]...)
 	}

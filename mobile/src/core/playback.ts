@@ -3,7 +3,7 @@ import { PlayFeedQueue, type FeedReference, type FeedRequest, type FeedPage } fr
 import { ListeningReporter, type ListeningPort } from './listening';
 import { moveItem, nextIndex, shuffled, type RepeatMode } from './queue';
 
-export type AudioSource = number | { uri: string };
+export type AudioSource = string | number | { uri: string };
 export interface AudioPort {
   pause(): void;
   replace(source: AudioSource | null): void;
@@ -15,8 +15,11 @@ export interface AudioPort {
   metadata(track: Track): void;
   clearMetadata(): void;
 }
+type Recording = Awaited<ReturnType<PlaybackPort['source']>>;
+type Prepared = { id: string; at: number; track: Track; ready?: Recording; failed?: boolean };
 export type QueueFeedState = { recommendations: FeedReference[]; playFeedEnabled?: boolean };
 export interface PlaybackPort {
+  background?(): boolean;
   getPlayFeed?(input: FeedRequest, signal: AbortSignal): Promise<FeedPage<Track>>;
   source(id: string): Promise<{ source: AudioSource; release(): Promise<unknown> }>;
   track(id: string): Promise<Track | undefined>;
@@ -93,6 +96,7 @@ export class PlaybackController {
   private restoredPosition = 0;
   private original: Track[] = [];
   private release: (() => Promise<unknown>) | null = null;
+  private prepared?: Prepared;
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
   private checkpoints: ReturnType<typeof setInterval> | null = null;
   private writes: Promise<unknown> = Promise.resolve();
@@ -207,6 +211,7 @@ export class PlaybackController {
     this.patch({ queue, index: at, track: queue[at] });
     this.scheduleSave();
     if (refresh) this.feed.schedule();
+    this.prepareNext();
   }
   private async revoke() {
     const release = this.release;
@@ -216,6 +221,58 @@ export class PlaybackController {
     } catch {
       /* The scoped grant also expires. */
     }
+  }
+  private discardPrepared() {
+    const previous = this.prepared;
+    this.prepared = undefined;
+    if (previous?.ready) void previous.ready.release().catch(() => {});
+  }
+  private prepareNext() {
+    const state = this.snapshot,
+      port = this.port;
+    if (!port || !this.loaded || this.loaded !== state.track?.id || state.loading) return;
+    const index = nextIndex(state.queue.length, state.index, state.repeat, true);
+    const track = index === null ? undefined : state.queue[index];
+    if (!track) {
+      this.discardPrepared();
+      return;
+    }
+    if (
+      this.prepared?.id === track.id &&
+      Date.now() - this.prepared.at < (this.prepared.failed ? 20000 : 60 * 60 * 1000)
+    )
+      return;
+    this.discardPrepared();
+    const entry: Prepared = { id: track.id, at: Date.now(), track };
+    this.prepared = entry;
+    void (async () => {
+      try {
+        if (!entry.track.title) {
+          const detail = await port.track(track.id);
+          if (!detail) throw new Error('Missing next track');
+          entry.track = detail;
+        }
+        if (this.prepared !== entry || this.port !== port) return;
+        const recording = await port.source(track.id);
+        if (this.prepared !== entry || this.port !== port) {
+          await recording.release().catch(() => {});
+          return;
+        }
+        entry.ready = recording;
+      } catch {
+        // The current song keeps playing. Retry later or resolve normally on Next.
+        entry.failed = true;
+      }
+    })();
+  }
+  private takePrepared(id: string) {
+    const entry = this.prepared;
+    if (entry?.id === id && entry.ready && Date.now() - entry.at < 60 * 60 * 1000) {
+      this.prepared = undefined;
+      return { track: entry.track, recording: entry.ready };
+    }
+    this.discardPrepared();
+    return undefined;
   }
   private scheduleSave() {
     if (this.saveTimer) clearTimeout(this.saveTimer);
@@ -245,8 +302,19 @@ export class PlaybackController {
   checkpoint = () => {
     void this.reporter?.report(this.audio.position(), this.snapshot.playing);
     void this.save();
-    this.feed.schedule();
+    this.refillShortBuffer();
   };
+  private refillShortBuffer() {
+    // Do not cancel in-flight work or defer a background refill to a suspended timer.
+    if (
+      this.snapshot.playFeedEnabled &&
+      this.snapshot.repeat === 'off' &&
+      this.snapshot.queue.length - this.snapshot.index - 1 <= 1 &&
+      !this.snapshot.playFeedLoading
+    )
+      void this.feed.refresh(true);
+    else this.feed.maintain();
+  }
   connect(port: PlaybackPort) {
     this.disconnect();
     this.port = port;
@@ -288,6 +356,8 @@ export class PlaybackController {
     }, 15000);
   }
   disconnect() {
+    this.loaded = null;
+    this.discardPrepared();
     this.feedStartToken = undefined;
     this.startingFeedRequest = undefined;
     ++this.navigation;
@@ -323,13 +393,17 @@ export class PlaybackController {
     this.waitingForFeed = 0;
     const port = this.port;
     if (!port) return;
+    const prepared = this.takePrepared(track.id);
+    if (prepared) {
+      this.hydrate([prepared.track]);
+      track = this.snapshot.track || prepared.track;
+    }
     const serial = ++this.serial,
       previous = this.audio.position();
     this.feed.cancel();
     this.restoredPosition = position;
-    this.audio.pause();
-    this.audio.replace(null);
     this.loaded = null;
+    this.audio.pause();
     this.pendingSeek = null;
     void this.reporter?.finish(previous, outcome, reason);
     this.ended = false;
@@ -351,7 +425,7 @@ export class PlaybackController {
         track = queue[this.snapshot.index] || detail;
         this.patch({ queue, track });
       }
-      const recording = await port.source(track.id);
+      const recording = prepared?.recording ?? (await port.source(track.id));
       if (serial !== this.serial) {
         await recording.release().catch(() => {});
         return;
@@ -373,13 +447,20 @@ export class PlaybackController {
         this.patch({ error: this.message(error) });
       }
     } finally {
-      if (serial === this.serial) this.patch({ loading: false });
+      if (serial === this.serial) {
+        this.patch({ loading: false });
+        this.prepareNext();
+        if (this.port?.background?.()) this.refillShortBuffer();
+      }
     }
   }
   status = (status: NativeStatus) => {
     if (this.snapshot.playing !== status.playing) {
       this.patch({ playing: status.playing });
-      if (this.loaded && !this.snapshot.loading && !this.waitingForFeed) this.feed.schedule();
+      if (this.loaded && !this.snapshot.loading && !this.waitingForFeed && !status.didJustFinish) {
+        if (this.port?.background?.()) this.feed.maintain();
+        else this.feed.schedule();
+      }
     }
     if (status.isLoaded && this.pendingSeek !== null) {
       const seek = this.pendingSeek,
@@ -401,7 +482,10 @@ export class PlaybackController {
       this.ended = true;
       void this.advance(true);
     }
-    if (this.loaded && status.isLoaded) this.feed.maintain();
+    if (this.loaded && status.isLoaded) {
+      this.feed.maintain();
+      this.prepareNext();
+    }
     if (status.error && this.loaded) {
       this.loaded = null;
       this.patch({
@@ -576,6 +660,7 @@ export class PlaybackController {
       this.snapshot.repeat === 'off' ? 'all' : this.snapshot.repeat === 'all' ? 'one' : 'off';
     this.patch({ repeat });
     this.feed.schedule();
+    this.prepareNext();
   };
   restoreSettings = (settings: { repeat?: RepeatMode; shuffle?: boolean }) =>
     this.patch({ repeat: settings.repeat || 'off', shuffle: settings.shuffle || false });
@@ -584,6 +669,8 @@ export class PlaybackController {
     this.feed.schedule();
   };
   clear = async () => {
+    this.loaded = null;
+    this.discardPrepared();
     this.feedStartToken = undefined;
     this.startingFeedRequest = undefined;
     ++this.navigation;

@@ -92,3 +92,56 @@ func TestSparseHistoryEscapesOverrankedSoundtrackAndFolkThemes(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestFocusedHistoryCanMatureWithoutManyArtists(t *testing.T) {
+	state := Context{}
+	for i := range 400 {
+		state.Preferences = append(state.Preferences, Preference{Track: library.Track{ID: fmt.Sprint(i), Artist: "Focused Artist"}, Completed: 3, Sessions: 3, ListenedMS: 900000})
+	}
+	if p := ExplorationFor(state); p.Confidence != 1 || math.Abs(p.Fraction-.2) > 1e-9 {
+		t.Fatal("focused evidence was permanently capped", p)
+	}
+	for i := range state.Preferences {
+		state.Preferences[i].Completed = 0
+		state.Preferences[i].Sessions = 60
+		state.Preferences[i].EarlySkips = 60
+		state.Preferences[i].ListenedMS = 300000
+	}
+	if p := ExplorationFor(state); p.Confidence != 0 || p.Fraction != 1 {
+		t.Fatal("accumulated tiny skips manufactured confidence", p)
+	}
+}
+
+func TestCompilationAndPreviousAlbumReceiveRepeatPenalty(t *testing.T) {
+	state := Context{Preferences: []Preference{{Track: library.Track{ID: "old", Artist: "Old"}, ListenedMS: 30000}}}
+	tracks := []library.Track{
+		{ID: "a", Artist: "Singer A", AlbumArtist: "Various Artists", Album: "Soundtrack"},
+		{ID: "b", Artist: "Singer B", AlbumArtist: "Various Artists", Album: "Soundtrack"},
+		{ID: "c", Artist: "Singer C", AlbumArtist: "Various Artists", Album: "Other"},
+	}
+	scores := map[string]float64{"a": 1, "b": 1, "c": .9}
+	got := exploratorySelection(state, tracks, scores, 2, "", func() float64 { return .99 })
+	if got[0].ID != "a" || got[1].ID != "c" {
+		t.Fatal("compilation not penalized", got)
+	}
+	state.Seed = tracks[0]
+	got = exploratorySelection(state, tracks[1:], scores, 1, "Singer A", func() float64 { return .99 })
+	if got[0].ID != "c" {
+		t.Fatal("previous album ignored", got)
+	}
+}
+
+func TestExplorationRetainsBoundedRankingInfluence(t *testing.T) {
+	state := Context{}
+	tracks := []library.Track{{ID: "a", Artist: "A", Album: "A"}, {ID: "b", Artist: "B", Album: "B"}}
+	rng := rand.New(rand.NewPCG(100, 200))
+	wins := 0
+	for range 10000 {
+		if exploratorySelection(state, tracks, map[string]float64{"a": 1, "b": 0}, 1, "", rng.Float64)[0].ID == "a" {
+			wins++
+		}
+	}
+	if wins < 5300 || wins > 5800 {
+		t.Fatalf("ranking should nudge, not dominate or disappear: %d", wins)
+	}
+}

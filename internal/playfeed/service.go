@@ -412,8 +412,13 @@ func (s *Service) candidates(ctx context.Context, key string, state Context, exc
 			scores[t.ID] = fallbackScore(state, t)
 		}
 		source := "fallback"
-		if s.ranker != nil && len(tracks) > 0 {
-			ranked, err := s.ranker.Recommend(ctx, state, tracks)
+		// With neither listening evidence nor an explicit seed there is no taste
+		// context to rank. Bootstrap immediately rather than waiting on a model
+		// whose unpersonalized scores would only add latency.
+		if s.ranker != nil && len(tracks) > 0 && (state.Seed.ID != "" || len(state.Upcoming) > 0 || len(state.Preferences) > 0 || len(state.Recent) > 0) {
+			rankCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+			ranked, err := s.ranker.Recommend(rankCtx, state, tracks)
+			cancel()
 			if ctx.Err() != nil {
 				return pool{}, ctx.Err()
 			}
