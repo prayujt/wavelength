@@ -498,3 +498,32 @@ it('releases prepared grants after queue edits, clear, and late replies after si
   await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1));
   expect(f.sources.at(-1)).toBeNull();
 });
+
+it('records the actual final audio interval when background timing updates are throttled', async () => {
+  vi.useFakeTimers();
+  const f = connected();
+  await f.controller.play([song('a'), song('b')]);
+  f.controller.status({
+    isLoaded: true,
+    currentTime: 0,
+    duration: 200,
+    playing: true,
+    isBuffering: false,
+    didJustFinish: false,
+  });
+  await vi.advanceTimersByTimeAsync(200000);
+  f.position(200);
+  f.controller.status({
+    isLoaded: true,
+    currentTime: 200,
+    duration: 200,
+    playing: false,
+    isBuffering: false,
+    didJustFinish: true,
+  });
+  await vi.advanceTimersByTimeAsync(1);
+  expect(f.port.listening.finishListeningSession).toHaveBeenCalledWith(
+    expect.objectContaining({ listenedMs: 200000n, outcome: 'completed', changeReason: 'ended' }),
+  );
+  vi.useRealTimers();
+});

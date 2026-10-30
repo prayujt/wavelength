@@ -300,6 +300,7 @@ export class PlaybackController {
     return this.writes;
   };
   checkpoint = () => {
+    this.reporter?.sample(this.audio.position(), this.snapshot.playing);
     void this.reporter?.report(this.audio.position(), this.snapshot.playing);
     void this.save();
     this.refillShortBuffer();
@@ -455,6 +456,7 @@ export class PlaybackController {
     }
   }
   status = (status: NativeStatus) => {
+    const wasPlaying = this.snapshot.playing;
     if (this.snapshot.playing !== status.playing) {
       this.patch({ playing: status.playing });
       if (this.loaded && !this.snapshot.loading && !this.waitingForFeed && !status.didJustFinish) {
@@ -477,7 +479,10 @@ export class PlaybackController {
         .catch(() => this.patch({ error: 'Could not restore your playback position.' }));
     }
     if (this.loaded && !this.ended && status.isLoaded)
-      this.reporter?.sample(status.currentTime, status.playing && !status.isBuffering);
+      this.reporter?.sample(
+        status.currentTime,
+        (status.playing || wasPlaying) && !status.isBuffering,
+      );
     if (status.didJustFinish && this.loaded && !this.ended) {
       this.ended = true;
       void this.advance(true);
@@ -520,6 +525,7 @@ export class PlaybackController {
       return;
     }
     if (playing) {
+      this.reporter?.sample(this.audio.position(), true);
       this.audio.pause();
       this.patch({ playing: false });
       void this.reporter?.report(this.audio.position(), false);
@@ -536,6 +542,7 @@ export class PlaybackController {
       intent = ++this.navigation;
     if (!before.track) return;
     this.ended = true;
+    this.reporter?.sample(this.audio.position(), before.playing);
     void this.reporter?.finish(
       this.audio.position(),
       ended ? 'completed' : 'skipped',
