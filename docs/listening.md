@@ -119,3 +119,36 @@ without discarding the listening report, so delayed offline sync still works.
 `FinishListeningSession.change_reason` is `next`, `previous`, `selection`,
 `ended`, or `stop`; clients may omit it for legacy behavior. Only `next` qualifies
 as an intentional early skip. The first finished outcome/reason is immutable.
+
+### Sparse-history exploration
+
+Autoplay treats a small listening sample as weak evidence, not an established taste
+profile. Empty histories explore entirely; small histories use approximately 95%
+weighted-random exploration, with only a light Jev/personal-preference nudge. The
+95% exploration floor remains until confidence passes 25%; then the
+exploration rate tapers quadratically with distinct tracks and capped actual listening
+evidence, retaining 20% exploration at maturity. Broad profiles (40 artists) need 200
+tracks and 10 hours; focused profiles need up to twice that evidence, so a small
+artist catalog does not permanently prevent personalization. Repeat plays alone cannot
+move a tiny history out of cold start; sub-30-second totals and tracks with only
+intentional early skips do not establish taste. Exploration retains a bounded Jev
+score nudge. Empty, unseeded histories start without a model request; later ranking
+has a three-second budget and falls back to local evidence on provider timeouts.
+
+Cold-start candidate pools do not reserve two-thirds of slots for inferred favorite
+artists. Catalog sampling balances artists so large discographies and soundtrack
+albums cannot dominate the candidate pool by track count. Exploratory selection
+favors unfamiliar artists/genres, downweights repeats within the batch, and preserves
+queued/seed/recent-skip exclusions. Jev receives the same confidence/exploration
+policy rather than being instructed to overfit sparse lifetime totals.
+
+Request and cursor replay semantics are unchanged: an issued page stays stable on
+retry; only newly generated pages sample fresh exploration. Existing queued tracks
+are not rewritten by this policy change.
+
+The mobile/PWA player prepares one upcoming scoped source while the current song
+plays. Queue edits and sign-out release unused grants; preparation does not count
+as a play or persist a music download. The PWA keeps one HTML audio element across
+tracks and processes `ended` directly, avoiding background timer/React dependence.
+It requests a browser playback audio session when available, resumes temporary
+system interruptions only after audio focus returns, and respects explicit pause.

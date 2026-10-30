@@ -216,7 +216,13 @@ func (s PlayFeedStore) Candidates(ctx context.Context, root string, artists, exc
 				args = append(args, artist)
 			}
 		}
-		q += " ORDER BY random() LIMIT ?"
+		if favorite {
+			q += " ORDER BY random() LIMIT ?"
+		} else {
+			// Randomize artists before taking second/third recordings from any artist.
+			// This keeps broad sampling broad even when a few albums dominate track count.
+			q = "SELECT " + trackColumns + " FROM (SELECT " + trackColumns + ",row_number() OVER (PARTITION BY lower(trim(CASE WHEN trim(album_artist) != '' AND lower(trim(album_artist)) != 'various artists' THEN album_artist ELSE artist END)) ORDER BY random()) AS artist_sample_rank FROM tracks WHERE root_id=? AND content_type LIKE 'audio/%'" + clause + ") ORDER BY artist_sample_rank,random() LIMIT ?"
+		}
 		args = append(args, n)
 		rows, err := s.DB.QueryContext(ctx, q, args...)
 		if err != nil {

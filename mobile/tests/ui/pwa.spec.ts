@@ -14,6 +14,11 @@ test.beforeEach(({ page }) => {
 const origin = 'http://127.0.0.1:4174';
 const audio = readFileSync('assets/preview.wav');
 const artwork = readFileSync('assets/icon.png');
+const dataOffset = audio.indexOf(Buffer.from('data'));
+const shortLength = Math.round(audio.readUInt32LE(28) * 1.5);
+const shortAudio = Buffer.from(audio.subarray(0, dataOffset + 8 + shortLength));
+shortAudio.writeUInt32LE(shortAudio.length - 8, 4);
+shortAudio.writeUInt32LE(shortLength, dataOffset + 4);
 async function standalone(context: BrowserContext) {
   await context.addInitScript(() => {
     const AudioClass = window.Audio;
@@ -57,8 +62,10 @@ async function service(
     handoff?: boolean;
     largePlaylist?: boolean;
     slowRemainder?: boolean;
+    shortAudio?: boolean;
   } = {},
 ) {
+  const mediaBytes = options.shortAudio ? shortAudio : audio;
   const preview = createPreviewFetch(),
     reports: { method: string; body: Record<string, unknown> }[] = [];
   if (options.largePlaylist)
@@ -78,6 +85,7 @@ async function service(
     callbackURL = '';
   const artworkRequests: string[] = [];
   const feedRequests: Record<string, unknown>[] = [];
+  const playbackLinks: string[] = [];
   await context.route(origin + '/oauth/**', async (route) => {
     const url = new URL(route.request().url());
     if (options.offline) return route.abort('internetdisconnected');
@@ -131,6 +139,7 @@ async function service(
       });
     const body = request.postDataJSON();
     if (method === 'GetPlayFeed') feedRequests.push(body);
+    if (method === 'CreatePlaybackLink') playbackLinks.push(body.trackId);
     if (
       options.slowRemainder &&
       method === 'GetTrack' &&
@@ -153,7 +162,7 @@ async function service(
       if (!value || typeof value !== 'object') return;
       const row = value as Record<string, unknown>;
       if (typeof row.title === 'string' && 'durationSeconds' in row) {
-        row.sizeBytes = String(audio.length);
+        row.sizeBytes = String(mediaBytes.length);
         row.contentType = 'audio/wav';
         row.artworkPath = `/media/tracks/${row.id}/artwork`;
       }
@@ -167,8 +176,8 @@ async function service(
     route.fulfill({
       status: options.partial ? 206 : 200,
       contentType: 'audio/wav',
-      body: audio,
-      headers: { 'Content-Length': String(audio.length), ETag: 'fixture-v1' },
+      body: mediaBytes,
+      headers: { 'Content-Length': String(mediaBytes.length), ETag: 'fixture-v1' },
     }),
   );
   await context.route(origin + '/media/**/artwork', (route) => {
@@ -179,6 +188,7 @@ async function service(
     reports,
     artworkRequests,
     feedRequests,
+    playbackLinks,
     refreshes: () => refreshes,
     callback: () => callbackURL,
     offline(value: boolean) {
@@ -599,6 +609,127 @@ test.describe('Mobile polish', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+  });
+
+  for (const feed of [false, true]) {
+    test(`background ${feed ? 'feed' : 'queue'} advances on ended without a final timeupdate or reopening`, async ({
+      page,
+      context,
+    }) => {
+      await standalone(context);
+      const backend = await service(context, { shortAudio: true });
+      await connect(page);
+      if (feed) await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
+      else {
+        await page
+          .getByRole('button', { name: 'Open album The quiet between', exact: true })
+          .click();
+        await page.getByRole('button', { name: 'Play', exact: true }).click();
+      }
+      await expect
+        .poll(() => backend.reports.filter((r) => r.method === 'StartListeningSession').length)
+        .toBe(1);
+      // The current and next scoped playback sources must be resolved in advance.
+      await expect.poll(() => backend.playbackLinks.length).toBeGreaterThanOrEqual(2);
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.currentTime || 0,
+          ),
+        )
+        .toBeGreaterThan(0.1);
+      const first = backend.reports.find((r) => r.method === 'StartListeningSession')!.body.trackId;
+      await page.evaluate(() => {
+        const w = window as Window & {
+          pwaAudio?: HTMLAudioElement;
+          originalAudio?: HTMLAudioElement;
+        };
+        w.originalAudio = w.pwaAudio;
+        Object.defineProperty(document, 'visibilityState', {
+          configurable: true,
+          get: () => 'hidden',
+        });
+        Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+        document.dispatchEvent(new Event('visibilitychange'));
+        // Reproduce the missing/throttled timeupdate at the end of a background song.
+        w.pwaAudio!.addEventListener('timeupdate', (event) => event.stopImmediatePropagation(), {
+          capture: true,
+        });
+      });
+      await expect
+        .poll(
+          () =>
+            backend.reports.filter((r) => r.method === 'StartListeningSession').at(-1)?.body
+              .trackId,
+        )
+        .not.toBe(first);
+      expect(
+        await page.evaluate(() => {
+          const w = window as Window & {
+            pwaAudio?: HTMLAudioElement;
+            originalAudio?: HTMLAudioElement;
+          };
+          return w.pwaAudio === w.originalAudio && !w.pwaAudio!.paused;
+        }),
+      ).toBe(true);
+      await expect
+        .poll(
+          () =>
+            backend.reports.find((r) => r.method === 'FinishListeningSession')?.body.changeReason,
+        )
+        .toBe('ended');
+    });
+  }
+
+  test('temporary audio focus loss resumes when allowed while explicit pause stays paused', async ({
+    page,
+    context,
+  }) => {
+    await standalone(context);
+    await context.addInitScript(() => {
+      const session = Object.assign(new EventTarget(), { type: 'auto', state: 'active' });
+      Object.defineProperty(navigator, 'audioSession', { configurable: true, value: session });
+      (window as Window & { audioFocus?: (state: string) => void }).audioFocus = (state) => {
+        session.state = state;
+        session.dispatchEvent(new Event('statechange'));
+      };
+    });
+    await service(context);
+    await connect(page);
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.currentTime || 0,
+        ),
+      )
+      .toBeGreaterThan(0.1);
+    await page.evaluate(() => {
+      const w = window as Window & {
+        pwaAudio?: HTMLAudioElement;
+        audioFocus?: (state: string) => void;
+      };
+      w.audioFocus!('interrupted');
+      w.pwaAudio!.pause();
+    });
+    await expect(page.getByRole('button', { name: 'Resume playback', exact: true })).toBeVisible();
+    await page.evaluate(() =>
+      (window as Window & { audioFocus?: (state: string) => void }).audioFocus!('active'),
+    );
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Pause playback', exact: true }).click();
+    await page.evaluate(() => {
+      const w = window as Window & { audioFocus?: (state: string) => void };
+      w.audioFocus!('interrupted');
+      w.audioFocus!('active');
+    });
+    await expect(page.getByRole('button', { name: 'Resume playback', exact: true })).toBeVisible();
+    expect(
+      await page.evaluate(
+        () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio!.paused,
+      ),
+    ).toBe(true);
   });
 
   test('stream starts directly and artwork stays stable across playback ticks', async ({

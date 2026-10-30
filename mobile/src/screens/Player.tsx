@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useAudioPlayerStatus } from 'expo-audio';
+import { useAudioPlayerStatus } from '../lib/audio';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Slider from '@react-native-community/slider';
 import {
