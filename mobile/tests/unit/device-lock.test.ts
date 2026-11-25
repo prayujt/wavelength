@@ -9,12 +9,13 @@ afterEach(() => {
 it('cancels a queued credential lock without running the credential operation', async () => {
   vi.useFakeTimers();
   const operation = vi.fn(async () => 'saved');
-  const request = vi.fn((_name: string, options: LockOptions) =>
-    new Promise((_resolve, reject) => {
-      options.signal?.addEventListener('abort', () => reject(options.signal?.reason), {
-        once: true,
-      });
-    }),
+  const request = vi.fn(
+    (_name: string, options: LockOptions) =>
+      new Promise((_resolve, reject) => {
+        options.signal?.addEventListener('abort', () => reject(options.signal?.reason), {
+          once: true,
+        });
+      }),
   );
   vi.stubGlobal('navigator', { locks: { request } });
   const result = exclusive('credentials', operation);
@@ -28,7 +29,9 @@ it('cancels a queued credential lock without running the credential operation', 
 
 it('does not time out the credential operation once the lock is acquired', async () => {
   vi.useFakeTimers();
-  const request = vi.fn((_name: string, _options: LockOptions, run: () => Promise<string>) => run());
+  const request = vi.fn((_name: string, _options: LockOptions, run: () => Promise<string>) =>
+    run(),
+  );
   vi.stubGlobal('navigator', { locks: { request } });
   const result = exclusive('credentials', async () => {
     await new Promise((resolve) => setTimeout(resolve, 70000));
