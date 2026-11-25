@@ -7,6 +7,7 @@ export interface Vault {
   get(key: string, state?: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   remove(key: string, state?: string): Promise<void>;
+  commitSignIn?(grantKey: string, value: string, pendingKey: string, state: string): Promise<void>;
   lock?<T>(run: () => Promise<T>): Promise<T>;
 }
 export interface OAuthCrypto {
@@ -227,11 +228,11 @@ export class OAuthSession {
     )) as TokenResponse;
     if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
     const grant = this.tokenGrant(pending.server, pending.clientId, token);
-    await this.vault.remove(PENDING_KEY, pending.state);
+    if (!this.vault.commitSignIn) await this.vault.remove(PENDING_KEY, pending.state);
     const commit = async () => {
       if (generation !== this.generation) throw new Error('Sign-in was cancelled.');
       this.generation++;
-      await this.save(grant);
+      await this.save(grant, pending.state);
     };
     if (this.vault.lock) await this.vault.lock(commit);
     else await commit();
@@ -280,11 +281,14 @@ export class OAuthSession {
     if (this.vault.lock) await this.vault.lock(identify);
     else await identify();
   }
-  private async save(grant: Grant) {
+  private async save(grant: Grant, state?: string) {
     const generation = this.generation;
     await this.write(async () => {
       if (generation !== this.generation) throw new Error('Sign-in changed.');
-      await this.vault.set(GRANT_KEY, JSON.stringify(grant));
+      const value = JSON.stringify(grant);
+      if (state && this.vault.commitSignIn)
+        await this.vault.commitSignIn(GRANT_KEY, value, PENDING_KEY, state);
+      else await this.vault.set(GRANT_KEY, value);
       if (generation !== this.generation) throw new Error('Sign-in changed.');
       this.grant = grant;
       this.changed(grant);

@@ -3,6 +3,7 @@
 export type LocalUser = { id: string; name: string; email: string };
 export type LocalAccount = { key: string; server: string; user: LocalUser };
 const DB = 'wavelength-device-v1';
+const WRITE_TIMEOUT_MS = 10000;
 export const MUSIC_CACHE = 'wavelength-device-music-v1';
 let database: Promise<IDBDatabase> | undefined;
 export const browserStorage = () => typeof indexedDB !== 'undefined';
@@ -39,23 +40,43 @@ export async function read<T>(key: string): Promise<T | undefined> {
     request.onerror = () => reject(request.error);
   });
 }
-export async function write(key: string, value: unknown) {
+async function changeRecords(change: (store: IDBObjectStore) => void) {
   const database = await db();
   await new Promise<void>((resolve, reject) => {
     const transaction = database.transaction('state', 'readwrite');
-    transaction.objectStore('state').put(value, key);
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = transaction.onerror = () => reject(transaction.error);
+    const timeout = setTimeout(() => {
+      try {
+        transaction.abort();
+      } catch {
+        // The browser may have finished without delivering a completion event.
+      }
+      reject(new Error('Device storage took too long. Try signing in again.'));
+    }, WRITE_TIMEOUT_MS);
+    transaction.oncomplete = () => {
+      clearTimeout(timeout);
+      resolve();
+    };
+    transaction.onabort = () => {
+      clearTimeout(timeout);
+      reject(transaction.error ?? new Error('Wavelength couldn’t save to this device.'));
+    };
+    try {
+      change(transaction.objectStore('state'));
+    } catch (error) {
+      clearTimeout(timeout);
+      transaction.abort();
+      reject(error);
+    }
+  });
+}
+export async function write(key: string, value: unknown, removeKey?: string) {
+  await changeRecords((store) => {
+    store.put(value, key);
+    if (removeKey !== undefined) store.delete(removeKey);
   });
 }
 export async function erase(key: string) {
-  const database = await db();
-  await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction('state', 'readwrite');
-    transaction.objectStore('state').delete(key);
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = transaction.onerror = () => reject(transaction.error);
-  });
+  await changeRecords((store) => store.delete(key));
 }
 export async function entries<T>(prefix: string): Promise<[string, T][]> {
   const database = await db();
@@ -141,11 +162,8 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
   const owner = crypto.randomUUID(),
     key = 'lock:' + name;
   const acquire = async () => {
-    const database = await db();
-    return new Promise<boolean>((resolve, reject) => {
-      const transaction = database.transaction('state', 'readwrite'),
-        store = transaction.objectStore('state');
-      let acquired = false;
+    let acquired = false;
+    await changeRecords((store) => {
       const request = store.get(key);
       request.onsuccess = () => {
         const lock = request.result as { owner: string; expires: number } | undefined;
@@ -154,9 +172,8 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
           acquired = true;
         }
       };
-      transaction.oncomplete = () => resolve(acquired);
-      transaction.onabort = transaction.onerror = () => reject(transaction.error);
     });
+    return acquired;
   };
   const deadline = Date.now() + LOCK_WAIT_MS;
   while (!(await acquire())) {
@@ -164,7 +181,7 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   const renew = setInterval(() => {
-    void acquire();
+    void acquire().catch(() => {});
   }, 15000);
   try {
     return await run();
