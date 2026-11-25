@@ -59,7 +59,19 @@ const vault: Vault = {
     } else await SecureStore.deleteItemAsync(key);
   },
 };
-if (Platform.OS === 'web') vault.lock = (run) => device.exclusive('credentials', run);
+if (Platform.OS === 'web') {
+  vault.lock = (run) => device.exclusive('credentials', run);
+  vault.commitSignIn = async (grantKey, value, pendingKey, state) => {
+    await device.write('credential:' + grantKey, value, 'pending:' + state);
+    try {
+      const pending = sessionStorage.getItem(pendingKey);
+      if (pending && JSON.parse(pending).state === state) sessionStorage.removeItem(pendingKey);
+    } catch {
+      // The durable grant and per-state cleanup have already committed.
+    }
+    device.announce();
+  };
+}
 function base64url(bytes: Uint8Array) {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
   let out = '';

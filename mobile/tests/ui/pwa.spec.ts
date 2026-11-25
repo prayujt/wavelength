@@ -923,6 +923,54 @@ test('OAuth return in a new app window uses its durable per-state PKCE record', 
   await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
   await expect(returned).not.toHaveURL(/code=/);
 });
+test('OAuth return recovers when writing the browser credential stalls', async ({
+  page,
+  context,
+}) => {
+  await standalone(context);
+  const backend = await service(context, { handoff: true });
+  await page.goto('/app/');
+  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
+  await expect.poll(backend.callback).not.toBe('');
+  const firstReturn = backend.callback();
+  const returned = await context.newPage();
+  await returned.clock.install();
+  await returned.addInitScript(() => {
+    if (!location.pathname.endsWith('/oauth/callback') || sessionStorage.getItem('storage-ready'))
+      return;
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, key) {
+      const request = put.call(this, value, key);
+      if (key === 'credential:wavelength.oauth.grant.v1') {
+        // Keep a real transaction open until the app aborts it.
+        const keepOpen = () => {
+          this.get(key).onsuccess = keepOpen;
+        };
+        request.onsuccess = keepOpen;
+        this.transaction.addEventListener('abort', () => {
+          document.documentElement.dataset.storageAborted = 'true';
+        });
+        document.documentElement.dataset.storageStalled = 'true';
+      }
+      return request;
+    };
+  });
+  await returned.goto(firstReturn);
+  await returned.waitForFunction(() => document.documentElement.dataset.storageStalled === 'true');
+  await returned.clock.fastForward(11000);
+  await expect(
+    returned.getByText('Device storage took too long. Try signing in again.'),
+  ).toBeVisible();
+  await returned.waitForFunction(() => document.documentElement.dataset.storageAborted === 'true');
+
+  await returned.evaluate(() => sessionStorage.setItem('storage-ready', 'yes'));
+  await returned.getByRole('button', { name: 'Back to sign-in' }).click();
+  await returned.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
+  await expect.poll(backend.callback).not.toBe(firstReturn);
+  await returned.goto(backend.callback());
+  await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(returned).not.toHaveURL(/code=/);
+});
 test('complete download cold-starts offline with expired credentials, plays and seeks with artwork and lyrics', async ({
   page,
   context,
