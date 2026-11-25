@@ -122,11 +122,15 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), LOCK_WAIT_MS);
     try {
-      return await navigator.locks.request('wavelength:' + name, { signal: controller.signal }, () => {
-        clearTimeout(timeout);
-        if (controller.signal.aborted) throw lockWaitError();
-        return run();
-      });
+      return await navigator.locks.request(
+        'wavelength:' + name,
+        { signal: controller.signal },
+        () => {
+          clearTimeout(timeout);
+          if (controller.signal.aborted) throw lockWaitError();
+          return run();
+        },
+      );
     } catch (error) {
       if (controller.signal.aborted) throw lockWaitError();
       throw error;
