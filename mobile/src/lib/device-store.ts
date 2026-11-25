@@ -114,8 +114,26 @@ export async function accountWrite(account: LocalAccount, key: string, value: un
 }
 // Web Locks serialize refresh across tabs. The IndexedDB lease is for older browsers.
 // Refresh network calls are bounded to 20s; a 60s lease is renewed while held.
+const LOCK_WAIT_MS = 65000;
+const lockWaitError = () => new Error('Another window is connecting. Try again.');
+
 export async function exclusive<T>(name: string, run: () => Promise<T>): Promise<T> {
-  if (navigator.locks) return navigator.locks.request('wavelength:' + name, run);
+  if (navigator.locks) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LOCK_WAIT_MS);
+    try {
+      return await navigator.locks.request('wavelength:' + name, { signal: controller.signal }, () => {
+        clearTimeout(timeout);
+        if (controller.signal.aborted) throw lockWaitError();
+        return run();
+      });
+    } catch (error) {
+      if (controller.signal.aborted) throw lockWaitError();
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
   const owner = crypto.randomUUID(),
     key = 'lock:' + name;
   const acquire = async () => {
@@ -136,9 +154,9 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
       transaction.onabort = transaction.onerror = () => reject(transaction.error);
     });
   };
-  const deadline = Date.now() + 65000;
+  const deadline = Date.now() + LOCK_WAIT_MS;
   while (!(await acquire())) {
-    if (Date.now() > deadline) throw new Error('Another window is connecting. Try again.');
+    if (Date.now() > deadline) throw lockWaitError();
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   const renew = setInterval(() => {
