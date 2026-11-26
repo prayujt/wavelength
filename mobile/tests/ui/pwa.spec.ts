@@ -615,24 +615,18 @@ test.describe('Mobile polish', () => {
           const area = element.getBoundingClientRect();
           const start = Number(element.getAttribute('data-start-y') ?? area.top + 28);
           element.setAttribute('data-start-y', String(start));
-          const touch = new Touch({
+          const touch = {
             identifier: 1,
             target: element,
             clientX: area.left + area.width / 2,
             clientY: start + distance,
             pageX: area.left + area.width / 2,
             pageY: start + distance,
-          });
+          };
           const active = type === 'touchend' ? [] : [touch];
-          element.dispatchEvent(
-            new TouchEvent(type, {
-              bubbles: true,
-              cancelable: true,
-              touches: active,
-              targetTouches: active,
-              changedTouches: [touch],
-            }),
-          );
+          // WebKit's test runner exposes Touch without a public constructor.
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          element.dispatchEvent(Object.assign(event, { touches: active, changedTouches: [touch] }));
         },
         { type, distance },
       );
