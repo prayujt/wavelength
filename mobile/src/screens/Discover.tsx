@@ -22,7 +22,7 @@ import type {
 import { refKey, releaseAvailability, clock, duration } from '../core/queue';
 import { useAPI, useSession } from '../lib/session';
 import { usePlayer } from '../lib/player';
-import { color, colors } from '../lib/theme';
+import { color } from '../lib/theme';
 import { AlbumCard, ArtistCard, LibraryBadge, TrackRow } from '../components/media';
 import { Artwork } from '../components/artwork';
 import {
@@ -207,64 +207,32 @@ export function DiscoverScreen() {
   const active = local ? library : catalog;
   return (
     <Screen>
-      <Header
-        title="Find your next favorite."
-        eyebrow="DISCOVER"
-        subtitle="A song, an artist, a whole new rabbit hole."
-      />
+      <Header title="Search" />
       <SearchField value={search} onChange={setSearch} />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 16, gap: 8 }}
+        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 12, gap: 8 }}
       >
-        <Pill title="The catalog" active={!local} onPress={() => setLocal(false)} icon={Radio} />
-        <Pill title="In your library" active={local} onPress={() => setLocal(true)} icon={Check} />
+        <Pill title="Catalog" active={!local} onPress={() => setLocal(false)} icon={Radio} />
+        <Pill title="Your library" active={local} onPress={() => setLocal(true)} icon={Check} />
       </ScrollView>
       {query.length < 2 ? (
-        <>
-          <Section title="Follow a feeling" eyebrow="START SOMEWHERE">
-            <View
-              style={{ paddingHorizontal: 24, flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}
-            >
-              {['Indie folk', 'Jazz', 'Ambient', 'Classical'].map((title, i) => (
-                <View style={{ width: '48%' }} key={title}>
-                  <Press
-                    label={`Search ${title}`}
-                    onPress={() => setSearch(title)}
-                    style={{
-                      backgroundColor: colors(title)[0],
-                      minHeight: 122,
-                      borderRadius: 18,
-                      padding: 18,
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <View
-                      style={{
-                        position: 'absolute',
-                        right: -15,
-                        bottom: -25,
-                        transform: [{ rotate: '20deg' }],
-                      }}
-                    >
-                      <Artwork title={title} id={title} size={100} radius={8} label={false} />
-                    </View>
-                    <Txt weight="display" size={19} style={{ maxWidth: 100, lineHeight: 25 }}>
-                      {title}
-                    </Txt>
-                    <ArrowUpRight color={color.text} size={18} style={{ marginTop: 19 }} />
-                  </Press>
-                </View>
+        !local && !search.trim() ? (
+          <Section title="Browse genres">
+            <View style={{ paddingHorizontal: 24, flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {['Indie folk', 'Jazz', 'Ambient', 'Classical'].map((title) => (
+                <Pill key={title} title={title} onPress={() => setSearch(title)} />
               ))}
             </View>
           </Section>
-          <Empty
-            icon={Search}
-            title="Good things are a search away."
-            text="Look for music you already love, or take a chance on something new."
-          />
-        </>
+        ) : (
+          <Txt size={13} muted style={{ marginHorizontal: 24, marginTop: 20 }}>
+            {search.trim()
+              ? 'Enter at least 2 characters.'
+              : 'Search for a song, album, or artist.'}
+          </Txt>
+        )
       ) : active.isPending ? (
         <Loading rows={6} />
       ) : active.error ? (
@@ -342,7 +310,6 @@ export function DiscoverScreen() {
                       id={artist.name}
                       size={112}
                       radius={56}
-                      label={false}
                     />
                     <Txt size={12} weight="medium" numberOfLines={1}>
                       {artist.name}
@@ -400,7 +367,7 @@ export function DiscoverScreen() {
             </Section>
           )}
           {!!catalog.data?.tracks.length && (
-            <Section title="Songs" eyebrow="FIND IT. KEEP IT.">
+            <Section title="Songs">
               {catalog.data.tracks.map((track) => (
                 <ExternalSong
                   key={refKey(track.ref)}
@@ -564,7 +531,6 @@ export function ExternalArtistScreen() {
           <Header
             back
             title={artist.name}
-            eyebrow="DISCOVER ARTIST"
             subtitle={`${artist.releases.length} catalog releases`}
           />
           <View style={{ alignItems: 'center', marginVertical: 20 }}>
@@ -574,7 +540,6 @@ export function ExternalArtistScreen() {
               uri={artist.artworkUrl}
               size={200}
               radius={100}
-              label={false}
             />
           </View>
           <Section title="Explore the discography">
@@ -673,12 +638,7 @@ export function SourcesScreen() {
   }
   return (
     <Screen>
-      <Header
-        back
-        title="The right recording."
-        eyebrow="A LITTLE MORE CONTROL"
-        subtitle={params.title || 'Choose the version that belongs in your collection.'}
-      />
+      <Header back title="Choose a recording" subtitle={params.title} />
       <View
         style={{
           marginHorizontal: 24,

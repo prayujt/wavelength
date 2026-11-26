@@ -107,12 +107,7 @@ export function PlaylistEditorScreen() {
     );
   return (
     <Screen>
-      <Header
-        back
-        title={id ? 'A few finishing touches.' : 'Make it your own.'}
-        eyebrow={id ? 'EDIT PLAYLIST' : 'CREATE A PLAYLIST'}
-        subtitle="For a feeling. A person. No reason at all."
-      />
+      <Header back title={id ? 'Edit playlist' : 'Create playlist'} />
       <View style={{ paddingHorizontal: 24, gap: 22 }}>
         <View style={{ alignItems: 'center', paddingVertical: 8 }}>
           <Artwork

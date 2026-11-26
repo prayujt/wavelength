@@ -1,1 +1,1 @@
-export { PlaylistsScreen as default } from '../../../screens/Library';
+export { PlaylistsScreen as default } from '../../../screens/Playlists';

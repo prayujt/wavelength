@@ -82,8 +82,8 @@ export function FadeIn({
   useEffect(() => {
     const animation = Animated.timing(progress, {
       toValue: 1,
-      duration: reduced ? 0 : 220,
-      delay: reduced ? 0 : Math.min(delay, 80),
+      duration: reduced ? 0 : 160,
+      delay: reduced ? 0 : Math.min(delay, 45),
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     });
@@ -100,7 +100,7 @@ export function FadeIn({
             {
               translateY: progress.interpolate({
                 inputRange: [0, 1],
-                outputRange: [reduced ? 0 : 8, 0],
+                outputRange: [reduced ? 0 : 4, 0],
               }),
             },
           ],
@@ -153,7 +153,7 @@ export function Press({ children, onPress, label, style, disabled, testID, selec
         accessibilityLabel={label}
         accessibilityState={{ disabled: !!disabled || busy, selected }}
         disabled={disabled || busy}
-        onPressIn={() => animate(0.97)}
+        onPressIn={() => animate(0.985)}
         onPressOut={() => animate(1)}
         style={style}
         onPress={async (event) => {
@@ -279,10 +279,14 @@ export function Pill({
       label={title}
       selected={active}
       onPress={onPress}
-      style={[s.pill, active && { backgroundColor: color.accent, borderColor: color.accent }]}
+      style={[s.pill, active && { backgroundColor: color.accentInk, borderColor: color.accent }]}
     >
-      {Icon && <Icon size={14} color={active ? color.accentInk : color.muted} />}
-      <Txt size={13} weight="medium" style={{ color: active ? color.accentInk : color.muted }}>
+      {Icon && <Icon size={14} color={active ? color.accent : color.muted} />}
+      <Txt
+        size={13}
+        weight={active ? 'bold' : 'medium'}
+        style={{ color: active ? color.accent : color.text }}
+      >
         {title}
       </Txt>
     </Press>
@@ -321,18 +325,16 @@ export function Header({
   subtitle,
   back,
   right,
-  eyebrow,
 }: {
   title: string;
   subtitle?: string;
   back?: boolean;
   right?: React.ReactNode;
-  eyebrow?: string;
 }) {
   return (
     <View style={s.header}>
       {back && (
-        <View style={{ marginLeft: -10, marginBottom: 14 }}>
+        <View style={{ marginLeft: -10 }}>
           <IconButton
             icon={ArrowLeft}
             label="Go back"
@@ -340,66 +342,47 @@ export function Header({
           />
         </View>
       )}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-        }}
-      >
-        <View style={{ flex: 1 }}>
-          {eyebrow && (
-            <Txt size={10} weight="bold" style={s.eyebrow}>
-              {eyebrow}
-            </Txt>
-          )}
+      <View style={{ flex: 1 }}>
+        {title ? (
           <Txt
             accessibilityRole="header"
             weight="heavy"
-            size={32}
-            style={{ letterSpacing: -1.2, lineHeight: 40 }}
+            size={30}
+            style={{ letterSpacing: -0.9, lineHeight: 38 }}
           >
             {title}
           </Txt>
-          {subtitle && (
-            <Txt muted size={14} style={{ marginTop: 5, lineHeight: 21 }}>
-              {subtitle}
-            </Txt>
-          )}
-        </View>
-        {right}
+        ) : null}
+        {subtitle && (
+          <Txt muted size={14} style={{ marginTop: 4, lineHeight: 20 }}>
+            {subtitle}
+          </Txt>
+        )}
       </View>
+      {right}
     </View>
   );
 }
 export function Section({
   title,
-  eyebrow,
   action,
   onPress,
   children,
 }: {
   title: string;
-  eyebrow?: string;
   action?: string;
   onPress?: () => unknown;
   children: React.ReactNode;
 }) {
   return (
-    <View style={{ marginTop: 32 }}>
+    <View style={{ marginTop: 20 }}>
       <View style={s.sectionHeader}>
-        <View>
-          {eyebrow && (
-            <Txt weight="bold" size={10} style={s.eyebrow}>
-              {eyebrow}
-            </Txt>
-          )}
+        <View style={{ flex: 1 }}>
           <Txt
             accessibilityRole="header"
             size={22}
             weight="display"
-            style={{ letterSpacing: -0.7 }}
+            style={{ letterSpacing: -0.5 }}
           >
             {title}
           </Txt>
@@ -569,7 +552,14 @@ export const textStyles = {
 };
 const s = StyleSheet.create({
   screen: { backgroundColor: color.bg, flex: 1 },
-  header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 16 },
+  header: {
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   button: {
     minHeight: 52,
     borderRadius: 28,
@@ -589,11 +579,11 @@ const s = StyleSheet.create({
     borderRadius: 22,
   },
   pill: {
-    minHeight: 38,
-    borderRadius: 22,
+    minHeight: 42,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: color.line,
-    paddingHorizontal: 17,
+    paddingHorizontal: 13,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -604,17 +594,16 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 17,
+    marginBottom: 8,
     gap: 10,
   },
-  eyebrow: { color: color.accent, letterSpacing: 1.8, marginBottom: 8 },
   search: {
     marginHorizontal: 24,
     minHeight: 52,
     paddingHorizontal: 16,
     borderWidth: 1,
     borderColor: color.line,
-    borderRadius: 16,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -630,7 +619,7 @@ const s = StyleSheet.create({
     outlineStyle: 'solid',
   },
   field: {
-    borderRadius: 15,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: color.line,
     backgroundColor: color.surface,

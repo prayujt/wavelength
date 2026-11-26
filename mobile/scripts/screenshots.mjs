@@ -25,7 +25,7 @@ const shots = {
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
   },
   discover: async (page) => {
-    await page.getByRole('tab', { name: 'Discover', exact: true }).click();
+    await page.getByRole('tab', { name: 'Search', exact: true }).click();
     await page.getByRole('textbox', { name: 'Artists, songs, albums…' }).fill('June Atlas');
     await page.getByRole('button', { name: 'Discover album Night swimming' }).waitFor();
   },
@@ -53,8 +53,8 @@ try {
     await page.goto(base);
     if (name !== 'welcome') {
       await page.getByRole('button', { name: 'Explore the preview' }).click();
-      await page.getByRole('heading', { name: 'Find your rhythm.' }).waitFor();
-    } else await page.getByRole('button', { name: 'Find your wavelength' }).waitFor();
+      await page.getByRole('heading', { name: 'Home' }).waitFor();
+    } else await page.getByRole('button', { name: 'Sign in' }).waitFor();
     await action(page);
     await page.locator('body').click({ position: { x: 16, y: 16 } });
     await page.waitForTimeout(650);

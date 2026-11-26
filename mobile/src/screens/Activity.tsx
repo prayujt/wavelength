@@ -1,7 +1,7 @@
 import { usePageBottomInset } from '../lib/layout';
 import React, { useState } from 'react';
 import { FlatList, ScrollView, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownToLine,
@@ -232,8 +232,9 @@ function JobCard({ job }: { job: ImportJob }) {
 export function ActivityScreen() {
   const bottom = usePageBottomInset();
   const { online } = useSession();
-  const [tab, setTab] = useState<'Downloads' | 'Listening'>('Downloads'),
-    [outcome, setOutcome] = useState(''),
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const tab = section === 'listening' ? 'Listening' : 'Downloads';
+  const [outcome, setOutcome] = useState(''),
     api = useAPI(),
     player = usePlayer();
   const downloads = useInfiniteQuery({
@@ -271,11 +272,7 @@ export function ActivityScreen() {
   const active = jobs.filter((j) => ['queued', 'running'].includes(j.state)).length;
   const top = (
     <View>
-      <Header
-        title="The music keeps moving."
-        eyebrow="YOUR ACTIVITY"
-        subtitle="Coming in. Played back. All right here."
-      />
+      <Header title="Activity" />
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -285,19 +282,19 @@ export function ActivityScreen() {
           title={active ? `Downloads · ${active}` : 'Downloads'}
           active={tab === 'Downloads'}
           icon={ArrowDownToLine}
-          onPress={() => setTab('Downloads')}
+          onPress={() => router.setParams({ section: 'downloads' })}
         />
         <Pill
           title="Listening"
           active={tab === 'Listening'}
           icon={Headphones}
-          onPress={() => setTab('Listening')}
+          onPress={() => router.setParams({ section: 'listening' })}
         />
       </ScrollView>
       {tab === 'Downloads' ? (
         <View style={{ paddingHorizontal: 24, marginBottom: 20, gap: 6 }}>
           <Txt size={21} weight="display">
-            {active ? 'Making room for more.' : 'Your latest additions'}
+            {active ? 'In progress' : 'Recent downloads'}
           </Txt>
           <Txt muted size={12} style={{ lineHeight: 20 }}>
             {active
@@ -356,7 +353,7 @@ export function ActivityScreen() {
             ) : (
               <Empty
                 icon={ArrowDownToLine}
-                title="Something new sounds good."
+                title="No downloads yet"
                 text="Songs and albums you download will appear here. Find a favorite in Discover."
                 action="Explore the catalog"
                 onPress={() => router.push('/search')}
@@ -431,7 +428,7 @@ export function ActivityScreen() {
             ) : (
               <Empty
                 icon={Clock3}
-                title="Your next song starts the story."
+                title="No listening history"
                 text="Listening sessions appear here after you press play. Pauses and buffering don’t count as listening time."
               />
             )

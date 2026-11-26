@@ -364,8 +364,8 @@ export function TrackRow({
               title={track.album}
               id={track.albumId || track.album}
               path={track.artworkPath}
-              size={50}
-              radius={9}
+              size={44}
+              radius={6}
             />
           ) : (
             <View style={s.number}>
@@ -378,7 +378,7 @@ export function TrackRow({
               )}
             </View>
           )}
-          <View style={{ flex: 1, gap: 5 }}>
+          <View style={{ flex: 1, gap: 3 }}>
             <Txt
               size={14}
               weight="medium"
@@ -417,10 +417,10 @@ export function AlbumCard({ album, width = 155 }: { album: Album; width?: number
     <Press
       label={`Open album ${album.name}`}
       onPress={() => router.push({ pathname: '/album/[id]', params: { id: album.id } })}
-      style={{ width, gap: 11 }}
+      style={{ width, gap: 9 }}
     >
-      <Artwork title={album.name} id={album.id} path={album.artworkPath} size={width} radius={14} />
-      <View style={{ gap: 5 }}>
+      <Artwork title={album.name} id={album.id} path={album.artworkPath} size={width} radius={8} />
+      <View style={{ gap: 3 }}>
         <Txt weight="bold" size={13} numberOfLines={1}>
           {album.name}
         </Txt>
@@ -444,7 +444,6 @@ export function ArtistCard({ artist, width = 130 }: { artist: Artist; width?: nu
         path={artist.artworkPath}
         size={width}
         radius={width / 2}
-        label={false}
       />
       <Txt weight="medium" size={13} numberOfLines={1}>
         {artist.name}
@@ -459,8 +458,8 @@ export function PlaylistCard({ playlist, width = 155 }: { playlist: Playlist; wi
       onPress={() => router.push({ pathname: '/playlist/[id]', params: { id: playlist.id } })}
       style={{ width, gap: 10 }}
     >
-      <Artwork title={playlist.name} id={playlist.id} size={width} radius={14} />
-      <View style={{ gap: 5 }}>
+      <Artwork title={playlist.name} id={playlist.id} size={width} radius={8} />
+      <View style={{ gap: 3 }}>
         <Txt weight="bold" size={13} numberOfLines={1}>
           {playlist.name}
         </Txt>
@@ -528,10 +527,10 @@ const s = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 24,
-    minHeight: 72,
+    minHeight: 60,
     gap: 8,
   },
-  trackMain: { flexDirection: 'row', alignItems: 'center', gap: 13, minHeight: 70 },
+  trackMain: { flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: 58 },
   number: { width: 28, alignItems: 'center' },
   modal: { flex: 1, backgroundColor: color.overlay, justifyContent: 'flex-end' },
   sheet: {

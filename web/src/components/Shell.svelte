@@ -60,7 +60,7 @@
     : 'Ctrl K';
   const groups = [
     {
-      label: 'Your library',
+      label: 'Library',
       items: [
         { label: 'Songs', page: 'library', tab: '', icon: Music2 },
         { label: 'Albums', page: 'library', tab: 'albums', icon: Disc3 },
@@ -70,11 +70,11 @@
       ],
     },
     {
-      label: 'Browse',
+      label: 'Explore',
       items: [
-        { label: 'Play feed', page: 'feed', tab: '', icon: Sparkles },
         { label: 'Discover', page: 'discover', tab: '', icon: Compass },
         { label: 'Downloads', page: 'imports', tab: '', icon: Download },
+        { label: 'Play feed', page: 'feed', tab: '', icon: AudioLines },
       ],
     },
   ];
@@ -170,7 +170,9 @@
     <aside class="sidebar">
       <div class="sidebar-heading">
         <a class="workspace-brand" href="#library" onclick={closeMobile}
-          ><AudioLines size={24} /><strong>Wavelength</strong></a
+          ><span class="workspace-mark"><AudioLines size={18} /></span><strong
+            >Wavelength</strong
+          ></a
         ><button
           class="icon-button"
           aria-label="Hide sidebar"
@@ -218,7 +220,7 @@
       <div class="sidebar-bottom">
         <div class="account">
           <span class="avatar">{initials(listener)}</span>
-          <div><strong>{listener}</strong><span>Signed in</span></div>
+          <div><strong title={listener}>{listener}</strong></div>
           <button
             class="icon-button"
             aria-label="Sign out"
