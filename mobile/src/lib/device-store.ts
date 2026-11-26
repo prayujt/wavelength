@@ -3,9 +3,14 @@
 export type LocalUser = { id: string; name: string; email: string };
 export type LocalAccount = { key: string; server: string; user: LocalUser };
 const DB = 'wavelength-device-v1';
-const WRITE_TIMEOUT_MS = 10000;
+const STORAGE_TIMEOUT_MS = 10000;
 export const MUSIC_CACHE = 'wavelength-device-music-v1';
 let database: Promise<IDBDatabase> | undefined;
+export class DeviceStorageTimeout extends Error {
+  constructor(readonly mayHaveCommitted = false) {
+    super('Device storage took too long.');
+  }
+}
 export const browserStorage = () => typeof indexedDB !== 'undefined';
 export function installed() {
   return (
@@ -17,85 +22,114 @@ export function installed() {
 }
 export const online = () => typeof navigator === 'undefined' || navigator.onLine !== false;
 function db() {
-  if (!database)
-    database = new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB, 1);
-      request.onupgradeneeded = () => request.result.createObjectStore('state');
-      request.onsuccess = () => {
-        request.result.onversionchange = () => request.result.close();
-        resolve(request.result);
+  if (database) return database;
+  const forget = () => {
+    if (database === connection) database = undefined;
+  };
+  const connection = new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB, 1);
+    let expired = false;
+    const timeout = setTimeout(() => {
+      expired = true;
+      reject(new DeviceStorageTimeout());
+    }, STORAGE_TIMEOUT_MS);
+    request.onupgradeneeded = () => request.result.createObjectStore('state');
+    request.onsuccess = () => {
+      clearTimeout(timeout);
+      const opened = request.result;
+      if (expired) {
+        opened.close();
+        return;
+      }
+      opened.onclose = forget;
+      opened.onversionchange = () => {
+        opened.close();
+        forget();
       };
-      request.onerror = () => {
-        database = undefined;
-        reject(request.error);
-      };
-    });
-  return database;
+      resolve(opened);
+    };
+    request.onerror = () => {
+      clearTimeout(timeout);
+      reject(request.error);
+    };
+  });
+  database = connection;
+  void connection.catch(forget);
+  return connection;
+}
+export async function closeDatabase() {
+  const connection = database;
+  database = undefined;
+  await connection?.then(
+    (opened) => opened.close(),
+    () => {},
+  );
 }
 export async function read<T>(key: string): Promise<T | undefined> {
-  const database = await db();
-  return new Promise((resolve, reject) => {
-    const request = database.transaction('state').objectStore('state').get(key);
-    request.onsuccess = () => resolve(request.result as T | undefined);
-    request.onerror = () => reject(request.error);
+  return transaction('readonly', (store, result) => {
+    const request = store.get(key);
+    request.onsuccess = () => result(request.result as T | undefined);
   });
 }
-async function changeRecords(change: (store: IDBObjectStore) => void) {
+async function transaction<T>(
+  mode: IDBTransactionMode,
+  run: (store: IDBObjectStore, result: (value: T) => void) => void,
+) {
   const database = await db();
-  await new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction('state', 'readwrite');
+  return new Promise<T>((resolve, reject) => {
+    const tx = database.transaction('state', mode);
+    let value: T;
     const timeout = setTimeout(() => {
+      let mayHaveCommitted = false;
       try {
-        transaction.abort();
+        tx.abort();
       } catch {
         // The browser may have finished without delivering a completion event.
+        mayHaveCommitted = mode === 'readwrite';
       }
-      reject(new Error('Device storage took too long. Try signing in again.'));
-    }, WRITE_TIMEOUT_MS);
-    transaction.oncomplete = () => {
+      reject(new DeviceStorageTimeout(mayHaveCommitted));
+    }, STORAGE_TIMEOUT_MS);
+    tx.oncomplete = () => {
       clearTimeout(timeout);
-      resolve();
+      resolve(value);
     };
-    transaction.onabort = () => {
+    tx.onabort = () => {
       clearTimeout(timeout);
-      reject(transaction.error ?? new Error('Wavelength couldn’t save to this device.'));
+      reject(tx.error ?? new Error('Wavelength couldn’t access device storage.'));
     };
     try {
-      change(transaction.objectStore('state'));
+      run(tx.objectStore('state'), (result) => {
+        value = result;
+      });
     } catch (error) {
       clearTimeout(timeout);
-      transaction.abort();
+      tx.abort();
       reject(error);
     }
   });
 }
 export async function write(key: string, value: unknown, removeKey?: string) {
-  await changeRecords((store) => {
+  await transaction<void>('readwrite', (store) => {
     store.put(value, key);
     if (removeKey !== undefined) store.delete(removeKey);
   });
 }
 export async function erase(key: string) {
-  await changeRecords((store) => store.delete(key));
+  await transaction<void>('readwrite', (store) => store.delete(key));
 }
 export async function entries<T>(prefix: string): Promise<[string, T][]> {
-  const database = await db();
-  return new Promise((resolve, reject) => {
+  return transaction('readonly', (store, finish) => {
     const result: [string, T][] = [];
-    const request = database
-      .transaction('state')
-      .objectStore('state')
-      .openCursor(IDBKeyRange.bound(prefix, prefix + '\uffff'));
+    const request = store.openCursor(IDBKeyRange.bound(prefix, prefix + '\uffff'));
     request.onsuccess = () => {
       const cursor = request.result;
       if (!cursor) {
-        resolve(result);
+        finish(result);
         return;
       }
       result.push([String(cursor.key), cursor.value as T]);
       cursor.continue();
     };
-    request.onerror = () => reject(request.error);
   });
 }
 export function changed() {
@@ -163,7 +197,7 @@ export async function exclusive<T>(name: string, run: () => Promise<T>): Promise
     key = 'lock:' + name;
   const acquire = async () => {
     let acquired = false;
-    await changeRecords((store) => {
+    await transaction<void>('readwrite', (store) => {
       const request = store.get(key);
       request.onsuccess = () => {
         const lock = request.result as { owner: string; expires: number } | undefined;

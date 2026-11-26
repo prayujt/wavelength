@@ -19,7 +19,7 @@ export default defineConfig({
     {
       name: 'webkit',
       testMatch: '**/pwa.spec.ts',
-      grep: /Mobile polish/,
+      grep: /Mobile polish|OAuth return/,
       dependencies: ['chromium'],
       // Fixture RPC routing cannot intercept WebKit's service-worker requests.
       // Chromium exercises offline/update behavior; real-server checks cover WebKit's worker.
