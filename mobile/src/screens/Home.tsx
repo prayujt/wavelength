@@ -1,253 +1,204 @@
-import React from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowDownToLine, ArrowUpRight, Sparkles, ListMusic, Plus } from 'lucide-react-native';
+import { AudioLines, Clock3, Disc3, Download, Music2, Settings, Users } from 'lucide-react-native';
+import type { Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI, useSession } from '../lib/session';
-import { usePlaylists, useUser } from '../lib/queries';
+import { usePlaylists } from '../lib/queries';
 import { usePlayer } from '../lib/player';
 import { color } from '../lib/theme';
-import { AlbumCard, PlaylistCard } from '../components/media';
-import { Button, FadeIn, Press, Screen, Section, Txt, WaveMark } from '../components/ui';
+import { AlbumCard, PlaylistCard, TrackRow } from '../components/media';
+import { Header, IconButton, Press, Screen, Section, Txt } from '../components/ui';
+
+const libraryLinks = [
+  { tab: 'Songs', icon: Music2 },
+  { tab: 'Albums', icon: Disc3 },
+  { tab: 'Artists', icon: Users },
+] as const;
 
 export function HomeScreen() {
   const player = usePlayer();
-  const api = useAPI(),
-    session = useSession(),
-    user = useUser(),
-    playlists = usePlaylists(),
-    width = useWindowDimensions().width;
+  const api = useAPI();
+  const { preview } = useSession();
+  const playlists = usePlaylists();
+  const { width } = useWindowDimensions();
   const albums = useQuery({
     queryKey: ['library', 'albums', 'home'],
-    queryFn: () => api.library.listAlbums({ limit: 12 }),
+    queryFn: ({ signal }) => api.library.listAlbums({ limit: 12 }, { signal }),
   });
-  const hour = new Date().getHours(),
-    greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
-  const firstName = user.data?.user?.name.split(' ')[0];
-  const cardWidth = Math.min(165, Math.max(140, width * 0.4));
+  const listening = useQuery({
+    queryKey: ['listening', 'home'],
+    queryFn: ({ signal }) => api.listening.listListeningSessions({ limit: 24 }, { signal }),
+  });
+  const recent = new Map<string, Track>();
+  for (const { track } of listening.data?.sessions ?? []) {
+    if (track?.id && !recent.has(track.id)) recent.set(track.id, track);
+    if (recent.size === 5) break;
+  }
+  const suggestions = useQuery({
+    queryKey: ['library', 'tracks', 'home'],
+    queryFn: ({ signal }) => api.library.listTracks({ limit: 5 }, { signal }),
+    enabled: !listening.isPending && recent.size === 0,
+  });
+  const tracks = recent.size ? [...recent.values()] : (suggestions.data?.tracks ?? []);
+  const cardWidth = Math.min(172, Math.max(128, width * 0.37));
+
   return (
     <Screen>
-      <FadeIn>
-        <View
-          style={{
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            paddingHorizontal: 24,
-            paddingTop: 14,
-            marginBottom: 25,
-          }}
-        >
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <WaveMark size={25} />
-            <Txt weight="display" size={20} style={{ letterSpacing: -0.8 }}>
-              wavelength
-            </Txt>
-            {session.preview && (
-              <View
-                style={{
-                  backgroundColor: color.raised,
-                  paddingHorizontal: 7,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                }}
-              >
-                <Txt size={8} weight="bold" style={{ color: color.accent, letterSpacing: 1 }}>
-                  PREVIEW
-                </Txt>
-              </View>
+      <Header
+        title="Home"
+        right={
+          <View style={s.headerActions}>
+            {preview && (
+              <Txt muted size={11} weight="bold">
+                Preview
+              </Txt>
             )}
+            <IconButton
+              icon={Clock3}
+              label="Listening history"
+              onPress={() =>
+                router.navigate({ pathname: '/activity', params: { section: 'listening' } })
+              }
+            />
+            <IconButton
+              icon={Settings}
+              label="Open settings"
+              onPress={() => router.push('/settings')}
+            />
           </View>
+        }
+      />
+      <View style={s.shortcuts}>
+        {libraryLinks.map(({ tab, icon: Icon }) => (
+          <View key={tab} style={s.shortcutCell}>
+            <Press
+              label={`Browse ${tab.toLowerCase()}`}
+              onPress={() => router.navigate({ pathname: '/library', params: { tab } })}
+              style={s.shortcut}
+            >
+              <Icon size={19} color={color.accent} strokeWidth={1.8} />
+              <Txt size={14} weight="bold">
+                {tab}
+              </Txt>
+            </Press>
+          </View>
+        ))}
+        <View style={s.shortcutCell}>
           <Press
-            label="Open settings"
-            onPress={() => router.push('/settings')}
-            style={{
-              width: 39,
-              height: 39,
-              borderRadius: 20,
-              backgroundColor: color.raised,
-              borderWidth: 1,
-              borderColor: color.line,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            label="Downloads"
+            onPress={() =>
+              router.navigate({ pathname: '/activity', params: { section: 'downloads' } })
+            }
+            style={s.shortcut}
           >
-            <Txt weight="bold" size={14} style={{ color: color.accent }}>
-              {firstName?.[0] || 'W'}
+            <Download size={19} color={color.accent} strokeWidth={1.8} />
+            <Txt size={14} weight="bold">
+              Downloads
             </Txt>
           </Press>
         </View>
-        <View style={{ paddingHorizontal: 24, gap: 5, marginBottom: 23 }}>
-          <Txt muted size={13}>
-            {greeting}
-            {firstName ? `, ${firstName}` : ''}.
-          </Txt>
-          <Txt
-            accessibilityRole="header"
-            weight="heavy"
-            size={34}
-            style={{ letterSpacing: -1.4, lineHeight: 42 }}
-          >
-            Find your rhythm.
-          </Txt>
-        </View>
-      </FadeIn>
-      <View style={{ marginHorizontal: 24, marginBottom: 4 }}>
-        <Press
-          label={player.playFeedEnabled ? 'Turn off play feed from Home' : 'Start play feed'}
-          onPress={() => player.togglePlayFeed()}
-          style={{
-            backgroundColor: player.playFeedEnabled ? '#203D2A' : color.raised,
-            borderColor: player.playFeedEnabled ? '#C7F3CB55' : color.line,
-            borderWidth: 1,
-            borderRadius: 20,
-            padding: 18,
-            gap: 14,
-            flexDirection: 'row',
-            alignItems: 'center',
-          }}
-        >
-          <Sparkles color={color.accent} size={24} />
-          <View style={{ flex: 1, gap: 5 }}>
-            <Txt weight="display" size={22}>
-              Play feed
-            </Txt>
-            <Txt muted size={13} style={{ lineHeight: 19 }}>
-              Let your listening shape what plays next.
-            </Txt>
-          </View>
-          <View
-            style={{
-              borderRadius: 16,
-              backgroundColor: player.playFeedEnabled ? color.accent : '#FFFFFF12',
-              paddingVertical: 7,
-              paddingHorizontal: 12,
-            }}
-          >
-            <Txt
-              size={12}
-              weight="bold"
-              style={{ color: player.playFeedEnabled ? color.accentInk : color.text }}
-            >
-              {player.playFeedEnabled ? 'On' : 'Start'}
-            </Txt>
-          </View>
-        </Press>
       </View>
-      <Section
-        title="Your playlists"
-        eyebrow="YOUR PLAYLISTS"
-        action="See all"
-        onPress={() => router.navigate('/playlists')}
+      <Press
+        label={player.playFeedEnabled ? 'Turn off play feed from Home' : 'Start play feed'}
+        selected={player.playFeedEnabled}
+        onPress={player.togglePlayFeed}
+        style={s.feed}
       >
-        {playlists.data?.playlists.length ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 15, paddingHorizontal: 24 }}
-          >
-            {playlists.data.playlists.slice(0, 8).map((playlist) => (
-              <PlaylistCard key={playlist.id} playlist={playlist} width={cardWidth} />
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={{ paddingHorizontal: 24 }}>
-            <Press
-              label="Create your first playlist"
-              onPress={() => router.push('/playlist-edit')}
-              style={{
-                borderWidth: 1,
-                borderStyle: 'dashed',
-                borderColor: color.line,
-                borderRadius: 18,
-                padding: 24,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 15,
-              }}
-            >
-              <Plus size={25} color={color.accent} />
-              <View style={{ gap: 4 }}>
-                <Txt weight="medium">Make something your own.</Txt>
-                <Txt muted size={12}>
-                  Start with a song. See where it goes.
-                </Txt>
-              </View>
-            </Press>
-          </View>
-        )}
-      </Section>
-      <FadeIn delay={140}>
-        <View style={{ flexDirection: 'row', paddingHorizontal: 24, marginTop: 18, gap: 10 }}>
-          {[
-            { title: 'Your playlists', icon: ListMusic, route: '/playlists' as const },
-            { title: 'Downloads', icon: ArrowDownToLine, route: '/activity' as const },
-          ].map(({ title, icon: Icon, route }) => (
-            <View key={title} style={{ flex: 1 }}>
-              <Press
-                label={title}
-                onPress={() => router.push(route)}
-                style={{
-                  backgroundColor: color.surface,
-                  borderRadius: 15,
-                  minHeight: 58,
-                  paddingHorizontal: 15,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <Icon size={18} strokeWidth={1.5} color={color.accent} />
-                <Txt size={12} weight="medium">
-                  {title}
-                </Txt>
-              </Press>
-            </View>
-          ))}
-        </View>
-      </FadeIn>
-      {albums.data && albums.data.albums.length > 0 && (
+        <AudioLines size={18} color={player.playFeedEnabled ? color.accent : color.muted} />
+        <Txt size={13} weight="bold" style={{ flex: 1 }}>
+          Play feed
+        </Txt>
+        <Txt muted size={12} style={player.playFeedEnabled ? { color: color.accent } : undefined}>
+          {player.playFeedEnabled ? 'On' : 'Start'}
+        </Txt>
+      </Press>
+      {tracks.length > 0 && (
         <Section
-          title="A collection worth keeping"
-          eyebrow="YOUR ALBUMS"
-          action="See all"
-          onPress={() => router.push({ pathname: '/library/catalog', params: { tab: 'Albums' } })}
+          title={recent.size ? 'Recently played' : 'Songs in your library'}
+          action={recent.size ? 'History' : 'See all songs'}
+          onPress={() =>
+            recent.size
+              ? router.navigate({ pathname: '/activity', params: { section: 'listening' } })
+              : router.navigate({ pathname: '/library', params: { tab: 'Songs' } })
+          }
+        >
+          {tracks.map((track, index) => (
+            <TrackRow key={track.id} track={track} onPlay={() => player.play(tracks, index)} />
+          ))}
+        </Section>
+      )}
+      {albums.data?.albums.length ? (
+        <Section
+          title="Albums"
+          action="See all albums"
+          onPress={() => router.navigate({ pathname: '/library', params: { tab: 'Albums' } })}
         >
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ gap: 15, paddingHorizontal: 24 }}
+            contentContainerStyle={s.shelf}
           >
             {albums.data.albums.map((album) => (
               <AlbumCard key={album.id} album={album} width={cardWidth} />
             ))}
           </ScrollView>
         </Section>
-      )}
-      <View style={{ paddingHorizontal: 24, marginTop: 36 }}>
-        <LinearGradient
-          colors={['#1F3228', '#14201C']}
-          style={{ padding: 24, borderRadius: 20, gap: 12 }}
-        >
-          <WaveMark size={28} />
-          <Txt size={23} weight="display" style={{ letterSpacing: -0.6 }}>
-            There’s more out there.
-          </Txt>
-          <Txt muted size={13} style={{ lineHeight: 21 }}>
-            Find your next favorite. Bring it home to your collection.
-          </Txt>
-          <View style={{ alignItems: 'flex-start', marginTop: 3 }}>
-            <Button
-              title="Go exploring"
-              secondary
-              small
-              icon={ArrowUpRight}
-              onPress={() => router.push('/search')}
-            />
-          </View>
-        </LinearGradient>
-      </View>
+      ) : null}
+      <Section
+        title="Playlists"
+        action="See all playlists"
+        onPress={() => router.navigate('/playlists')}
+      >
+        {playlists.data?.playlists.length ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={s.shelf}
+          >
+            {playlists.data.playlists.slice(0, 8).map((playlist) => (
+              <PlaylistCard key={playlist.id} playlist={playlist} width={cardWidth} />
+            ))}
+          </ScrollView>
+        ) : playlists.isSuccess ? (
+          <Press
+            label="Create playlist"
+            onPress={() => router.push('/playlist-edit')}
+            style={[s.shortcut, { marginHorizontal: 24 }]}
+          >
+            <Txt weight="bold" size={14}>
+              Create playlist
+            </Txt>
+          </Press>
+        ) : null}
+      </Section>
     </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  shortcuts: { paddingHorizontal: 24, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  shortcutCell: { width: '48%', flexGrow: 1 },
+  shortcut: {
+    minHeight: 52,
+    borderRadius: 10,
+    backgroundColor: color.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 13,
+  },
+  feed: {
+    minHeight: 44,
+    marginHorizontal: 24,
+    marginTop: 12,
+    paddingHorizontal: 3,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: color.line,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  shelf: { gap: 14, paddingHorizontal: 24 },
+});

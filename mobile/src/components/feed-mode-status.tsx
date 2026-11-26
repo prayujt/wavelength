@@ -1,6 +1,5 @@
 import { View } from 'react-native';
-import { Sparkles, X } from 'lucide-react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { AudioLines, X } from 'lucide-react-native';
 import { usePlayer } from '../lib/player';
 import { color } from '../lib/theme';
 import { IconButton, Press, Txt } from './ui';
@@ -8,17 +7,14 @@ import { IconButton, Press, Txt } from './ui';
 export function FeedModeStatus() {
   const player = usePlayer();
   const failed = !player.playFeedEnabled && player.playFeedError && !!player.error;
-  if (!player.playFeedEnabled && !failed) return null;
+  if ((!player.playFeedEnabled || player.track) && !failed) return null;
   return (
-    <LinearGradient
+    <View
       testID="play-feed-mode"
-      colors={failed ? ['#382A24', '#241F1B'] : ['#244A33', '#142A22']}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
       style={{
+        backgroundColor: color.surface,
         borderBottomWidth: 1,
-        borderBottomColor: failed ? color.danger : '#C7F3CB40',
-        boxShadow: '0px 5px 18px #C7F3CB18',
+        borderBottomColor: color.line,
       }}
     >
       <View
@@ -31,21 +27,13 @@ export function FeedModeStatus() {
           minHeight: 48,
         }}
       >
-        <Sparkles size={18} color={color.accent} />
+        <AudioLines size={18} color={failed ? color.danger : color.accent} />
         <View style={{ flex: 1, gap: 2, paddingVertical: 5 }} accessibilityLiveRegion="polite">
           <Txt size={13} weight="bold">
-            {failed ? 'Play feed couldn’t start' : 'Play feed is on'}
+            {failed ? 'Play feed couldn’t start' : 'Starting play feed'}
           </Txt>
           <Txt size={11} numberOfLines={1} style={{ color: color.muted }}>
-            {failed
-              ? player.error
-              : player.startingFeed
-                ? 'Choosing your first song…'
-                : player.playFeedLoading
-                  ? 'Choosing what comes next…'
-                  : player.playFeedError
-                    ? 'Suggestions will retry when connected'
-                    : 'Adapts as you listen'}
+            {failed ? player.error : 'Choosing the first song…'}
           </Txt>
         </View>
         {failed && (
@@ -78,6 +66,6 @@ export function FeedModeStatus() {
           </Press>
         )}
       </View>
-    </LinearGradient>
+    </View>
   );
 }

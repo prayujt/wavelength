@@ -207,8 +207,8 @@ async function connect(page: Page) {
       .toBe('activated');
     await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   }
-  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   // Home can render optimistically after the code exchange. Expiry/race tests
   // must start after identity binding and the local profile are durable, so a
   // reload does not cancel the initial login's writes or refresh requests.
@@ -236,7 +236,6 @@ async function connect(page: Page) {
 }
 async function downloadSong(page: Page) {
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
   await expect(page.getByRole('button', { name: 'On this device · 1 songs' })).toBeVisible();
@@ -275,7 +274,6 @@ test('ordinary mobile browser tabs hide device downloads', async ({ page, contex
   await connect(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
   await expect(page.getByRole('button', { name: /On this device/ })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Download to device', exact: true })).toHaveCount(
     0,
@@ -344,7 +342,9 @@ test.describe('Mobile polish', () => {
         })
         .toBe(phone.height);
       await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
-      await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+      await expect(
+        page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+      ).toBeVisible();
       await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
       await page.getByRole('button', { name: 'Play', exact: true }).click();
       await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
@@ -375,7 +375,7 @@ test.describe('Mobile polish', () => {
     await connect(page);
     const bar = await page.getByTestId('bottom-navigation').boundingBox();
     expect(Math.round(bar!.y + bar!.height)).toBe(844);
-    for (const name of ['Home', 'Playlists', 'Library', 'Discover']) {
+    for (const name of ['Home', 'Playlists', 'Library', 'Search']) {
       const label = page.getByRole('tab', { name, exact: true }).getByText(name, { exact: true });
       const rect = await label.boundingBox();
       expect(rect!.height).toBeGreaterThanOrEqual(18);
@@ -487,7 +487,6 @@ test.describe('Mobile polish', () => {
     });
     expect(await shortList.evaluate((el) => el.scrollTop)).toBe(0);
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
-    await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
     const list = page.getByTestId('catalog-scroll');
     await expect(page.getByText('40 songs', { exact: true })).toBeVisible();
     const last = list.getByRole('button', { name: /^More options for / }).last();
@@ -528,7 +527,9 @@ test.describe('Mobile polish', () => {
     await connect(page);
     const home = page.url();
     await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
-    await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+    ).toBeVisible();
     await expect
       .poll(() =>
         page.evaluate(
@@ -540,7 +541,10 @@ test.describe('Mobile polish', () => {
     expect(backend.feedRequests).toHaveLength(1);
     expect(backend.feedRequests[0].seedTrackId || '').toBe('');
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
-    await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Albums', exact: true }).click();
     await page.getByRole('button', { name: 'Open album Blue hour', exact: true }).click();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
     await expect.poll(() => backend.feedRequests.at(-1)?.seedTrackId).toBe('track-1-0');
@@ -551,7 +555,9 @@ test.describe('Mobile polish', () => {
     );
     const address = page.url();
     await page.getByRole('button', { name: 'Turn off play feed', exact: true }).click();
-    await expect(page.getByText('Play feed is on', { exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toHaveCount(
+      0,
+    );
     expect(page.url()).toBe(address);
     expect(
       await page.evaluate(() => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.src),
@@ -588,8 +594,8 @@ test.describe('Mobile polish', () => {
     await service(context);
     await connect(page);
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
-    await expect(page.getByRole('button', { name: 'Browse all music', exact: true })).toBeVisible();
-    await expect(page.getByRole('textbox', { name: 'Search your songs' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible();
+    await expect(page.getByRole('textbox', { name: 'Search your songs' })).toBeVisible();
     await expect(page.getByRole('tab')).toHaveCount(4);
     const background = page.getByRole('tablist').locator('..');
     const bar = await background.boundingBox();
@@ -844,7 +850,9 @@ test.describe('Mobile polish', () => {
       .toBeGreaterThan(0.1);
     await page.getByRole('button', { name: 'Open now playing' }).click();
     await page.getByRole('button', { name: 'Open play queue' }).click();
-    await expect(page.getByText('40 songs, in your order.')).toBeVisible();
+    await expect(
+      page.getByTestId('queue-scroll').getByText('40 songs', { exact: true }),
+    ).toBeVisible();
   });
 
   test('editing a long playlist preserves scroll while moving and removing songs', async ({
@@ -880,14 +888,16 @@ test.describe('Mobile polish', () => {
     await expect(page.getByText('39 songs ·', { exact: false }).last()).toBeVisible();
   });
 
-  test('horizontal swipes change tabs while vertical scrolling and edge gestures stay put', async ({
+  test('tab taps keep the navigation in place and swipes stay on the current page', async ({
     page,
     context,
   }) => {
     await standalone(context);
     await service(context);
     await connect(page);
-    const surface = page.getByTestId('tab-swipe-surface');
+    const surface = page.getByTestId('page-scroll').filter({ visible: true });
+    const bar = page.getByTestId('bottom-navigation');
+    const initial = await bar.boundingBox();
     async function swipe(x: number, y: number, endX: number, endY: number) {
       await surface.dispatchEvent('touchstart', {
         touches: [{ identifier: 0, pageX: x, pageY: y, clientX: x, clientY: y }],
@@ -899,13 +909,15 @@ test.describe('Mobile polish', () => {
       });
     }
     await swipe(300, 180, 100, 180);
-    await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
-    await swipe(200, 400, 205, 180);
-    await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible();
     await swipe(10, 180, 200, 180);
-    await expect(page.getByRole('heading', { name: 'Playlists', exact: true })).toBeVisible();
-    await swipe(300, 180, 100, 180);
+    await expect(page.getByRole('heading', { name: 'Home', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: 'Browse albums', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Open album Blue hour', exact: true }),
+    ).toBeVisible();
+    expect(await bar.boundingBox()).toEqual(initial);
   });
 });
 
@@ -916,11 +928,11 @@ test('OAuth return in a new app window uses its durable per-state PKCE record', 
   await standalone(context);
   const backend = await service(context, { handoff: true });
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect.poll(backend.callback).not.toBe('');
   const returned = await context.newPage();
   await returned.goto(backend.callback());
-  await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(returned.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(returned).not.toHaveURL(/code=/);
 });
 test('OAuth return supports online listening when writing the browser credential stalls', async ({
@@ -937,7 +949,7 @@ test('OAuth return supports online listening when writing the browser credential
     };
   });
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await expect.poll(backend.callback).not.toBe('');
   await expect(page.getByText('Continue in Wavelength.')).toBeVisible();
   expect(await page.evaluate(() => sessionStorage.getItem('storage-closed'))).toBe('yes');
@@ -971,12 +983,10 @@ test('OAuth return supports online listening when writing the browser credential
   await expect(
     returned.getByText('Device storage is unavailable. You’re signed in for online listening.'),
   ).toBeVisible();
-  await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(returned.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(returned).not.toHaveURL(/code=/);
   await returned.goto('/app/');
-  await expect(
-    returned.getByRole('button', { name: 'Find your wavelength', exact: true }),
-  ).toBeVisible();
+  await expect(returned.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 });
 test('OAuth return can use the originating tab when device storage is unavailable', async ({
   page,
@@ -991,8 +1001,8 @@ test('OAuth return can use the originating tab when device storage is unavailabl
     };
   });
   await page.goto('/app/');
-  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(
     page.getByText('Device storage is unavailable. You’re signed in for online listening.'),
   ).toBeVisible();
@@ -1050,7 +1060,6 @@ test('partial media never becomes a completed download', async ({ page, context 
   await service(context, { partial: true });
   await connect(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('complete audio file');
@@ -1069,7 +1078,6 @@ test('browser quota errors leave no completed song', async ({ page, context }) =
     };
   });
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
   await expect(page.getByRole('button', { name: 'On this device · 0 songs' })).toBeVisible();
@@ -1083,7 +1091,7 @@ test('durable refresh is serialized across windows', async ({ page, context }) =
   const other = await context.newPage();
   await Promise.all([page.reload(), other.goto('/app/library')]);
   await expect(other.getByRole('heading', { name: 'Your library', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect.poll(backend.refreshes).toBe(1);
 });
 
@@ -1157,9 +1165,7 @@ test('a new worker waits during playback and preserves credentials, queue and do
   await page.goto('/app/on-device');
   await expect(page.getByText('1 complete songs', { exact: false })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Find your wavelength', exact: true })).toHaveCount(
-    0,
-  );
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toHaveCount(0);
 });
 
 test('switching accounts isolates downloads; explicit offline sign-out clears local credentials and data', async ({
@@ -1173,13 +1179,13 @@ test('switching accounts isolates downloads; explicit offline sign-out clears lo
   backend.user('different-listener');
   await page.goto('/app/settings');
   await page.getByRole('button', { name: 'Reconnect account', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
   await expect(page.getByRole('button', { name: 'On this device · 0 songs' })).toBeVisible();
   backend.user('preview-user');
   await page.goto('/app/settings');
   await page.getByRole('button', { name: 'Reconnect account', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   // The original profile's ID comes from the fixture, rather than an email or token.
   await page.goto('/app/on-device');
   await expect(page.getByText('1 complete songs', { exact: false })).toBeVisible();
@@ -1187,13 +1193,9 @@ test('switching accounts isolates downloads; explicit offline sign-out clears lo
   await context.setOffline(true);
   await page.goto('/app/settings');
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
-  await expect(
-    page.getByRole('button', { name: 'Find your wavelength', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
   await page.reload();
-  await expect(
-    page.getByRole('button', { name: 'Find your wavelength', exact: true }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
 });
 
 test('a legacy redirected shell survives an update and full browser shutdown offline', async ({
@@ -1247,9 +1249,7 @@ test('a legacy redirected shell survives an update and full browser shutdown off
     await browser.setOffline(true);
     page = await browser.newPage();
     await page.goto(origin + '/app/');
-    await expect(
-      page.getByRole('button', { name: 'Find your wavelength', exact: true }),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sign in', exact: true })).toBeVisible();
     expect(
       await page.evaluate(async () => {
         const music = await (

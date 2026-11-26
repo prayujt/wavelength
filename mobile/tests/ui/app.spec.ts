@@ -3,7 +3,7 @@ import { test, expect, type Page } from '@playwright/test';
 async function preview(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore the preview' }).click();
-  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
 }
 async function startAlbum(page: Page) {
   await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
@@ -19,13 +19,13 @@ test('welcome offers real sign-in, configurable server and an explicitly separat
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByText('Less noise.')).toBeVisible();
+  await expect(page.getByText('Sign in to listen to your music library.')).toBeVisible();
   await page.getByRole('button', { name: 'Connection options' }).click();
   await expect(page.getByRole('textbox', { name: 'Wavelength server' })).toHaveValue(
     'https://wavelength.prayujt.com',
   );
   await page.getByRole('button', { name: 'Explore the preview' }).click();
-  await expect(page.getByText('PREVIEW', { exact: true })).toBeVisible();
+  await expect(page.getByText('Preview', { exact: true })).toBeVisible();
 });
 test('home, album and artist navigation use real collection IDs', async ({ page }) => {
   await preview(page);
@@ -42,7 +42,6 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   await startAlbum(page);
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open now playing' })).toBeVisible();
   await page.getByRole('button', { name: 'Open now playing' }).click();
   await expect(page.getByRole('button', { name: 'Pause song' })).toBeVisible();
@@ -54,7 +53,7 @@ test('playback persists across tabs and opens the full player, lyrics and queue'
   ).toBeVisible();
   await page.getByRole('button', { name: 'Go back' }).last().click();
   await page.getByRole('button', { name: 'Open play queue' }).click();
-  await expect(page.getByText('5 songs, in your order.')).toBeVisible();
+  await expect(page.getByText('5 songs', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Move queued song 2 down' }).click();
   await expect(
     page.getByRole('button', { name: 'Play queued Where the light goes' }),
@@ -65,10 +64,9 @@ test('library switches layouts and filters the catalog without losing the screen
 }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await expect(page.getByText('40 songs', { exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Search your songs' }).fill('Weightless');
-  await expect(page.getByText('1 songs', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 song', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Clear search' }).click();
   await page.getByRole('button', { name: 'Albums', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open album Blue hour' })).toBeVisible();
@@ -99,7 +97,6 @@ test('playlist create, edit, reorder and delete preserve explicit track order', 
 test('song menu adds a track to an owned playlist and exposes queue actions', async ({ page }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Add to playlist', exact: true }).click();
   await page.getByRole('button', { name: 'Add to The slow hours', exact: true }).click();
@@ -110,12 +107,12 @@ test('song menu adds a track to an owned playlist and exposes queue actions', as
 });
 test('catalog discovery exposes exact saved matches and album imports', async ({ page }) => {
   await preview(page);
-  await page.getByRole('tab', { name: 'Discover', exact: true }).click();
+  await page.getByRole('tab', { name: 'Search', exact: true }).click();
   await page.getByRole('textbox', { name: 'Artists, songs, albums…' }).fill('June Atlas');
   await expect(page.getByRole('button', { name: 'Discover album Night swimming' })).toBeVisible();
   await page.getByRole('button', { name: 'Discover album Night swimming' }).click();
   await page.getByRole('button', { name: 'Download album', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'The music keeps moving.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Activity' })).toBeVisible();
   await expect(
     page.getByText('3 of 3 ready', { exact: true }).filter({ visible: true }),
   ).toBeVisible({ timeout: 15000 });
@@ -124,7 +121,9 @@ test('ambiguous downloads can choose a source and resume the existing job', asyn
   await preview(page);
   await page.getByRole('button', { name: 'Downloads', exact: true }).click();
   await page.getByRole('button', { name: 'Choose a recording', exact: true }).click();
-  await expect(page.getByText('The right recording.')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Choose a recording', exact: true }),
+  ).toBeVisible();
   await page
     .getByRole('button', { name: 'Select Night swimming (Official Audio)', exact: true })
     .click();
@@ -153,7 +152,6 @@ test('public sharing is explicit, and its revocation is available in settings', 
 }) => {
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Share a listening link', exact: true }).click();
   await page.getByRole('button', { name: 'Create link', exact: true }).click();
@@ -170,18 +168,18 @@ test('listening history is readable and filtered without creating fake sessions'
   page,
 }) => {
   await preview(page);
-  await page.getByRole('button', { name: 'Downloads', exact: true }).click();
-  await page.getByRole('button', { name: 'Listening', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Recently played', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Listening history', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Play Weightless', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Skipped', exact: true }).click();
-  await expect(page.getByText('Your next song starts the story.')).toBeVisible();
+  await expect(page.getByText('No listening history')).toBeVisible();
 });
 test('leaving the preview clears its account and queue', async ({ page }) => {
   await preview(page);
   await startAlbum(page);
   await page.getByRole('button', { name: 'Open settings' }).click();
   await page.getByRole('button', { name: 'Leave the preview' }).click();
-  await expect(page.getByRole('button', { name: 'Find your wavelength' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Open now playing' })).toHaveCount(0);
 });
 test('phone and tablet screens stay within the viewport with reduced motion', async ({ page }) => {
@@ -189,14 +187,13 @@ test('phone and tablet screens stay within the viewport with reduced motion', as
   await page.setViewportSize({ width: 320, height: 740 });
   await preview(page);
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await page.getByRole('button', { name: 'Browse all music', exact: true }).click();
   await page.getByRole('button', { name: 'Albums', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Open album Blue hour' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
   await page.setViewportSize({ width: 834, height: 1112 });
-  await expect(page.getByRole('heading', { name: 'All music' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your library' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -207,7 +204,7 @@ test('play feed is an in-place mode and stopping it keeps the current song', asy
   await startAlbum(page);
   const home = page.url();
   await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
-  await expect(page.getByText('Play feed is on', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toBeVisible();
   expect(page.url()).toBe(home);
   await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
   await page.getByRole('button', { name: 'Open play queue', exact: true }).click();
@@ -216,9 +213,12 @@ test('play feed is an in-place mode and stopping it keeps the current song', asy
     page.getByRole('button', { name: 'Play queued Weightless', exact: true }),
   ).toBeVisible();
   const current = page.url();
-  await page.getByRole('button', { name: 'Turn off play feed', exact: true }).click();
+  const feedControl = page.getByRole('button', { name: 'Play feed', exact: true });
+  await feedControl.click();
   expect(page.url()).toBe(current);
-  await expect(page.getByText('Play feed is on', { exact: true })).toHaveCount(0);
-  await expect(page.getByText('1 songs, in your order.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toHaveCount(
+    0,
+  );
+  await expect(page.getByText('1 song', { exact: true })).toBeVisible();
   await expect(page.getByText(/^Recommended ·/)).toHaveCount(0);
 });

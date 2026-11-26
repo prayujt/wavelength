@@ -23,7 +23,7 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  Smartphone,
+  AudioLines,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -70,7 +70,7 @@ export function PlayerScreen() {
       <Screen>
         <Header title="Now playing" back />
         <Empty
-          title="Something good is one tap away."
+          title="Nothing playing"
           text="Choose a song from your library to start listening."
           action="Open library"
           onPress={() => router.replace('/library')}
@@ -129,8 +129,8 @@ export function PlayerScreen() {
             onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
           />
           <View style={{ alignItems: 'center', gap: 5 }}>
-            <Txt size={9} weight="bold" style={{ letterSpacing: 2, color: tint[2] }}>
-              NOW PLAYING
+            <Txt size={12} weight="bold" style={{ color: color.muted }}>
+              Now playing
             </Txt>
             <Txt size={11} numberOfLines={1} style={{ maxWidth: Math.max(100, width - 160) }}>
               {track.album}
@@ -143,8 +143,8 @@ export function PlayerScreen() {
             style={{
               width: size,
               height: size,
-              borderRadius: 15,
-              boxShadow: '0px 20px 50px #00000077',
+              borderRadius: 10,
+              boxShadow: '0px 12px 34px #00000050',
             }}
           >
             <Artwork
@@ -152,7 +152,7 @@ export function PlayerScreen() {
               id={track.albumId || track.album}
               path={track.artworkPath}
               size={size}
-              radius={15}
+              radius={10}
             />
           </View>
         </FadeIn>
@@ -293,12 +293,13 @@ export function PlayerScreen() {
             marginBottom: 18,
           }}
         >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-            <Smartphone size={15} color={color.accent} />
-            <Txt size={10} style={{ color: color.accent }}>
-              This device
-            </Txt>
-          </View>
+          <IconButton
+            icon={AudioLines}
+            label={player.playFeedEnabled ? 'Turn off play feed' : 'Turn on play feed'}
+            active={player.playFeedEnabled}
+            onPress={player.togglePlayFeed}
+            size={19}
+          />
           <View style={{ flexDirection: 'row', gap: 5 }}>
             <IconButton
               icon={Share2}
@@ -341,11 +342,10 @@ export function QueueScreen() {
             <Header
               back
               title="Play queue"
-              eyebrow="YOUR QUEUE"
               subtitle={
                 player.playFeedEnabled
-                  ? 'A few suggestions, updated as you listen.'
-                  : `${player.queue.length} songs, in your order.`
+                  ? 'Suggestions update as you listen.'
+                  : `${player.queue.length} ${player.queue.length === 1 ? 'song' : 'songs'}`
               }
               right={
                 player.queue.length > 0 ? (
@@ -536,7 +536,6 @@ export function LyricsScreen() {
         <Header
           back
           title={track.title}
-          eyebrow="THE WORDS"
           subtitle={track.artist}
           right={
             timed ? (

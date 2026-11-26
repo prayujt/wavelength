@@ -46,7 +46,7 @@ export function SettingsScreen() {
   const profile = user.data?.user;
   return (
     <Screen>
-      <Header back title="On your wavelength." eyebrow="YOUR SPACE" />
+      <Header back title="Settings" />
       <View
         style={{
           marginHorizontal: 24,
@@ -62,7 +62,7 @@ export function SettingsScreen() {
               width: 61,
               height: 61,
               borderRadius: 31,
-              backgroundColor: '#2D4833',
+              backgroundColor: color.accentInk,
               justifyContent: 'center',
               alignItems: 'center',
             }}
@@ -98,7 +98,7 @@ export function SettingsScreen() {
           </Txt>
         </View>
       </View>
-      <Section title="A few things worth keeping">
+      <Section title="Saved items">
         <View
           style={{
             marginHorizontal: 24,
@@ -276,12 +276,7 @@ export function BookmarksScreen() {
   const tracks = useTracks(data.data?.bookmarks.map((b) => b.trackId) || []);
   return (
     <Screen>
-      <Header
-        back
-        title="Right where you left it."
-        eyebrow="SAVED BOOKMARKS"
-        subtitle="Some moments are worth coming back to."
-      />
+      <Header back title="Bookmarks" subtitle="Saved playback positions" />
       {data.isPending || tracks.isPending ? (
         <Loading />
       ) : data.error || tracks.error ? (
@@ -362,12 +357,7 @@ export function SharesScreen() {
   });
   return (
     <Screen>
-      <Header
-        back
-        title="Good music travels."
-        eyebrow="YOUR SHARED LINKS"
-        subtitle="A little part of your collection, sent out into the world."
-      />
+      <Header back title="Shared links" subtitle="Manage listening links" />
       {data.isPending ? (
         <Loading />
       ) : data.error ? (

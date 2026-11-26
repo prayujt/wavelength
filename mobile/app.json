@@ -7,7 +7,7 @@
     "orientation": "default",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#0A1111",
+    "backgroundColor": "#101216",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.prayujt.wavelength",
@@ -19,7 +19,7 @@
       "package": "com.prayujt.wavelength",
       "adaptiveIcon": {
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundColor": "#0A1111",
+        "backgroundColor": "#101216",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "blockedPermissions": ["android.permission.RECORD_AUDIO"]
@@ -40,7 +40,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0A1111",
+          "backgroundColor": "#101216",
           "image": "./assets/splash-icon.png",
           "imageWidth": 100
         }

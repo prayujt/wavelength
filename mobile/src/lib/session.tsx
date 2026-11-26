@@ -338,8 +338,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         window.location.assign(url);
       } else
         await WebBrowser.openBrowserAsync(url, {
-          toolbarColor: '#0A1111',
-          controlsColor: '#C7F3CB',
+          toolbarColor: '#101216',
+          controlsColor: '#B7C8FF',
           showTitle: false,
           enableBarCollapsing: true,
         });

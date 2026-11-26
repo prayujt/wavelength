@@ -3,6 +3,12 @@ import { color } from '../../../../lib/theme';
 
 export default function LibraryLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bg } }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: 'none',
+        contentStyle: { backgroundColor: color.bg },
+      }}
+    />
   );
 }

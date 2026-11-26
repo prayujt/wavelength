@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
-import { RefreshCw, Library, Plus } from 'lucide-react-native';
+import { Download, RefreshCw, Library, Plus } from 'lucide-react-native';
 import type { Album, Artist, Playlist, Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
@@ -38,20 +38,23 @@ export function CatalogScreen() {
   const data = useInfiniteQuery({
     queryKey: [filter === 'Playlists' ? 'playlists' : 'library', filter, query],
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
+    queryFn: async ({ pageParam, signal }) => {
       if (filter === 'Songs') {
-        const r = await api.library.listTracks({ query, offset: pageParam, limit: 80 });
+        const r = await api.library.listTracks({ query, offset: pageParam, limit: 80 }, { signal });
         return { items: r.tracks as Item[], total: r.total };
       }
       if (filter === 'Albums') {
-        const r = await api.library.listAlbums({ query, offset: pageParam, limit: 60 });
+        const r = await api.library.listAlbums({ query, offset: pageParam, limit: 60 }, { signal });
         return { items: r.albums as Item[], total: r.total };
       }
       if (filter === 'Artists') {
-        const r = await api.library.listArtists({ query, offset: pageParam, limit: 60 });
+        const r = await api.library.listArtists(
+          { query, offset: pageParam, limit: 60 },
+          { signal },
+        );
         return { items: r.artists as Item[], total: r.total };
       }
-      const r = await api.user.listPlaylists({ limit: 500 });
+      const r = await api.user.listPlaylists({ limit: 500 }, { signal });
       const items = r.playlists.filter((p) => p.name.toLowerCase().includes(query.toLowerCase()));
       return { items, total: items.length };
     },
@@ -62,17 +65,19 @@ export function CatalogScreen() {
   });
   const items = data.data?.pages.flatMap((p) => p.items) || [];
   const ordered = items;
-  const columns = filter === 'Songs' ? 1 : width >= 740 ? 3 : 2,
+  const columns = filter === 'Songs' ? 1 : width >= 940 ? 4 : width >= 620 ? 3 : 2,
     cardWidth = (width - 48 - (columns - 1) * 16) / columns;
+  const total = data.data?.pages[0].total;
   return (
     <Screen scroll={false}>
       <FlatList
         testID="catalog-scroll"
-        key={columns}
+        key={filter + columns}
         data={ordered}
         keyExtractor={(item) => item.id}
         numColumns={columns}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingBottom: bottom }}
         columnWrapperStyle={
           columns > 1 ? { paddingHorizontal: 24, gap: 16, marginBottom: 26 } : undefined
@@ -80,16 +85,22 @@ export function CatalogScreen() {
         ListHeaderComponent={
           <View>
             <Header
-              title="All music"
-              subtitle="Browse your full collection."
-              back
+              title="Your library"
               right={
-                <IconButton
-                  icon={Plus}
-                  label="Create playlist"
-                  active
-                  onPress={() => router.push('/playlist-edit')}
-                />
+                <View style={{ flexDirection: 'row' }}>
+                  <IconButton
+                    icon={Download}
+                    label="Server downloads"
+                    onPress={() =>
+                      router.navigate({ pathname: '/activity', params: { section: 'downloads' } })
+                    }
+                  />
+                  <IconButton
+                    icon={Plus}
+                    label="Create playlist"
+                    onPress={() => router.push('/playlist-edit')}
+                  />
+                </View>
               }
             />
             <ScrollView
@@ -123,9 +134,9 @@ export function CatalogScreen() {
               }}
             >
               <Txt muted size={11}>
-                {data.data
-                  ? `${data.data.pages[0].total} ${filter.toLowerCase()}`
-                  : 'Your collection'}
+                {total !== undefined
+                  ? `${total} ${total === 1 ? filter.toLowerCase().replace(/s$/, '') : filter.toLowerCase()}`
+                  : ''}
               </Txt>
               <IconButton
                 icon={RefreshCw}
@@ -158,17 +169,17 @@ export function CatalogScreen() {
               icon={Library}
               title={
                 query
-                  ? 'Nothing here by that name'
+                  ? 'No matches'
                   : filter === 'Playlists'
-                    ? 'A good place to start'
-                    : 'Room for something good'
+                    ? 'No playlists yet'
+                    : `No ${filter.toLowerCase()} yet`
               }
               text={
                 query
-                  ? 'Try another name or explore the catalog in Discover.'
+                  ? 'Try a different search.'
                   : filter === 'Playlists'
-                    ? 'Put a few favorites together. Make a soundtrack for anything.'
-                    : 'Find a favorite in Discover and bring it into your collection.'
+                    ? 'Create a playlist to save songs together.'
+                    : 'Find music in Search and add it to your library.'
               }
               action={filter === 'Playlists' ? 'Create a playlist' : 'Discover music'}
               onPress={() => router.push(filter === 'Playlists' ? '/playlist-edit' : '/search')}

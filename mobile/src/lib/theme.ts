@@ -1,16 +1,16 @@
 export const color = {
-  bg: '#0A1111',
-  surface: '#121D1C',
-  raised: '#1D2B28',
-  line: '#283733',
-  text: '#F5F3EA',
-  muted: '#99AAA2',
-  faint: '#63796F',
-  accent: '#C7F3CB',
-  accentInk: '#173A26',
+  bg: '#101216',
+  surface: '#181B21',
+  raised: '#222630',
+  line: '#303642',
+  text: '#F2F4F8',
+  muted: '#ACB3C1',
+  faint: '#828C9D',
+  accent: '#B7C8FF',
+  accentInk: '#19264C',
   gold: '#E0BC92',
   danger: '#F0A49B',
-  overlay: '#030B09CC',
+  overlay: '#090B10CC',
 };
 export const font = {
   regular: 'DMSans_400Regular',
@@ -37,5 +37,5 @@ export function colors(value: string) {
 }
 // The home-indicator inset belongs inside the bar's painted background.
 export const TAB_BAR_HEIGHT = 52;
-export const PLAYER_DOCK_HEIGHT = 64;
+export const PLAYER_DOCK_HEIGHT = 60;
 export const PLAYER_DOCK_GAP = 6;

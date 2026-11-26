@@ -6,7 +6,9 @@ import { usePlayer } from '../lib/player';
 export function AppFrame({ children }: { children: React.ReactNode }) {
   const insets = useSafeAreaInsets();
   const player = usePlayer();
-  const headerVisible = player.playFeedEnabled || (player.playFeedError && !!player.error);
+  const headerVisible =
+    (player.playFeedEnabled && !player.track) ||
+    (!player.playFeedEnabled && player.playFeedError && !!player.error);
   const handlesTop = Platform.OS === 'web' || headerVisible;
   const contentInsets = useMemo(
     () => ({ ...insets, top: handlesTop ? 0 : insets.top }),
