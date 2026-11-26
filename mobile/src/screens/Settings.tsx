@@ -19,6 +19,7 @@ import { useTracks, useUser } from '../lib/queries';
 import { color } from '../lib/theme';
 import { clock } from '../core/queue';
 import { TrackRow } from '../components/media';
+import { Equalizer } from '../components/equalizer';
 import {
   Button,
   Empty,
@@ -31,7 +32,6 @@ import {
   Screen,
   Section,
   Txt,
-  WaveMark,
 } from '../components/ui';
 import { useFeedback } from '../components/feedback';
 
@@ -252,7 +252,7 @@ export function SettingsScreen() {
         />
       </View>
       <View style={{ alignItems: 'center', paddingVertical: 25, gap: 11 }}>
-        <WaveMark size={29} />
+        <Equalizer size={29} />
         <Txt size={12} muted>
           Less noise. More music.
         </Txt>

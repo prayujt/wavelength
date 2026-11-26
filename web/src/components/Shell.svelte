@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import {
-    AudioLines,
     ChevronDown,
     ChevronRight,
     Compass,
@@ -15,7 +14,6 @@
     PanelLeftClose,
     PanelLeftOpen,
     Search,
-    Sparkles,
     Sun,
     Users,
     X,
@@ -39,6 +37,7 @@
   import Playlists from '../views/Playlists.svelte';
   import Notice from './Notice.svelte';
   import Player from './Player.svelte';
+  import PlaybackWave from './PlaybackWave.svelte';
   import PlaylistPicker from './PlaylistPicker.svelte';
   import CommandPalette from './CommandPalette.svelte';
   import DownloadReview from './DownloadReview.svelte';
@@ -74,10 +73,10 @@
       items: [
         { label: 'Discover', page: 'discover', tab: '', icon: Compass },
         { label: 'Downloads', page: 'imports', tab: '', icon: Download },
-        { label: 'Play feed', page: 'feed', tab: '', icon: AudioLines },
+        { label: 'Play feed', page: 'feed', tab: '', icon: PlaybackWave },
       ],
     },
-  ];
+  ] as const;
   const pageName = $derived(
     route.page === 'feed'
       ? 'Library'
@@ -170,9 +169,9 @@
     <aside class="sidebar">
       <div class="sidebar-heading">
         <a class="workspace-brand" href="#library" onclick={closeMobile}
-          ><span class="workspace-mark"><AudioLines size={18} /></span><strong
-            >Wavelength</strong
-          ></a
+          ><span class="workspace-mark"
+            ><PlaybackWave playing={player.audioActive} /></span
+          ><strong>Wavelength</strong></a
         ><button
           class="icon-button"
           aria-label="Hide sidebar"
@@ -197,7 +196,7 @@
                     void player.togglePlayFeed();
                     closeMobile();
                   }}
-                  ><item.icon size={17} strokeWidth={1.7} /><span
+                  ><PlaybackWave size={17} playing={player.audioActive} /><span
                     >Play feed</span
                   >{#if player.playFeedEnabled}<small>On</small>{/if}</button
                 >
@@ -239,7 +238,7 @@
             aria-label="Show sidebar"
             onclick={() => (sidebar = true)}><PanelLeftOpen size={17} /></button
           >{/if}<a href="#library" class="breadcrumb-workspace"
-          ><AudioLines size={15} /> Wavelength</a
+          ><PlaybackWave size={15} playing={player.audioActive} /> Wavelength</a
         ><ChevronRight size={12} /><span class="breadcrumb-current"
           >{pageName}</span
         >
@@ -267,7 +266,7 @@
     </header>
     {#if player.playFeedEnabled}
       <div class="play-feed-mode-bar" data-testid="play-feed-mode">
-        <Sparkles size={18} />
+        <PlaybackWave playing={player.audioActive} />
         <div aria-live="polite">
           <strong>Play feed is on</strong><small
             >{player.startingFeed

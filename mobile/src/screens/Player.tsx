@@ -12,7 +12,6 @@ import {
   Bookmark,
   ChevronDown,
   ListMusic,
-  Sparkles,
   MoreHorizontal,
   Pause,
   Play,
@@ -23,7 +22,6 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
-  AudioLines,
   Trash2,
   X,
 } from 'lucide-react-native';
@@ -34,6 +32,7 @@ import { color, colors } from '../lib/theme';
 import { clock } from '../core/queue';
 import { parseLyrics } from '../core/lyrics';
 import { Artwork } from '../components/artwork';
+import { Equalizer } from '../components/equalizer';
 import { useMediaMenu } from '../components/media';
 import {
   Button,
@@ -294,7 +293,7 @@ export function PlayerScreen() {
           }}
         >
           <IconButton
-            icon={AudioLines}
+            icon={Equalizer}
             label={player.playFeedEnabled ? 'Turn off play feed' : 'Turn on play feed'}
             active={player.playFeedEnabled}
             onPress={player.togglePlayFeed}
@@ -379,7 +378,7 @@ export function QueueScreen() {
                 title="Play feed"
                 active={player.playFeedEnabled}
                 onPress={player.togglePlayFeed}
-                icon={Sparkles}
+                icon={Equalizer}
               />
               <Pill
                 title="Shuffle"
@@ -481,7 +480,7 @@ export function QueueScreen() {
             <Loading rows={3} />
           ) : (
             <Empty
-              icon={Sparkles}
+              icon={Equalizer}
               title="Your next song is out there"
               text="Start a play feed from your listening history, or choose a song from your library."
               action="Start play feed"

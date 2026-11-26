@@ -518,6 +518,40 @@ test.describe('Mobile polish', () => {
       .toBeLessThanOrEqual(52);
   });
 
+  test('the waveform moves with playback and stays still with reduced motion', async ({
+    page,
+    context,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.getByRole('button', { name: 'Go back', exact: true }).last().click();
+    const bar = page
+      .getByRole('button', { name: 'Open now playing', exact: true })
+      .getByTestId('playback-wave')
+      .locator('div')
+      .first();
+    const scale = () => bar.evaluate((element) => getComputedStyle(element).transform);
+    const first = await scale();
+    await expect.poll(scale).not.toBe(first);
+
+    await page.getByRole('button', { name: 'Pause playback', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Resume playback', exact: true })).toBeVisible();
+    const rest = await scale();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByRole('button', { name: 'Resume playback', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+    expect(
+      await bar.evaluate(async (element) => {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return getComputedStyle(element).transform;
+      }),
+    ).toBe(rest);
+  });
+
   test('play feed stays active in place and direct selections replace the old queue', async ({
     page,
     context,

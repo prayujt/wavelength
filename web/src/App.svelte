@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { ArrowRight, AudioLines, RefreshCw } from '@lucide/svelte';
+  import { ArrowRight, RefreshCw } from '@lucide/svelte';
+  import PlaybackWave from './components/PlaybackWave.svelte';
   import { session } from './lib/session.svelte';
   import SharedPlayer from './views/SharedPlayer.svelte';
   const shareToken = window.location.pathname.match(
@@ -19,7 +20,7 @@
   >
     <section class="login-card">
       <a class="login-brand" href="/"
-        ><AudioLines size={32} /><span>Wavelength</span></a
+        ><PlaybackWave size={32} /><span>Wavelength</span></a
       >
       <h1>Your music library</h1>
       <p>Sign in to browse, listen, and download music.</p>

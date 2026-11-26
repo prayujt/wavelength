@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { AudioLines, Play, Mic2 } from '@lucide/svelte';
+  import { Play, Mic2 } from '@lucide/svelte';
   import { create } from '@bufbuild/protobuf';
   import { TrackSchema } from '../gen/wavelength/v1/library_pb';
   import Lyrics from '../components/Lyrics.svelte';
   import Cover from '../components/Cover.svelte';
   import { duration } from '../lib/format';
+  import { observeAudioActivity } from '../lib/audio-activity';
+  import PlaybackWave from '../components/PlaybackWave.svelte';
   type SharedTrack = {
     id: string;
     title: string;
@@ -56,6 +58,7 @@
   }
   let url = $state('');
   let busy = $state(false);
+  let audioActive = $state(false);
   let audio: HTMLAudioElement;
   const controller = new AbortController();
   const base = $derived(`/s/${encodeURIComponent(token)}`);
@@ -126,7 +129,7 @@
 >
 <main class="shared-player">
   <a class="login-brand" href="/"
-    ><AudioLines size={24} /><span>Wavelength</span></a
+    ><PlaybackWave size={24} playing={audioActive} /><span>Wavelength</span></a
   >
   {#if loading}<p role="status">Opening shared music…</p>{:else}<header
       class="entity-header"
@@ -180,6 +183,7 @@
     </div>
     <audio
       bind:this={audio}
+      use:observeAudioActivity={(active) => (audioActive = active)}
       controls
       ontimeupdate={() => (position = audio.currentTime)}
       preload="none"

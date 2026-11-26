@@ -369,8 +369,8 @@ export function TrackRow({
             />
           ) : (
             <View style={s.number}>
-              {active && player.playing ? (
-                <Equalizer />
+              {active ? (
+                <Equalizer size={16} />
               ) : (
                 <Txt muted size={13} style={active ? { color: color.accent } : undefined}>
                   {index + 1}
@@ -379,14 +379,17 @@ export function TrackRow({
             </View>
           )}
           <View style={{ flex: 1, gap: 3 }}>
-            <Txt
-              size={14}
-              weight="medium"
-              numberOfLines={1}
-              style={active ? { color: color.accent } : undefined}
-            >
-              {track.title || 'Loading song…'}
-            </Txt>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {active && index === undefined && <Equalizer size={13} />}
+              <Txt
+                size={14}
+                weight="medium"
+                numberOfLines={1}
+                style={{ flex: 1, color: active ? color.accent : color.text }}
+              >
+                {track.title || 'Loading song…'}
+              </Txt>
+            </View>
             <Txt muted size={12} numberOfLines={1}>
               {subtitle || track.artist}
               {device.enabled && device.items.some((item) => item.track.id === track.id)

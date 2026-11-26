@@ -16,7 +16,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { ArrowLeft, ArrowRight, Search, X, type LucideIcon } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -175,6 +175,8 @@ export function Press({ children, onPress, label, style, disabled, testID, selec
     </Animated.View>
   );
 }
+type ControlIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
 export function Button({
   title,
   onPress,
@@ -187,7 +189,7 @@ export function Button({
 }: {
   title: string;
   onPress?: () => unknown | Promise<unknown>;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
   secondary?: boolean;
   small?: boolean;
   disabled?: boolean;
@@ -243,7 +245,7 @@ export function IconButton({
   disabled,
   tint,
 }: {
-  icon: LucideIcon;
+  icon: ControlIcon;
   label: string;
   onPress?: () => unknown | Promise<unknown>;
   active?: boolean;
@@ -272,7 +274,7 @@ export function Pill({
   title: string;
   active?: boolean;
   onPress: () => unknown;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
 }) {
   return (
     <Press
@@ -486,7 +488,7 @@ export function Empty({
 }: {
   title: string;
   text: string;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
   action?: string;
   onPress?: () => unknown;
 }) {
