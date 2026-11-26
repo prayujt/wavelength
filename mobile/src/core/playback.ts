@@ -47,6 +47,7 @@ export type PlaybackSnapshot = {
   index: number;
   track?: Track;
   playing: boolean;
+  audioActive: boolean;
   loading: boolean;
   error: string;
   repeat: RepeatMode;
@@ -69,6 +70,7 @@ const empty = (): PlaybackSnapshot => ({
   queue: [],
   index: 0,
   playing: false,
+  audioActive: false,
   loading: false,
   error: '',
   repeat: 'off',
@@ -305,6 +307,25 @@ export class PlaybackController {
     void this.save();
     this.refillShortBuffer();
   };
+  leavePage = () => {
+    this.restoredPosition = this.audio.position() || this.restoredPosition;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    void this.save();
+    void this.reporter?.finish(this.restoredPosition, 'stopped');
+    ++this.serial;
+    ++this.navigation;
+    this.waitingForFeed = 0;
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
+    this.feed.cancel();
+    this.discardPrepared();
+    this.loaded = null;
+    this.pendingSeek = null;
+    this.audio.replace(null);
+    this.audio.clearMetadata();
+    this.patch({ loading: false, playing: false, audioActive: false, startingFeed: false });
+    void this.revoke();
+  };
   private refillShortBuffer() {
     // Do not cancel in-flight work or defer a background refill to a suspended timer.
     if (
@@ -408,7 +429,7 @@ export class PlaybackController {
     this.pendingSeek = null;
     void this.reporter?.finish(previous, outcome, reason);
     this.ended = false;
-    this.patch({ loading: true, error: '', playing: false });
+    this.patch({ loading: true, error: '', playing: false, audioActive: false });
     void this.revoke();
     try {
       // A large playlist can enqueue its full ordered ID list immediately.
@@ -457,9 +478,23 @@ export class PlaybackController {
   }
   status = (status: NativeStatus) => {
     const wasPlaying = this.snapshot.playing;
-    if (this.snapshot.playing !== status.playing) {
-      this.patch({ playing: status.playing });
-      if (this.loaded && !this.snapshot.loading && !this.waitingForFeed && !status.didJustFinish) {
+    const playingChanged = wasPlaying !== status.playing;
+    const audioActive =
+      !!this.loaded &&
+      status.playing &&
+      status.isLoaded &&
+      !status.isBuffering &&
+      !status.didJustFinish &&
+      !status.error;
+    if (playingChanged || this.snapshot.audioActive !== audioActive) {
+      this.patch({ playing: status.playing, audioActive });
+      if (
+        playingChanged &&
+        this.loaded &&
+        !this.snapshot.loading &&
+        !this.waitingForFeed &&
+        !status.didJustFinish
+      ) {
         if (this.port?.background?.()) this.feed.maintain();
         else this.feed.schedule();
       }
@@ -527,7 +562,7 @@ export class PlaybackController {
     if (playing) {
       this.reporter?.sample(this.audio.position(), true);
       this.audio.pause();
-      this.patch({ playing: false });
+      this.patch({ playing: false, audioActive: false });
       void this.reporter?.report(this.audio.position(), false);
       void this.save();
     } else {
@@ -574,7 +609,7 @@ export class PlaybackController {
     if (next === null) {
       this.audio.pause();
       this.ended = true;
-      this.patch({ playing: false });
+      this.patch({ playing: false, audioActive: false });
       void this.save();
       return;
     }
@@ -694,7 +729,7 @@ export class PlaybackController {
     this.original = [];
     this.restoredPosition = 0;
     this.commit([], 0);
-    this.patch({ error: '', playing: false, startingFeed: false });
+    this.patch({ error: '', playing: false, audioActive: false, startingFeed: false });
     await this.revoke();
     await this.save();
   };

@@ -1,5 +1,16 @@
 import React, { createContext, useContext, useState } from 'react';
-import { Modal, Pressable, Share, StyleSheet, View, ScrollView } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Modal,
+  Platform,
+  Pressable,
+  Share,
+  StyleSheet,
+  View,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
 import { router } from 'expo-router';
 import * as Clipboard from 'expo-clipboard';
 import { useQueryClient } from '@tanstack/react-query';
@@ -30,9 +41,9 @@ import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
 import { usePlaylists } from '../lib/queries';
 import { color } from '../lib/theme';
-import { Artwork } from './artwork';
+import { Artwork, PlaylistArtwork } from './artwork';
 import { Equalizer } from './equalizer';
-import { Button, IconButton, Press, Txt } from './ui';
+import { Button, IconButton, Press, Txt, useReducedMotion } from './ui';
 import { useFeedback } from './feedback';
 import { useDevice } from './device';
 
@@ -44,6 +55,11 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
   const [track, setTrack] = useState<Track | null>(null),
     [adding, setAdding] = useState(false);
   const [shared, setShared] = useState<{ url: string; name: string } | null>(null);
+  const [sheetProgress] = useState(() => new Animated.Value(0));
+  const [sheetHeight, setSheetHeight] = useState(0);
+  const [closing, setClosing] = useState(false);
+  const reduced = useReducedMotion();
+  const { height } = useWindowDimensions();
   const api = useAPI(),
     device = useDevice(),
     player = usePlayer(),
@@ -51,9 +67,33 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
     cache = useQueryClient();
   const playlists = usePlaylists(),
     insets = useSafeAreaInsets();
-  function close() {
+  function resetMenu() {
     setTrack(null);
     setAdding(false);
+  }
+  function animateMenu(toValue: number) {
+    return Animated.timing(sheetProgress, {
+      toValue,
+      duration: reduced ? 0 : 220,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: Platform.OS !== 'web',
+      isInteraction: false,
+    });
+  }
+  function close() {
+    if (closing) return Promise.resolve();
+    if (reduced) {
+      resetMenu();
+      return Promise.resolve();
+    }
+    setClosing(true);
+    return new Promise<void>((resolve) => {
+      animateMenu(0).start(({ finished }) => {
+        if (finished) resetMenu();
+        setClosing(false);
+        resolve();
+      });
+    });
   }
   async function share(ids: string[], name: string) {
     if (
@@ -130,7 +170,7 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
           title: 'Share a listening link',
           icon: Share2,
           async run() {
-            close();
+            await close();
             await share([track.id], track.title);
           },
         },
@@ -178,6 +218,7 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
     <MenuContext.Provider
       value={{
         open(value) {
+          sheetProgress.setValue(reduced ? 1 : 0);
           setTrack(value);
           setAdding(false);
         },
@@ -185,16 +226,46 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
       }}
     >
       {children}
-      <Modal transparent animationType="slide" visible={!!track} onRequestClose={close}>
-        <View style={s.modal}>
+      <Modal
+        transparent
+        visible={!!track}
+        onShow={() => {
+          if (!reduced && !closing) animateMenu(1).start();
+        }}
+        onRequestClose={() => void close()}
+      >
+        <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: color.overlay, opacity: sheetProgress },
+            ]}
+          />
           <Pressable
-            onPress={close}
+            onPress={() => void close()}
             accessibilityLabel="Close song menu"
             style={StyleSheet.absoluteFill}
           />
-          <View
+          <Animated.View
             accessibilityViewIsModal
-            style={[s.sheet, { paddingBottom: Math.max(insets.bottom, 20), maxHeight: '85%' }]}
+            testID="song-menu-sheet"
+            onLayout={(event) => setSheetHeight(event.nativeEvent.layout.height)}
+            style={[
+              s.sheet,
+              {
+                paddingBottom: Math.max(insets.bottom, 20),
+                maxHeight: '85%',
+                transform: [
+                  {
+                    translateY: sheetProgress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [sheetHeight || height, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
           >
             <View style={s.handle} />
             <View style={s.sheetHeader}>
@@ -214,7 +285,7 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
                   {track?.artist}
                 </Txt>
               </View>
-              <IconButton icon={X} label="Close menu" onPress={close} />
+              <IconButton icon={X} label="Close menu" onPress={() => void close()} />
             </View>
             <ScrollView showsVerticalScrollIndicator={false}>
               {adding ? (
@@ -267,7 +338,7 @@ export function MediaMenuProvider({ children }: { children: React.ReactNode }) {
                 ))
               )}
             </ScrollView>
-          </View>
+          </Animated.View>
         </View>
       </Modal>
       <Modal
@@ -357,22 +428,31 @@ export function TrackRow({
         <Press
           label={`Play ${track.title}`}
           onPress={onPress || onPlay || (() => player.play([track]))}
+          selected={active}
+          pressFeedback={false}
           style={s.trackMain}
         >
           {index === undefined ? (
-            <Artwork
-              title={track.album}
-              id={track.albumId || track.album}
-              path={track.artworkPath}
-              size={44}
-              radius={6}
-            />
+            <View>
+              <Artwork
+                title={track.album}
+                id={track.albumId || track.album}
+                path={track.artworkPath}
+                size={44}
+                radius={6}
+              />
+              {active && (
+                <View style={s.trackWave}>
+                  <Equalizer size={13} />
+                </View>
+              )}
+            </View>
           ) : (
             <View style={s.number}>
-              {active && player.playing ? (
-                <Equalizer />
+              {active ? (
+                <Equalizer size={16} />
               ) : (
-                <Txt muted size={13} style={active ? { color: color.accent } : undefined}>
+                <Txt muted size={13}>
                   {index + 1}
                 </Txt>
               )}
@@ -383,7 +463,7 @@ export function TrackRow({
               size={14}
               weight="medium"
               numberOfLines={1}
-              style={active ? { color: color.accent } : undefined}
+              style={{ color: active ? color.accent : color.text }}
             >
               {track.title || 'Loading song…'}
             </Txt>
@@ -458,7 +538,7 @@ export function PlaylistCard({ playlist, width = 155 }: { playlist: Playlist; wi
       onPress={() => router.push({ pathname: '/playlist/[id]', params: { id: playlist.id } })}
       style={{ width, gap: 10 }}
     >
-      <Artwork title={playlist.name} id={playlist.id} size={width} radius={8} />
+      <PlaylistArtwork playlist={playlist} size={width} radius={8} />
       <View style={{ gap: 3 }}>
         <Txt weight="bold" size={13} numberOfLines={1}>
           {playlist.name}
@@ -531,6 +611,14 @@ const s = StyleSheet.create({
     gap: 8,
   },
   trackMain: { flexDirection: 'row', alignItems: 'center', gap: 11, minHeight: 58 },
+  trackWave: {
+    position: 'absolute',
+    right: 2,
+    bottom: 2,
+    padding: 3,
+    borderRadius: 4,
+    backgroundColor: color.bg,
+  },
   number: { width: 28, alignItems: 'center' },
   modal: { flex: 1, backgroundColor: color.overlay, justifyContent: 'flex-end' },
   sheet: {

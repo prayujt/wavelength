@@ -14,6 +14,7 @@ export class PlayerState {
   position = $state(0);
   length = $state(0);
   playing = $state(false);
+  audioActive = $state(false);
   loading = $state(false);
   error = $state('');
   track = $derived(this.tracks[this.index]);

@@ -1,7 +1,7 @@
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { AudioLines, Clock3, Disc3, Download, Music2, Settings, Users } from 'lucide-react-native';
+import { Clock3, Disc3, Download, Music2, Settings, Sparkles, Users } from 'lucide-react-native';
 import type { Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI, useSession } from '../lib/session';
 import { usePlaylists } from '../lib/queries';
@@ -105,7 +105,7 @@ export function HomeScreen() {
         onPress={player.togglePlayFeed}
         style={s.feed}
       >
-        <AudioLines size={18} color={player.playFeedEnabled ? color.accent : color.muted} />
+        <Sparkles size={18} color={player.playFeedEnabled ? color.accent : color.muted} />
         <Txt size={13} weight="bold" style={{ flex: 1 }}>
           Play feed
         </Txt>

@@ -16,7 +16,7 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native';
-import { ArrowLeft, ArrowRight, Search, X, type LucideIcon } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Search, X } from 'lucide-react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -119,14 +119,24 @@ type PressProps = {
   disabled?: boolean;
   testID?: string;
   selected?: boolean;
+  pressFeedback?: boolean;
 };
-export function Press({ children, onPress, label, style, disabled, testID, selected }: PressProps) {
+export function Press({
+  children,
+  onPress,
+  label,
+  style,
+  disabled,
+  testID,
+  selected,
+  pressFeedback = true,
+}: PressProps) {
   const scale = useState(() => new Animated.Value(1))[0],
     reduced = useReducedMotion(),
     feedback = useFeedback();
   const [busy, setBusy] = useState(false);
   function animate(toValue: number) {
-    if (!reduced)
+    if (pressFeedback && !reduced)
       Animated.spring(scale, {
         toValue,
         damping: 20,
@@ -144,7 +154,7 @@ export function Press({ children, onPress, label, style, disabled, testID, selec
         flexShrink: layout?.flexShrink,
         alignSelf: layout?.alignSelf,
         transform: [{ scale }],
-        opacity: disabled || busy ? 0.4 : 1,
+        opacity: disabled || (busy && pressFeedback) ? 0.4 : 1,
       }}
     >
       <Pressable
@@ -175,6 +185,8 @@ export function Press({ children, onPress, label, style, disabled, testID, selec
     </Animated.View>
   );
 }
+type ControlIcon = React.ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+
 export function Button({
   title,
   onPress,
@@ -187,7 +199,7 @@ export function Button({
 }: {
   title: string;
   onPress?: () => unknown | Promise<unknown>;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
   secondary?: boolean;
   small?: boolean;
   disabled?: boolean;
@@ -243,7 +255,7 @@ export function IconButton({
   disabled,
   tint,
 }: {
-  icon: LucideIcon;
+  icon: ControlIcon;
   label: string;
   onPress?: () => unknown | Promise<unknown>;
   active?: boolean;
@@ -272,7 +284,7 @@ export function Pill({
   title: string;
   active?: boolean;
   onPress: () => unknown;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
 }) {
   return (
     <Press
@@ -486,7 +498,7 @@ export function Empty({
 }: {
   title: string;
   text: string;
-  icon?: LucideIcon;
+  icon?: ControlIcon;
   action?: string;
   onPress?: () => unknown;
 }) {
@@ -612,6 +624,7 @@ const s = StyleSheet.create({
   input: {
     color: color.text,
     flex: 1,
+    minWidth: 0,
     minHeight: 50,
     fontFamily: font.regular,
     fontSize: 16,

@@ -184,7 +184,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const checkpoint = () => controller.checkpoint();
     if (Platform.OS === 'web') {
       window.addEventListener('online', controller.refreshRecommendations);
-      window.addEventListener('pagehide', checkpoint);
+      window.addEventListener('pagehide', controller.leavePage);
       document.addEventListener('visibilitychange', checkpoint);
     }
     return () => {
@@ -192,7 +192,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       app.remove();
       if (Platform.OS === 'web') {
         window.removeEventListener('online', controller.refreshRecommendations);
-        window.removeEventListener('pagehide', checkpoint);
+        window.removeEventListener('pagehide', controller.leavePage);
         document.removeEventListener('visibilitychange', checkpoint);
       }
     };

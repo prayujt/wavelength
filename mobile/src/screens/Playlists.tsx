@@ -6,7 +6,7 @@ import { ChevronRight, ListMusic, Plus } from 'lucide-react-native';
 import type { Playlist } from '../gen/wavelength/v1/library_pb';
 import { usePlaylists } from '../lib/queries';
 import { color } from '../lib/theme';
-import { Artwork } from '../components/artwork';
+import { PlaylistArtwork } from '../components/artwork';
 import {
   Empty,
   Failure,
@@ -32,7 +32,7 @@ function PlaylistRow({ playlist }: { playlist: Playlist }) {
         marginHorizontal: 24,
       }}
     >
-      <Artwork title={playlist.name} id={playlist.id} size={50} radius={8} />
+      <PlaylistArtwork playlist={playlist} size={50} radius={8} />
       <View style={{ flex: 1, gap: 6 }}>
         <Txt size={16} weight="medium" numberOfLines={1}>
           {playlist.name}

@@ -342,6 +342,51 @@ test('artwork loads and artist/album pages have persistent navigation', async ({
   });
 });
 
+test('playback animates the sidebar and player waveforms until buffering or pause', async ({
+  page,
+}) => {
+  await signedIn(page);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await page.goto('/');
+  const sidebarWave = page
+    .locator('.workspace-mark')
+    .getByTestId('playback-wave');
+  const playerWave = page.locator('.now-playing').getByTestId('playback-wave');
+  await expect(sidebarWave.locator('path').first()).toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await page.getByRole('button', { name: 'First Light', exact: true }).click();
+  await expect(playerWave.locator('path').first()).not.toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await expect(sidebarWave.locator('path').first()).not.toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await page.locator('audio').dispatchEvent('waiting');
+  await expect(sidebarWave.locator('path').first()).toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await page.locator('audio').dispatchEvent('playing');
+  await expect(sidebarWave.locator('path').first()).not.toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(playerWave.locator('path').first()).toHaveCSS(
+    'animation-name',
+    'none',
+  );
+  await page.getByRole('button', { name: 'Pause', exact: true }).click();
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  await expect(sidebarWave.locator('path').first()).toHaveCSS(
+    'animation-name',
+    'none',
+  );
+});
 test('download review preserves source and playlist choices and opens job progress', async ({
   page,
 }, info) => {

@@ -238,7 +238,7 @@ async function downloadSong(page: Page) {
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'On this device · 1 songs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'On this device · 1 song' })).toBeVisible();
 }
 async function expire(page: Page) {
   await page.evaluate(async () => {
@@ -343,7 +343,7 @@ test.describe('Mobile polish', () => {
         .toBe(phone.height);
       await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
       await expect(
-        page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+        page.getByRole('button', { name: 'Turn off play feed from Home', exact: true }),
       ).toBeVisible();
       await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
       await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -518,6 +518,158 @@ test.describe('Mobile polish', () => {
       .toBeLessThanOrEqual(52);
   });
 
+  test('the waveform moves with playback and stays still with reduced motion', async ({
+    page,
+    context,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await page.getByRole('button', { name: 'Go back', exact: true }).last().click();
+    const bar = page
+      .getByRole('button', { name: 'Open now playing', exact: true })
+      .getByTestId('playback-wave')
+      .locator('div')
+      .first();
+    const scale = () => bar.evaluate((element) => getComputedStyle(element).transform);
+    const first = await scale();
+    await expect.poll(scale).not.toBe(first);
+
+    await page.getByRole('button', { name: 'Pause playback', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Resume playback', exact: true })).toBeVisible();
+    const rest = await scale();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.getByRole('button', { name: 'Resume playback', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+    expect(
+      await bar.evaluate(async (element) => {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        return getComputedStyle(element).transform;
+      }),
+    ).toBe(rest);
+  });
+
+  test('song selection stays bright and in place while the audio request is pending', async ({
+    page,
+    context,
+  }) => {
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    const source = Promise.withResolvers<void>();
+    await page.route('**/CreatePlaybackLink', async (route) => {
+      await source.promise;
+      await route.fallback();
+    });
+    await page.getByRole('tab', { name: 'Library', exact: true }).click();
+    const song = page.getByRole('button', { name: 'Play Weightless', exact: true });
+    const title = song.getByText('Weightless', { exact: true });
+    try {
+      const x = (await title.boundingBox())!.x;
+      await song.click();
+      await expect(title).toHaveCSS('color', 'rgb(183, 200, 255)');
+      await expect(song.locator('..')).toHaveCSS('opacity', '1');
+      expect((await title.boundingBox())!.x).toBe(x);
+      await expect(song.getByTestId('playback-wave')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toHaveCount(
+        0,
+      );
+    } finally {
+      source.resolve();
+    }
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+  });
+
+  test('now playing slides up and follows a downward swipe back to the previous screen', async ({
+    page,
+    context,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    await page.getByRole('button', { name: 'Open album The quiet between', exact: true }).click();
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+    const album = page.url();
+    const opening = page.waitForFunction(() => {
+      const player = document.querySelector('[data-testid="full-player"]');
+      if (!player) return false;
+      const translation = new DOMMatrixReadOnly(getComputedStyle(player).transform).m42;
+      return translation > 24 && translation < player.clientHeight - 24;
+    });
+    await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
+    await opening;
+    const player = page.getByTestId('full-player');
+    const translation = () =>
+      player.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+    await expect.poll(translation).toBe(0);
+
+    const handle = page.getByTestId('player-swipe-area');
+    const swipe = (type: 'touchstart' | 'touchmove' | 'touchend', distance: number) =>
+      handle.evaluate(
+        (element, { type, distance }) => {
+          const area = element.getBoundingClientRect();
+          const start = Number(element.getAttribute('data-start-y') ?? area.top + 28);
+          element.setAttribute('data-start-y', String(start));
+          const touch = {
+            identifier: 1,
+            target: element,
+            clientX: area.left + area.width / 2,
+            clientY: start + distance,
+            pageX: area.left + area.width / 2,
+            pageY: start + distance,
+          };
+          const active = type === 'touchend' ? [] : [touch];
+          // WebKit's test runner exposes Touch without a public constructor.
+          const event = new Event(type, { bubbles: true, cancelable: true });
+          element.dispatchEvent(Object.assign(event, { touches: active, changedTouches: [touch] }));
+        },
+        { type, distance },
+      );
+    await swipe('touchstart', 0);
+    await swipe('touchmove', 24);
+    await swipe('touchmove', 165);
+    await expect.poll(translation).toBeGreaterThan(80);
+    await swipe('touchend', 165);
+    await expect(page).toHaveURL(album);
+    await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
+  });
+
+  test('the song menu keeps its contents through the reverse slide', async ({ page, context }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await standalone(context);
+    await service(context);
+    await connect(page);
+    await page.getByRole('tab', { name: 'Library', exact: true }).click();
+    await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
+    const sheet = page.getByTestId('song-menu-sheet');
+    const close = page.getByRole('button', { name: 'Close menu', exact: true });
+    const start = await sheet.evaluate(
+      (el) =>
+        new Promise<number>((resolve) => {
+          const sample = () => {
+            const translate = new DOMMatrixReadOnly(getComputedStyle(el).transform).m42;
+            if (translate === 0) resolve(el.getBoundingClientRect().top);
+            else requestAnimationFrame(sample);
+          };
+          sample();
+        }),
+    );
+    const sliding = page.waitForFunction((y) => {
+      const menu = document.querySelector('[data-testid="song-menu-sheet"]');
+      return (
+        menu && menu.getBoundingClientRect().top > y + 8 && menu.textContent?.includes('Weightless')
+      );
+    }, start);
+    await close.click();
+    await sliding;
+    await expect(sheet).toHaveCount(0);
+  });
+
   test('play feed stays active in place and direct selections replace the old queue', async ({
     page,
     context,
@@ -528,7 +680,7 @@ test.describe('Mobile polish', () => {
     const home = page.url();
     await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
     await expect(
-      page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+      page.getByRole('button', { name: 'Turn off play feed from Home', exact: true }),
     ).toBeVisible();
     await expect
       .poll(() =>
@@ -541,9 +693,11 @@ test.describe('Mobile polish', () => {
     expect(backend.feedRequests).toHaveLength(1);
     expect(backend.feedRequests[0].seedTrackId || '').toBe('');
     await page.getByRole('tab', { name: 'Library', exact: true }).click();
-    await expect(
-      page.getByRole('button', { name: 'Turn off play feed', exact: true }),
-    ).toBeVisible();
+    const dock = page.getByRole('button', { name: 'Open now playing', exact: true });
+    await expect(dock.getByTestId('playback-wave')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toHaveCount(
+      0,
+    );
     await page.getByRole('button', { name: 'Albums', exact: true }).click();
     await page.getByRole('button', { name: 'Open album Blue hour', exact: true }).click();
     await page.getByRole('button', { name: 'Play', exact: true }).click();
@@ -553,11 +707,15 @@ test.describe('Mobile polish', () => {
     const source = await page.evaluate(
       () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.src,
     );
+    await dock.click();
+    await expect(page.getByTestId('full-player')).toBeVisible();
     const address = page.url();
     await page.getByRole('button', { name: 'Turn off play feed', exact: true }).click();
     await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toHaveCount(
       0,
     );
+    const feedToggle = page.getByRole('button', { name: 'Turn on play feed', exact: true });
+    await expect(feedToggle).toBeVisible();
     expect(page.url()).toBe(address);
     expect(
       await page.evaluate(() => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.src),
@@ -567,6 +725,10 @@ test.describe('Mobile polish', () => {
         () => (window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.paused,
       ),
     ).toBe(false);
+    await feedToggle.click();
+    await expect(
+      page.getByRole('button', { name: 'Turn off play feed', exact: true }),
+    ).toBeVisible();
   });
   test('compact tabs fill the viewport and keep home-indicator padding inside the bar', async ({
     page,
@@ -605,6 +767,21 @@ test.describe('Mobile polish', () => {
     expect(await background.evaluate((el) => getComputedStyle(el).paddingBottom)).toBe('34px');
     await page.waitForTimeout(350);
     await page.screenshot({ path: info.outputPath('library.png') });
+    await page.setViewportSize({ width: 320, height: 740 });
+    const search = page.getByRole('textbox', { name: 'Search your songs' });
+    const downloads = page.getByRole('button', { name: 'On this device · No downloads' });
+    const downloadBox = (await downloads.boundingBox())!;
+    const searchBox = (await search.boundingBox())!;
+    for (const name of ['Songs', 'Albums', 'Artists', 'Playlists']) {
+      const chip = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
+      expect(chip.y).toBeGreaterThan(searchBox.y + searchBox.height);
+      expect(chip.y + chip.height).toBeLessThan(downloadBox.y);
+      expect(chip.x + chip.width).toBeLessThan(320);
+    }
+    await page.screenshot({ path: info.outputPath('library-narrow.png') });
+    await downloads.click();
+    await expect(page.getByRole('heading', { name: 'On this device' })).toBeVisible();
+    await page.getByRole('button', { name: 'Go back', exact: true }).click();
     await page.setViewportSize({ width: 844, height: 390 });
     await expect
       .poll(async () => {
@@ -615,6 +792,20 @@ test.describe('Mobile polish', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    await page.getByRole('tab', { name: 'Playlists', exact: true }).click();
+    const cover = page
+      .getByRole('button', { name: 'Open playlist The slow hours', exact: true })
+      .locator('[aria-label="The slow hours artwork"]');
+    await expect(cover.locator('img[src]')).toHaveCount(4);
+    const tiles = await cover.locator('img').evaluateAll((images) =>
+      images.map((image) => {
+        const { x, y, width, height } = image.getBoundingClientRect();
+        return { x: Math.round(x), y: Math.round(y), width, height };
+      }),
+    );
+    expect(tiles.map(({ width, height }) => [width, height])).toEqual(Array(4).fill([25, 25]));
+    expect(new Set(tiles.map(({ x }) => x)).size).toBe(2);
+    expect(new Set(tiles.map(({ y }) => y)).size).toBe(2);
   });
 
   for (const feed of [false, true]) {
@@ -826,6 +1017,34 @@ test.describe('Mobile polish', () => {
     expect(await page.evaluate(() => navigator.mediaSession.metadata?.artwork[0].src)).not.toBe(
       first.src,
     );
+    const audioState = () =>
+      page.evaluate(() => ({
+        state: navigator.mediaSession.playbackState,
+        title: navigator.mediaSession.metadata?.title || null,
+        hasSource: !!(window as Window & { pwaAudio?: HTMLAudioElement }).pwaAudio?.hasAttribute(
+          'src',
+        ),
+      }));
+    await page.evaluate(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await expect
+      .poll(audioState)
+      .toEqual({ state: 'playing', title: 'A little further', hasSource: true });
+    await page.evaluate(() =>
+      window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })),
+    );
+    await expect.poll(audioState).toEqual({ state: 'none', title: null, hasSource: false });
+    await page.evaluate(() => {
+      Reflect.deleteProperty(document, 'visibilityState');
+      window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+    await page.getByRole('button', { name: 'Resume playback', exact: true }).click();
+    await expect
+      .poll(audioState)
+      .toEqual({ state: 'playing', title: 'A little further', hasSource: true });
   });
 
   test('large playlists start before remaining metadata arrives and keep the full queue', async ({
@@ -1063,7 +1282,7 @@ test('partial media never becomes a completed download', async ({ page, context 
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('complete audio file');
-  await expect(page.getByRole('button', { name: 'On this device · 0 songs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'On this device · No downloads' })).toBeVisible();
 });
 test('browser quota errors leave no completed song', async ({ page, context }) => {
   await standalone(context);
@@ -1080,7 +1299,7 @@ test('browser quota errors leave no completed song', async ({ page, context }) =
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
   await page.getByRole('button', { name: 'More options for Weightless', exact: true }).click();
   await page.getByRole('button', { name: 'Download to device', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'On this device · 0 songs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'On this device · No downloads' })).toBeVisible();
   await expect(page.getByRole('alert')).toBeVisible();
 });
 test('durable refresh is serialized across windows', async ({ page, context }) => {
@@ -1181,7 +1400,7 @@ test('switching accounts isolates downloads; explicit offline sign-out clears lo
   await page.getByRole('button', { name: 'Reconnect account', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await page.getByRole('tab', { name: 'Library', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'On this device · 0 songs' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'On this device · No downloads' })).toBeVisible();
   backend.user('preview-user');
   await page.goto('/app/settings');
   await page.getByRole('button', { name: 'Reconnect account', exact: true }).click();

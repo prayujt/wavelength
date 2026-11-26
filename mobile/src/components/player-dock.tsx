@@ -2,12 +2,13 @@ import React from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { useAudioPlayerStatus } from '../lib/audio';
 import { router, useSegments } from 'expo-router';
-import { AudioLines, Pause, Play, SkipForward } from 'lucide-react-native';
+import { Pause, Play, SkipForward } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../lib/player';
 import { color, TAB_BAR_HEIGHT, PLAYER_DOCK_GAP } from '../lib/theme';
 import { hidesPlayerDock } from '../lib/layout';
 import { Artwork } from './artwork';
+import { Equalizer } from './equalizer';
 import { IconButton, Press, Txt } from './ui';
 
 export function PlayerDock() {
@@ -59,21 +60,15 @@ export function PlayerDock() {
                 <Txt size={13} weight="bold" numberOfLines={1}>
                   {player.track.title}
                 </Txt>
-                <Txt size={12} muted numberOfLines={1}>
-                  {player.error ? 'Tap play to retry' : player.track.artist}
-                </Txt>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Equalizer size={11} />
+                  <Txt size={12} muted numberOfLines={1} style={{ flex: 1 }}>
+                    {player.error ? 'Tap play to retry' : player.track.artist}
+                  </Txt>
+                </View>
               </View>
             </Press>
           </View>
-          {player.playFeedEnabled && (
-            <IconButton
-              icon={AudioLines}
-              label="Turn off play feed"
-              active
-              size={17}
-              onPress={player.stopFeed}
-            />
-          )}
           {player.loading || status.isBuffering ? (
             <View style={{ width: 44, alignItems: 'center' }}>
               <ActivityIndicator color={color.accent} size="small" />

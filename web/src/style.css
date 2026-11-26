@@ -1350,6 +1350,15 @@ label {
 .now-playing strong {
   font-size: 12px;
 }
+.now-playing-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.now-playing-title svg,
+.queue-item.active > svg {
+  color: var(--accent);
+}
 .now-playing span {
   font-size: 10px;
   color: var(--muted);
@@ -1438,13 +1447,6 @@ label {
 }
 .queue-item.active strong {
   color: var(--accent);
-}
-.queue-item .playing-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  flex: none;
 }
 .lyrics-panel {
   display: flex;

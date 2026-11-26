@@ -6,13 +6,13 @@ import { useQuery } from '@tanstack/react-query';
 import { create } from '@bufbuild/protobuf';
 import { ArrowLeft, Edit3, Play, Plus, Share2, Shuffle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { TrackSchema, type Track } from '../gen/wavelength/v1/library_pb';
+import { TrackSchema, type Playlist, type Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
 import { useTracks, useUser } from '../lib/queries';
 import { color, colors } from '../lib/theme';
 import { duration, shuffled } from '../core/queue';
-import { Artwork } from '../components/artwork';
+import { Artwork, PlaylistArtwork } from '../components/artwork';
 import { AlbumCard, TrackRow, useMediaMenu } from '../components/media';
 import { DeviceDownload } from '../components/device';
 import {
@@ -33,6 +33,7 @@ function CollectionHero({
   subtitle,
   id,
   path,
+  playlist,
   kind,
   extra,
   children,
@@ -41,6 +42,7 @@ function CollectionHero({
   subtitle: string;
   id: string;
   path?: string;
+  playlist?: Playlist;
   kind: string;
   extra?: string;
   children?: React.ReactNode;
@@ -64,13 +66,17 @@ function CollectionHero({
         </View>
         <View style={{ alignItems: 'center', paddingBottom: 5 }}>
           <View style={{ boxShadow: '0px 16px 36px #00000055' }}>
-            <Artwork
-              title={title}
-              id={id}
-              path={path}
-              size={size}
-              radius={kind === 'ARTIST' ? size / 2 : 14}
-            />
+            {playlist ? (
+              <PlaylistArtwork playlist={playlist} size={size} radius={14} />
+            ) : (
+              <Artwork
+                title={title}
+                id={id}
+                path={path}
+                size={size}
+                radius={kind === 'ARTIST' ? size / 2 : 14}
+              />
+            )}
           </View>
         </View>
         <View style={{ gap: 9 }}>
@@ -331,6 +337,7 @@ export function PlaylistScreen() {
           <CollectionHero
             kind={playlist.public ? 'SHARED PLAYLIST' : 'YOUR PLAYLIST'}
             id={playlist.id}
+            playlist={playlist}
             title={playlist.name}
             subtitle={playlist.comment || 'A soundtrack, entirely your own.'}
             extra={`${playlist.trackIds.length} songs · ${duration(items.reduce((sum, t) => sum + t.durationSeconds, 0))}`}

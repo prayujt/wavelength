@@ -2,21 +2,23 @@
   import { onMount } from 'svelte';
   import {
     ListMusic,
-    Sparkles,
     Mic2,
     Pause,
     Play,
     SkipBack,
     SkipForward,
+    Sparkles,
     Volume2,
     X,
   } from '@lucide/svelte';
   import type { PlayerState } from '../lib/player.svelte';
   import { duration } from '../lib/format';
+  import { observeAudioActivity } from '../lib/audio-activity';
   import SongCredits from './SongCredits.svelte';
   import Cover from './Cover.svelte';
   import Notice from './Notice.svelte';
   import Lyrics from './Lyrics.svelte';
+  import PlaybackWave from './PlaybackWave.svelte';
   let { player }: { player: PlayerState } = $props();
   let audio: HTMLAudioElement;
   let showQueue = $state(false);
@@ -32,6 +34,7 @@
 <!-- Audio uses the range-capable media URL returned by GetPlaybackInfo. -->
 <audio
   bind:this={audio}
+  use:observeAudioActivity={(active) => (player.audioActive = active)}
   preload="metadata"
   bind:volume
   onloadedmetadata={() => player.loaded()}
@@ -95,8 +98,10 @@
           ><SongCredits {track} />{#if player.recommendation(track)}<small
               class="muted">Recommended</small
             >{/if}</span
-        >{#if index === player.index}<span class="playing-dot"
-          ></span>{:else if index > player.index}<button
+        >{#if index === player.index}<PlaybackWave
+            size={16}
+            playing={player.audioActive}
+          />{:else if index > player.index}<button
             class="icon-button"
             aria-label={`Remove queued ${track.title}`}
             onclick={() => player.remove(index)}><X size={15} /></button
@@ -113,8 +118,14 @@
       small
     />
     <div>
-      <strong>{player.track?.title || 'Nothing playing yet'}</strong
-      >{#if player.track}<SongCredits track={player.track} />{:else}<span
+      <div class="now-playing-title">
+        {#if player.track}<PlaybackWave
+            size={14}
+            playing={player.audioActive}
+          />{/if}
+        <strong>{player.track?.title || 'Nothing playing yet'}</strong>
+      </div>
+      {#if player.track}<SongCredits track={player.track} />{:else}<span
           >Find your next favorite</span
         >{/if}
     </div>

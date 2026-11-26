@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { router } from 'expo-router';
-import { Download, Check, WifiOff, X } from 'lucide-react-native';
+import { ChevronRight, Download, Check, WifiOff, X } from 'lucide-react-native';
 import type { Track } from '../gen/wavelength/v1/library_pb';
 import { useSession } from '../lib/session';
 import { usePlayer } from '../lib/player';
@@ -15,7 +15,7 @@ import {
   cancelDownloads,
 } from '../lib/device-library';
 import { color } from '../lib/theme';
-import { Button, IconButton, Press, Txt } from './ui';
+import { IconButton, Press, Txt } from './ui';
 import { useFeedback } from './feedback';
 
 type Device = {
@@ -263,13 +263,37 @@ export function DeviceStatus() {
 export function DeviceLibraryLink() {
   const device = useDevice();
   if (!device.enabled) return null;
+  const count = device.items.length;
+  const detail = count ? `${count} ${count === 1 ? 'song' : 'songs'}` : 'No downloads';
   return (
-    <View style={{ paddingHorizontal: 24, paddingBottom: 12 }}>
-      <Button
-        title={`On this device · ${device.items.length} songs`}
-        icon={Download}
+    <View style={{ marginHorizontal: 24, marginTop: 12 }}>
+      <Press
+        label={`On this device · ${detail}`}
         onPress={() => router.push('/on-device')}
-      />
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 10,
+          paddingHorizontal: 14,
+          paddingVertical: 9,
+          minHeight: 54,
+          backgroundColor: color.surface,
+          borderColor: color.line,
+          borderWidth: 1,
+          borderRadius: 10,
+        }}
+      >
+        <Download size={18} color={color.muted} />
+        <View style={{ flex: 1, gap: 2 }}>
+          <Txt size={13} weight="bold">
+            On this device
+          </Txt>
+          <Txt size={11} muted>
+            {detail}
+          </Txt>
+        </View>
+        <ChevronRight size={17} color={color.muted} />
+      </Press>
     </View>
   );
 }
