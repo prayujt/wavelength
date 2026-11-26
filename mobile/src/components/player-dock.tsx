@@ -61,7 +61,7 @@ export function PlayerDock() {
                   {player.track.title}
                 </Txt>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                  {!player.playFeedEnabled && <Equalizer size={11} />}
+                  <Equalizer size={11} />
                   <Txt size={12} muted numberOfLines={1} style={{ flex: 1 }}>
                     {player.error ? 'Tap play to retry' : player.track.artist}
                   </Txt>
@@ -69,15 +69,6 @@ export function PlayerDock() {
               </View>
             </Press>
           </View>
-          {player.playFeedEnabled && (
-            <IconButton
-              icon={Equalizer}
-              label="Turn off play feed"
-              active
-              size={17}
-              onPress={player.stopFeed}
-            />
-          )}
           {player.loading || status.isBuffering ? (
             <View style={{ width: 44, alignItems: 'center' }}>
               <ActivityIndicator color={color.accent} size="small" />

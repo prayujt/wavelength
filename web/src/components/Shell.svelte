@@ -14,6 +14,7 @@
     PanelLeftClose,
     PanelLeftOpen,
     Search,
+    Sparkles,
     Sun,
     Users,
     X,
@@ -73,7 +74,7 @@
       items: [
         { label: 'Discover', page: 'discover', tab: '', icon: Compass },
         { label: 'Downloads', page: 'imports', tab: '', icon: Download },
-        { label: 'Play feed', page: 'feed', tab: '', icon: PlaybackWave },
+        { label: 'Play feed', page: 'feed', tab: '', icon: Sparkles },
       ],
     },
   ] as const;
@@ -196,8 +197,7 @@
                     void player.togglePlayFeed();
                     closeMobile();
                   }}
-                  ><PlaybackWave size={17} playing={player.audioActive} /><span
-                    >Play feed</span
+                  ><Sparkles size={17} /><span>Play feed</span
                   >{#if player.playFeedEnabled}<small>On</small>{/if}</button
                 >
               {:else}
@@ -266,7 +266,7 @@
     </header>
     {#if player.playFeedEnabled}
       <div class="play-feed-mode-bar" data-testid="play-feed-mode">
-        <PlaybackWave playing={player.audioActive} />
+        <Sparkles size={18} />
         <div aria-live="polite">
           <strong>Play feed is on</strong><small
             >{player.startingFeed

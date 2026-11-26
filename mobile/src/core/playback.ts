@@ -307,6 +307,25 @@ export class PlaybackController {
     void this.save();
     this.refillShortBuffer();
   };
+  leavePage = () => {
+    this.restoredPosition = this.audio.position() || this.restoredPosition;
+    if (this.saveTimer) clearTimeout(this.saveTimer);
+    void this.save();
+    void this.reporter?.finish(this.restoredPosition, 'stopped');
+    ++this.serial;
+    ++this.navigation;
+    this.waitingForFeed = 0;
+    this.feedStartToken = undefined;
+    this.startingFeedRequest = undefined;
+    this.feed.cancel();
+    this.discardPrepared();
+    this.loaded = null;
+    this.pendingSeek = null;
+    this.audio.replace(null);
+    this.audio.clearMetadata();
+    this.patch({ loading: false, playing: false, audioActive: false, startingFeed: false });
+    void this.revoke();
+  };
   private refillShortBuffer() {
     // Do not cancel in-flight work or defer a background refill to a suspended timer.
     if (

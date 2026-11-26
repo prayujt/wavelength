@@ -1,12 +1,13 @@
 import { usePageBottomInset } from '../lib/layout';
 import React, { useState } from 'react';
-import { FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
+import { FlatList, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Download, RefreshCw, Library, Plus } from 'lucide-react-native';
 import type { Album, Artist, Playlist, Track } from '../gen/wavelength/v1/library_pb';
 import { useAPI } from '../lib/session';
 import { usePlayer } from '../lib/player';
+import { color } from '../lib/theme';
 import { DeviceLibraryLink } from '../components/device';
 import { AlbumCard, ArtistCard, PlaylistCard, TrackRow } from '../components/media';
 import {
@@ -15,7 +16,7 @@ import {
   Header,
   IconButton,
   Loading,
-  Pill,
+  Press,
   Screen,
   SearchField,
   Txt,
@@ -103,25 +104,33 @@ export function CatalogScreen() {
                 </View>
               }
             />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{
-                paddingHorizontal: 24,
-                gap: 8,
-                paddingVertical: 6,
-                marginBottom: 16,
-              }}
-            >
-              {filters.map((f) => (
-                <Pill key={f} title={f} active={f === filter} onPress={() => setFilter(f)} />
-              ))}
-            </ScrollView>
             <SearchField
               value={search}
               onChange={setSearch}
               placeholder={`Search your ${filter.toLowerCase()}`}
             />
+            <View style={s.filters}>
+              {filters.map((name) => (
+                <Press
+                  key={name}
+                  label={name}
+                  selected={name === filter}
+                  onPress={() => setFilter(name)}
+                  style={[s.filter, name === filter && s.selected]}
+                >
+                  <Txt
+                    size={13}
+                    weight="bold"
+                    style={{
+                      textAlign: 'center',
+                      color: name === filter ? color.accent : color.muted,
+                    }}
+                  >
+                    {name}
+                  </Txt>
+                </Press>
+              ))}
+            </View>
             <DeviceLibraryLink />
             <View
               style={{
@@ -129,8 +138,8 @@ export function CatalogScreen() {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 paddingHorizontal: 24,
-                marginTop: 17,
-                marginBottom: 14,
+                marginTop: 6,
+                marginBottom: 4,
               }}
             >
               <Txt muted size={11}>
@@ -199,3 +208,26 @@ export function CatalogScreen() {
     </Screen>
   );
 }
+
+const s = StyleSheet.create({
+  filters: {
+    marginHorizontal: 24,
+    marginTop: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: color.line,
+    backgroundColor: color.surface,
+    padding: 3,
+    gap: 2,
+    flexDirection: 'row',
+  },
+  filter: {
+    flex: 1,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    borderRadius: 7,
+  },
+  selected: { backgroundColor: color.raised },
+});

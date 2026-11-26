@@ -57,19 +57,6 @@ export default function TabLayout() {
                     opacity: focused ? 1 : 0.88,
                   }}
                 >
-                  {focused && (
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        width: 24,
-                        height: 2,
-                        borderBottomLeftRadius: 2,
-                        borderBottomRightRadius: 2,
-                        backgroundColor: color.accent,
-                      }}
-                    />
-                  )}
                   <Icon
                     color={focused ? color.accent : color.muted}
                     size={22}

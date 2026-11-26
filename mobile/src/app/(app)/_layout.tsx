@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { View } from 'react-native';
+import { Platform, View } from 'react-native';
 import { MediaMenuProvider } from '../../components/media';
 import { PlayerDock } from '../../components/player-dock';
 import { useReducedMotion } from '../../components/ui';
@@ -24,8 +24,11 @@ export default function AppLayout() {
           <Stack.Screen
             name="player"
             options={{
-              presentation: 'fullScreenModal',
+              presentation: Platform.OS === 'web' ? 'transparentModal' : 'card',
+              contentStyle: { backgroundColor: 'transparent', overflow: 'hidden' },
               animation: reducedMotion ? 'none' : 'slide_from_bottom',
+              animationDuration: 300,
+              gestureDirection: 'vertical',
             }}
           />
           <Stack.Screen

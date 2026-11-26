@@ -7,6 +7,7 @@
     Play,
     SkipBack,
     SkipForward,
+    Sparkles,
     Volume2,
     X,
   } from '@lucide/svelte';
@@ -68,7 +69,7 @@
         class="button secondary"
         aria-pressed={player.playFeedEnabled}
         onclick={() => player.togglePlayFeed()}
-        ><PlaybackWave size={14} playing={player.audioActive} /> Play feed {player.playFeedEnabled
+        ><Sparkles size={14} /> Play feed {player.playFeedEnabled
           ? 'on'
           : 'off'}</button
       >

@@ -179,6 +179,14 @@ export class WebAudio implements AppAudio {
   }
   clearLockScreenControls() {
     this.lockScreen = false;
+    if (this.session && this.previousSessionType !== undefined) {
+      try {
+        if (this.session.type === 'playback') this.session.type = this.previousSessionType;
+      } catch {
+        /* Optional session API. */
+      }
+      this.previousSessionType = undefined;
+    }
     if (!this.mediaSession) return;
     this.mediaSession.metadata = null;
     this.mediaSession.playbackState = 'none';
@@ -217,17 +225,6 @@ export class WebAudio implements AppAudio {
     ])
       this.media.removeEventListener(event, this.changed);
     this.session?.removeEventListener('statechange', this.sessionChanged);
-    if (
-      this.session &&
-      this.previousSessionType !== undefined &&
-      this.session.type === 'playback'
-    ) {
-      try {
-        this.session.type = this.previousSessionType;
-      } catch {
-        /* Optional session API. */
-      }
-    }
     this.listeners.clear();
   }
 }

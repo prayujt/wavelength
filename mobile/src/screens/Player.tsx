@@ -1,6 +1,13 @@
 import { usePageBottomInset } from '../lib/layout';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  FlatList,
+  ScrollView,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAudioPlayerStatus } from '../lib/audio';
@@ -22,11 +29,13 @@ import {
   Shuffle,
   SkipBack,
   SkipForward,
+  Sparkles,
   Trash2,
   X,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../lib/player';
+import { playerSwipeArea, usePlayerTransition } from '../lib/player-transition';
 import { useAPI } from '../lib/session';
 import { color, colors } from '../lib/theme';
 import { clock } from '../core/queue';
@@ -37,7 +46,6 @@ import { useMediaMenu } from '../components/media';
 import {
   Button,
   Empty,
-  FadeIn,
   Failure,
   Header,
   IconButton,
@@ -62,6 +70,7 @@ export function PlayerScreen() {
     [scrub, setScrub] = useState<number | null>(null),
     track = player.track;
   const [frameHeight, setFrameHeight] = useState(height);
+  const { close, swipe, translateY } = usePlayerTransition(Math.max(1, frameHeight));
   const usableHeight = Math.max(0, frameHeight - insets.top - insets.bottom);
   const compact = usableHeight < 800;
   if (!track)
@@ -90,10 +99,10 @@ export function PlayerScreen() {
     feedback.notify('Your place is saved');
   }
   return (
-    <View
+    <Animated.View
       testID="full-player"
       onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)}
-      style={{ flex: 1, backgroundColor: color.bg }}
+      style={{ flex: 1, backgroundColor: color.bg, transform: [{ translateY }] }}
     >
       <LinearGradient
         colors={[tint[0], color.bg, color.bg]}
@@ -114,47 +123,52 @@ export function PlayerScreen() {
           alignSelf: 'center',
         }}
       >
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: compact ? 14 : 25,
-          }}
-        >
-          <IconButton
-            icon={ChevronDown}
-            label="Close player"
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/home'))}
-          />
-          <View style={{ alignItems: 'center', gap: 5 }}>
-            <Txt size={12} weight="bold" style={{ color: color.muted }}>
-              Now playing
-            </Txt>
-            <Txt size={11} numberOfLines={1} style={{ maxWidth: Math.max(100, width - 160) }}>
-              {track.album}
-            </Txt>
-          </View>
-          <IconButton icon={MoreHorizontal} label="Song options" onPress={() => menu.open(track)} />
-        </View>
-        <FadeIn style={{ alignItems: 'center', marginBottom: compact ? 18 : 31 }}>
+        <View testID="player-swipe-area" {...swipe} style={playerSwipeArea}>
           <View
             style={{
-              width: size,
-              height: size,
-              borderRadius: 10,
-              boxShadow: '0px 12px 34px #00000050',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: compact ? 14 : 25,
             }}
           >
-            <Artwork
-              title={track.album}
-              id={track.albumId || track.album}
-              path={track.artworkPath}
-              size={size}
-              radius={10}
+            <IconButton icon={ChevronDown} label="Close player" onPress={close} />
+            <View style={{ alignItems: 'center', gap: 5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Equalizer size={12} />
+                <Txt size={12} weight="bold" muted>
+                  Now playing
+                </Txt>
+              </View>
+              <Txt size={11} numberOfLines={1} style={{ maxWidth: Math.max(100, width - 160) }}>
+                {track.album}
+              </Txt>
+            </View>
+            <IconButton
+              icon={MoreHorizontal}
+              label="Song options"
+              onPress={() => menu.open(track)}
             />
           </View>
-        </FadeIn>
+          <View style={{ alignItems: 'center', marginBottom: compact ? 18 : 31 }}>
+            <View
+              style={{
+                width: size,
+                height: size,
+                borderRadius: 10,
+                boxShadow: '0px 12px 34px #00000050',
+              }}
+            >
+              <Artwork
+                title={track.album}
+                id={track.albumId || track.album}
+                path={track.artworkPath}
+                size={size}
+                radius={10}
+              />
+            </View>
+          </View>
+        </View>
         <View
           style={{
             flexDirection: 'row',
@@ -293,7 +307,7 @@ export function PlayerScreen() {
           }}
         >
           <IconButton
-            icon={Equalizer}
+            icon={Sparkles}
             label={player.playFeedEnabled ? 'Turn off play feed' : 'Turn on play feed'}
             active={player.playFeedEnabled}
             onPress={player.togglePlayFeed}
@@ -321,7 +335,7 @@ export function PlayerScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -378,7 +392,7 @@ export function QueueScreen() {
                 title="Play feed"
                 active={player.playFeedEnabled}
                 onPress={player.togglePlayFeed}
-                icon={Equalizer}
+                icon={Sparkles}
               />
               <Pill
                 title="Shuffle"
@@ -420,6 +434,8 @@ export function QueueScreen() {
             <Press
               label={`Play queued ${item.title}`}
               onPress={() => player.jump(index)}
+              pressFeedback={false}
+              selected={index === player.index}
               style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 11 }}
             >
               <Artwork
@@ -446,6 +462,7 @@ export function QueueScreen() {
                       : item.artist}
                 </Txt>
               </View>
+              {index === player.index && <Equalizer size={14} />}
             </Press>
             <View style={{ flexDirection: 'row' }}>
               <IconButton
@@ -480,7 +497,7 @@ export function QueueScreen() {
             <Loading rows={3} />
           ) : (
             <Empty
-              icon={Equalizer}
+              icon={Sparkles}
               title="Your next song is out there"
               text="Start a play feed from your listening history, or choose a song from your library."
               action="Start play feed"

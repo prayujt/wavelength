@@ -1,8 +1,7 @@
 import { View } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Sparkles, X } from 'lucide-react-native';
 import { usePlayer } from '../lib/player';
 import { color } from '../lib/theme';
-import { Equalizer } from './equalizer';
 import { IconButton, Press, Txt } from './ui';
 
 export function FeedModeStatus() {
@@ -28,7 +27,7 @@ export function FeedModeStatus() {
           minHeight: 48,
         }}
       >
-        <Equalizer color={failed ? color.danger : color.accent} />
+        <Sparkles size={18} color={failed ? color.danger : color.accent} />
         <View style={{ flex: 1, gap: 2, paddingVertical: 5 }} accessibilityLiveRegion="polite">
           <Txt size={13} weight="bold">
             {failed ? 'Play feed couldn’t start' : 'Starting play feed'}

@@ -204,7 +204,9 @@ test('play feed is an in-place mode and stopping it keeps the current song', asy
   await startAlbum(page);
   const home = page.url();
   await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
-  await expect(page.getByRole('button', { name: 'Turn off play feed', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Turn off play feed from Home', exact: true }),
+  ).toBeVisible();
   expect(page.url()).toBe(home);
   await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
   await page.getByRole('button', { name: 'Open play queue', exact: true }).click();

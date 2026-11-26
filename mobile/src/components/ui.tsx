@@ -119,14 +119,24 @@ type PressProps = {
   disabled?: boolean;
   testID?: string;
   selected?: boolean;
+  pressFeedback?: boolean;
 };
-export function Press({ children, onPress, label, style, disabled, testID, selected }: PressProps) {
+export function Press({
+  children,
+  onPress,
+  label,
+  style,
+  disabled,
+  testID,
+  selected,
+  pressFeedback = true,
+}: PressProps) {
   const scale = useState(() => new Animated.Value(1))[0],
     reduced = useReducedMotion(),
     feedback = useFeedback();
   const [busy, setBusy] = useState(false);
   function animate(toValue: number) {
-    if (!reduced)
+    if (pressFeedback && !reduced)
       Animated.spring(scale, {
         toValue,
         damping: 20,
@@ -144,7 +154,7 @@ export function Press({ children, onPress, label, style, disabled, testID, selec
         flexShrink: layout?.flexShrink,
         alignSelf: layout?.alignSelf,
         transform: [{ scale }],
-        opacity: disabled || busy ? 0.4 : 1,
+        opacity: disabled || (busy && pressFeedback) ? 0.4 : 1,
       }}
     >
       <Pressable
@@ -614,6 +624,7 @@ const s = StyleSheet.create({
   input: {
     color: color.text,
     flex: 1,
+    minWidth: 0,
     minHeight: 50,
     fontFamily: font.regular,
     fontSize: 16,
