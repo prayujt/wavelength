@@ -596,15 +596,17 @@ test.describe('Mobile polish', () => {
     await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
     const album = page.url();
     const opening = page.waitForFunction(() => {
-      const top = document
-        .querySelector('[data-testid="full-player"]')
-        ?.getBoundingClientRect().top;
-      return top !== undefined && top > 24 && top < innerHeight - 24;
+      const player = document.querySelector('[data-testid="full-player"]');
+      if (!player) return false;
+      const translation = new DOMMatrixReadOnly(getComputedStyle(player).transform).m42;
+      return translation > 24 && translation < player.clientHeight - 24;
     });
     await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
     await opening;
     const player = page.getByTestId('full-player');
-    await expect.poll(async () => Math.round((await player.boundingBox())!.y)).toBe(0);
+    const translation = () =>
+      player.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
+    await expect.poll(translation).toBe(0);
 
     const handle = page.getByTestId('player-swipe-area');
     const swipe = (type: 'touchstart' | 'touchmove' | 'touchend', distance: number) =>
@@ -637,7 +639,7 @@ test.describe('Mobile polish', () => {
     await swipe('touchstart', 0);
     await swipe('touchmove', 24);
     await swipe('touchmove', 165);
-    await expect.poll(async () => (await player.boundingBox())!.y).toBeGreaterThan(80);
+    await expect.poll(translation).toBeGreaterThan(80);
     await swipe('touchend', 165);
     await expect(page).toHaveURL(album);
     await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
