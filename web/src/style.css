@@ -1676,6 +1676,7 @@ label {
     position: fixed;
     inset: 0 0 126px 0;
     background: #0005;
+    cursor: default;
     z-index: 34;
   }
   .topbar {

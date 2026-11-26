@@ -567,6 +567,12 @@ test('mobile library keeps artwork and player controls visible', async ({
       .getByRole('navigation')
       .getByRole('link', { name: 'Discover', exact: true }),
   ).toBeVisible();
+  const backdrop = page.getByRole('button', { name: 'Close navigation' });
+  await expect(backdrop).toHaveCSS('cursor', 'default');
+  await backdrop.click({ position: { x: 340, y: 48 } });
+  await expect(
+    page.getByRole('button', { name: 'Show sidebar' }),
+  ).toBeVisible();
 });
 
 test('missing artwork falls back to a cover instead of a broken image', async ({
