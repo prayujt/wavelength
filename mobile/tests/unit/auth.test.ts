@@ -157,6 +157,32 @@ describe('public client PKCE', () => {
     const restored = await next.session.restore();
     expect(restored?.refreshToken).toBe(f.session.grant?.refreshToken);
   });
+  it('keeps a temporary sign-in in memory through refresh and sign-out', async () => {
+    const f = setup();
+    const first = await f.begin();
+    await f.session.complete(f.callback(first));
+    const stored = f.records.get('wavelength.oauth.grant.v1');
+    f.vault.lock = (run) => run();
+    f.vault.commitSignIn = async () => 'temporary';
+
+    const second = await f.begin();
+    const temporary = await f.session.complete(f.callback(second));
+    expect(f.session.temporary).toBe(true);
+    expect(await f.session.restore()).toBe(temporary);
+    await f.session.identifyAccount('temporary-account');
+    f.advance(3600000);
+    const [token, concurrent] = await Promise.all([f.session.token(), f.session.token()]);
+    expect(token).toBe(concurrent);
+    expect(token).not.toBe(temporary.accessToken);
+    expect(f.session.grant?.accountId).toBe('temporary-account');
+    expect(f.calls.filter((c) => c.body.grant_type === 'refresh_token')).toHaveLength(1);
+
+    const refresh = f.session.grant?.refreshToken;
+    await f.session.logout();
+    expect(f.calls.at(-1)?.body.token).toBe(refresh);
+    expect(await f.session.restore()).toBeNull();
+    expect(f.records.get('wavelength.oauth.grant.v1')).toBe(stored);
+  });
   it('clears local credentials and invalidates old client contexts on sign-out', async () => {
     const f = setup(),
       url = await f.begin();

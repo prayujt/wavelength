@@ -202,6 +202,11 @@ export function DeviceStatus() {
           </Txt>
         </Press>
       )}
+      {session.grant && session.auth.temporary && (
+        <View accessibilityLiveRegion="polite" style={{ padding: 12 }}>
+          <Txt size={12}>Device storage is unavailable. You’re signed in for online listening.</Txt>
+        </View>
+      )}
       {device.busy && device.progress && (
         <View style={{ padding: 12, gap: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>

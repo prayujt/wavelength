@@ -7,7 +7,12 @@ export interface Vault {
   get(key: string, state?: string): Promise<string | null>;
   set(key: string, value: string): Promise<void>;
   remove(key: string, state?: string): Promise<void>;
-  commitSignIn?(grantKey: string, value: string, pendingKey: string, state: string): Promise<void>;
+  commitSignIn?(
+    grantKey: string,
+    value: string,
+    pendingKey: string,
+    state: string,
+  ): Promise<'temporary' | void>;
   lock?<T>(run: () => Promise<T>): Promise<T>;
 }
 export interface OAuthCrypto {
@@ -73,9 +78,13 @@ export class OAuthSession {
   private refreshing?: Promise<string>;
   private completing?: Promise<Grant>;
   private generation = 0;
+  private memoryOnly = false;
   private credentialWrites: Promise<unknown> = Promise.resolve();
   get version() {
     return this.generation;
+  }
+  get temporary() {
+    return this.memoryOnly;
   }
 
   constructor(
@@ -87,7 +96,10 @@ export class OAuthSession {
   ) {}
 
   async restore(): Promise<Grant | null> {
+    if (this.memoryOnly) return this.grant;
+    const generation = this.generation;
     const raw = await this.vault.get(GRANT_KEY);
+    if (this.memoryOnly || generation !== this.generation) return this.grant;
     if (!raw) {
       if (this.grant) {
         this.generation++;
@@ -271,6 +283,10 @@ export class OAuthSession {
   }
   async identifyAccount(accountId: string) {
     if (!this.grant || !accountId) throw new Error('Please sign in again.');
+    if (this.memoryOnly) {
+      await this.save({ ...this.grant, accountId });
+      return;
+    }
     const identify = async () => {
       const raw = this.vault.lock ? await this.vault.get(GRANT_KEY) : null;
       const current = raw ? (JSON.parse(raw) as Grant) : this.grant;
@@ -286,10 +302,13 @@ export class OAuthSession {
     await this.write(async () => {
       if (generation !== this.generation) throw new Error('Sign-in changed.');
       const value = JSON.stringify(grant);
+      let temporary = this.memoryOnly;
       if (state && this.vault.commitSignIn)
-        await this.vault.commitSignIn(GRANT_KEY, value, PENDING_KEY, state);
-      else await this.vault.set(GRANT_KEY, value);
+        temporary =
+          (await this.vault.commitSignIn(GRANT_KEY, value, PENDING_KEY, state)) === 'temporary';
+      else if (!temporary) await this.vault.set(GRANT_KEY, value);
       if (generation !== this.generation) throw new Error('Sign-in changed.');
+      this.memoryOnly = temporary;
       this.grant = grant;
       this.changed(grant);
     });
@@ -299,11 +318,12 @@ export class OAuthSession {
     if (!this.grant) throw new Error('Please sign in to Wavelength.');
     if (!force && this.grant.expiresAt > this.now() + 60000) return this.grant.accessToken;
     if (this.refreshing) return this.refreshing;
+    const shared = !this.memoryOnly && !!this.vault.lock;
     const grant = this.grant,
       generation = this.generation;
     const refresh = async () => {
       // Another window may have rotated this family while we waited for the lock.
-      if (this.vault.lock) {
+      if (shared) {
         const raw = await this.vault.get(GRANT_KEY);
         if (!raw) throw new SessionExpired('Please sign in again.');
         const saved = JSON.parse(raw) as Grant;
@@ -332,7 +352,7 @@ export class OAuthSession {
       await this.save(next);
       return next.accessToken;
     };
-    this.refreshing = (this.vault.lock ? this.vault.lock(refresh) : refresh())
+    this.refreshing = (shared ? this.vault.lock!(refresh) : refresh())
       .catch(async (error) => {
         if (error instanceof SessionExpired && generation === this.generation) await this.clear();
         throw error;
@@ -344,6 +364,13 @@ export class OAuthSession {
   }
 
   async clear() {
+    if (this.memoryOnly) {
+      const previous = this.grant;
+      this.generation++;
+      this.grant = null;
+      this.changed(null);
+      return previous;
+    }
     const clear = async () => {
       const raw = this.vault.lock ? await this.vault.get(GRANT_KEY) : null;
       const previous = raw ? (JSON.parse(raw) as Grant) : this.grant;

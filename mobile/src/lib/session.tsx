@@ -17,24 +17,43 @@ import * as device from './device-store';
 import { deviceAPI, syncHistory } from './device-api';
 import { cancelDownloads } from './device-library';
 
+function pendingFromTab(key: string, state: string) {
+  try {
+    const pending = sessionStorage.getItem(key);
+    if (pending && JSON.parse(pending).state === state) return pending;
+  } catch {
+    // The durable per-state record also supports a callback in another window.
+  }
+  return null;
+}
+
 const vault: Vault = {
   async get(key, state) {
-    return Platform.OS === 'web'
-      ? key.endsWith('pending.v1')
-        ? ((state ? await device.read<string>('pending:' + state) : undefined) ??
-          globalThis.sessionStorage?.getItem(key) ??
-          null)
-        : ((await device.read<string>('credential:' + key)) ?? null)
-      : SecureStore.getItemAsync(key);
+    if (Platform.OS !== 'web') return SecureStore.getItemAsync(key);
+    if (!key.endsWith('pending.v1'))
+      return (await device.read<string>('credential:' + key)) ?? null;
+    if (!state) return null;
+    return pendingFromTab(key, state) ?? (await device.read<string>('pending:' + state)) ?? null;
   },
   async set(key, value) {
     if (Platform.OS === 'web') {
       if (key.endsWith('pending.v1')) {
         const pending = JSON.parse(value) as { state: string; expiresAt: number };
-        await device.write('pending:' + pending.state, value);
-        globalThis.sessionStorage?.setItem(key, value);
-        for (const [oldKey, raw] of await device.entries<string>('pending:'))
-          if (JSON.parse(raw).expiresAt < Date.now()) await device.erase(oldKey);
+        let savedInTab = false;
+        try {
+          sessionStorage.setItem(key, value);
+          savedInTab = true;
+        } catch {
+          // Authorization can still return through the durable record.
+        }
+        try {
+          await device.write('pending:' + pending.state, value);
+        } catch (error) {
+          if (!savedInTab) throw error;
+          return;
+        }
+        for (const [oldKey, raw] of await device.entries<string>('pending:').catch(() => []))
+          if (JSON.parse(raw).expiresAt < Date.now()) await device.erase(oldKey).catch(() => {});
       } else {
         await device.write('credential:' + key, value);
         device.announce();
@@ -62,12 +81,20 @@ const vault: Vault = {
 if (Platform.OS === 'web') {
   vault.lock = (run) => device.exclusive('credentials', run);
   vault.commitSignIn = async (grantKey, value, pendingKey, state) => {
-    await device.write('credential:' + grantKey, value, 'pending:' + state);
+    const credential = 'credential:' + grantKey;
     try {
-      const pending = sessionStorage.getItem(pendingKey);
-      if (pending && JSON.parse(pending).state === state) sessionStorage.removeItem(pendingKey);
-    } catch {
-      // The durable grant and per-state cleanup have already committed.
+      await device.write(credential, value, 'pending:' + state);
+    } catch (error) {
+      if (!(error instanceof device.DeviceStorageTimeout && error.mayHaveCommitted))
+        return 'temporary';
+      const saved = await device.read<string>(credential).catch(() => undefined);
+      if (saved !== value) return 'temporary';
+    } finally {
+      try {
+        if (pendingFromTab(pendingKey, state)) sessionStorage.removeItem(pendingKey);
+      } catch {
+        // The completed OAuth code can only be used once.
+      }
     }
     device.announce();
   };
@@ -148,30 +175,33 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         },
       ),
   );
-  const server = account?.server || grant?.server;
-  const identity = account?.key;
+  const activeAccount =
+    auth.temporary ||
+    (grant && (grant.accountId !== account?.user.id || grant.server !== account?.server))
+      ? null
+      : account;
+  const server = activeAccount?.server || grant?.server;
+  const identity = activeAccount?.key;
+  const version = Platform.OS === 'web' && activeAccount ? -1 : auth.version;
   const api = useMemo(
     () => {
       if (!server && !preview) return null;
-      const raw = createAPI(
-        auth,
-        preview,
-        Platform.OS === 'web' && account ? -1 : auth.version,
-        server,
-        account?.user.id,
-      );
-      return Platform.OS === 'web' && account && !preview ? deviceAPI(raw, account) : raw;
+      const raw = createAPI(auth, preview, version, server, activeAccount?.user.id);
+      return Platform.OS === 'web' && activeAccount && !preview
+        ? deviceAPI(raw, activeAccount)
+        : raw;
     },
     // Token rotation and connectivity do not tear down a playing local source.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [server, preview, auth, identity],
+    [server, preview, auth, identity, version],
   );
 
   useEffect(() => {
     void (async () => {
       const restored = await auth.restore();
-      if (Platform.OS === 'web') {
+      if (Platform.OS === 'web' && !auth.temporary) {
         const local = await device.currentAccount();
+        if (auth.temporary) return;
         if (
           local &&
           ((!restored && device.installed()) ||
@@ -205,15 +235,18 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         : new BroadcastChannel('wavelength-device');
     if (channel)
       channel.onmessage = () => {
+        if (auth.temporary) return;
         void auth
           .restore()
           .then(() => device.currentAccount())
           .then((local) => {
+            if (auth.temporary) return;
             setAccount((previous) => {
               if (previous?.key !== local?.key) queries.clear();
               return previous?.key === local?.key ? previous : local || null;
             });
-          });
+          })
+          .catch(() => {});
       };
     connectivity();
     window.addEventListener('online', connectivity);
@@ -225,16 +258,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     };
   }, [queries, auth]);
   useEffect(() => {
-    if (Platform.OS !== 'web' || !account || !online || preview) return;
+    if (Platform.OS !== 'web' || !activeAccount || !online || preview) return;
     const sync = () => {
-      void syncHistory(account, createAPI(auth, false, auth.version, account.server)).catch(
-        () => {},
-      );
+      void syncHistory(
+        activeAccount,
+        createAPI(auth, false, auth.version, activeAccount.server),
+      ).catch(() => {});
     };
     sync();
     const timer = setInterval(sync, 30000);
     return () => clearInterval(timer);
-  }, [account, online, preview, auth]);
+  }, [activeAccount, online, preview, auth]);
   useEffect(() => {
     if (Platform.OS === 'web') return;
     focusManager.setFocused(AppState.currentState === 'active');
@@ -250,7 +284,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       const user = await createAPI(auth).user.getCurrentUser({});
       if (!user.user?.id) throw new Error('Wavelength could not identify this account.');
       await auth.identifyAccount(user.user.id);
-      setAccount(await device.remember(connected.server, user.user));
+      setAccount(auth.temporary ? null : await device.remember(connected.server, user.user));
     }
     queries.clear();
     setPreview(false);
@@ -286,7 +320,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     grant,
     ready,
     preview,
-    account,
+    account: activeAccount,
     online,
     api,
     error,
@@ -298,8 +332,11 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           ? window.location.origin + browserBase() + '/oauth/callback'
           : Linking.createURL('oauth/callback', { scheme: 'wavelength' });
       const url = await auth.begin(server, returnUri, Platform.OS === 'web');
-      if (Platform.OS === 'web') window.location.assign(url);
-      else
+      if (Platform.OS === 'web') {
+        // A suspended WebKit document can hold up IndexedDB after the OAuth return.
+        await device.closeDatabase();
+        window.location.assign(url);
+      } else
         await WebBrowser.openBrowserAsync(url, {
           toolbarColor: '#0A1111',
           controlsColor: '#C7F3CB',
@@ -314,7 +351,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     },
     async logout() {
       cancelDownloads();
-      const local = account;
+      const local = activeAccount;
       setAccount(null);
       setPreview(false);
       queries.clear();

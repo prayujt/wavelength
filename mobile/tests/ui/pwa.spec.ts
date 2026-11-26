@@ -923,21 +923,28 @@ test('OAuth return in a new app window uses its durable per-state PKCE record', 
   await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
   await expect(returned).not.toHaveURL(/code=/);
 });
-test('OAuth return recovers when writing the browser credential stalls', async ({
+test('OAuth return supports online listening when writing the browser credential stalls', async ({
   page,
   context,
 }) => {
   await standalone(context);
   const backend = await service(context, { handoff: true });
+  await page.addInitScript(() => {
+    const close = IDBDatabase.prototype.close;
+    IDBDatabase.prototype.close = function () {
+      if (this.name === 'wavelength-device-v1') sessionStorage.setItem('storage-closed', 'yes');
+      return close.call(this);
+    };
+  });
   await page.goto('/app/');
   await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
   await expect.poll(backend.callback).not.toBe('');
-  const firstReturn = backend.callback();
+  await expect(page.getByText('Continue in Wavelength.')).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem('storage-closed'))).toBe('yes');
   const returned = await context.newPage();
   await returned.clock.install();
   await returned.addInitScript(() => {
-    if (!location.pathname.endsWith('/oauth/callback') || sessionStorage.getItem('storage-ready'))
-      return;
+    if (!location.pathname.endsWith('/oauth/callback')) return;
     const put = IDBObjectStore.prototype.put;
     IDBObjectStore.prototype.put = function (value, key) {
       const request = put.call(this, value, key);
@@ -955,21 +962,41 @@ test('OAuth return recovers when writing the browser credential stalls', async (
       return request;
     };
   });
-  await returned.goto(firstReturn);
-  await returned.waitForFunction(() => document.documentElement.dataset.storageStalled === 'true');
-  await returned.clock.fastForward(11000);
-  await expect(
-    returned.getByText('Device storage took too long. Try signing in again.'),
-  ).toBeVisible();
-  await returned.waitForFunction(() => document.documentElement.dataset.storageAborted === 'true');
-
-  await returned.evaluate(() => sessionStorage.setItem('storage-ready', 'yes'));
-  await returned.getByRole('button', { name: 'Back to sign-in' }).click();
-  await returned.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
-  await expect.poll(backend.callback).not.toBe(firstReturn);
   await returned.goto(backend.callback());
+  await returned.waitForFunction(() => document.documentElement.dataset.storageStalled === 'true');
+  const userLookup = returned.waitForRequest('**/wavelength.v1.UserDataService/GetCurrentUser');
+  await returned.clock.fastForward(11000);
+  await returned.waitForFunction(() => document.documentElement.dataset.storageAborted === 'true');
+  expect((await userLookup).headers().authorization).toBe('Bearer test-access-0');
+  await expect(
+    returned.getByText('Device storage is unavailable. You’re signed in for online listening.'),
+  ).toBeVisible();
   await expect(returned.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
   await expect(returned).not.toHaveURL(/code=/);
+  await returned.goto('/app/');
+  await expect(
+    returned.getByRole('button', { name: 'Find your wavelength', exact: true }),
+  ).toBeVisible();
+});
+test('OAuth return can use the originating tab when device storage is unavailable', async ({
+  page,
+  context,
+}) => {
+  await standalone(context);
+  await service(context);
+  await page.addInitScript(() => {
+    if (!location.pathname.endsWith('/oauth/callback')) return;
+    IDBFactory.prototype.open = () => {
+      throw new DOMException('Storage unavailable after redirect', 'InvalidStateError');
+    };
+  });
+  await page.goto('/app/');
+  await page.getByRole('button', { name: 'Find your wavelength', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Find your rhythm.' })).toBeVisible();
+  await expect(
+    page.getByText('Device storage is unavailable. You’re signed in for online listening.'),
+  ).toBeVisible();
+  await expect(page).not.toHaveURL(/code=/);
 });
 test('complete download cold-starts offline with expired credentials, plays and seeks with artwork and lyrics', async ({
   page,
