@@ -499,6 +499,33 @@ it('releases prepared grants after queue edits, clear, and late replies after si
   expect(f.sources.at(-1)).toBeNull();
 });
 
+it('falls back to the stream on a skip and releases a buffer that finishes too late', async () => {
+  const f = connected();
+  let finishBuffer!: (recording: Awaited<ReturnType<PlaybackPort['source']>>) => void;
+  const buffer = vi.fn(
+    () =>
+      new Promise<Awaited<ReturnType<PlaybackPort['source']>>>((resolve) => {
+        finishBuffer = resolve;
+      }),
+  );
+  const signals: AbortSignal[] = [];
+  f.port.bufferSource = (_, signal) => {
+    signals.push(signal);
+    return buffer();
+  };
+  await f.controller.play([song('a'), song('b')]);
+  await vi.waitFor(() => expect(buffer).toHaveBeenCalledTimes(1));
+  await f.controller.next();
+  expect(signals[0].aborted).toBe(true);
+  expect(f.sources.at(-1)).toEqual({ uri: 'https://music.example/temporary/b' });
+  expect(f.released).not.toContain('b');
+  const release = vi.fn(async () => {});
+  finishBuffer({ source: { uri: 'blob:late' }, release });
+  await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1));
+  await f.controller.clear();
+  expect(f.released.filter((id) => id === 'b')).toHaveLength(1);
+});
+
 it('records the actual final audio interval when background timing updates are throttled', async () => {
   vi.useFakeTimers();
   const f = connected();

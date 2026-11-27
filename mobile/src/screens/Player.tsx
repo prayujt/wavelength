@@ -35,7 +35,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePlayer } from '../lib/player';
-import { playerSwipeArea, usePlayerTransition } from '../lib/player-transition';
+import { playerScrollStyle, usePlayerTransition } from '../lib/player-transition';
 import { useAPI } from '../lib/session';
 import { color, colors } from '../lib/theme';
 import { clock } from '../core/queue';
@@ -70,7 +70,7 @@ export function PlayerScreen() {
     [scrub, setScrub] = useState<number | null>(null),
     track = player.track;
   const [frameHeight, setFrameHeight] = useState(height);
-  const { close, swipe, translateY } = usePlayerTransition(Math.max(1, frameHeight));
+  const { close, scrollRef, translateY } = usePlayerTransition(Math.max(1, frameHeight), !!track);
   const usableHeight = Math.max(0, frameHeight - insets.top - insets.bottom);
   const compact = usableHeight < 800;
   if (!track)
@@ -110,7 +110,9 @@ export function PlayerScreen() {
         style={{ position: 'absolute', inset: 0 }}
       />
       <ScrollView
+        ref={scrollRef}
         testID="player-scroll"
+        style={playerScrollStyle}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{
           flexGrow: 1,
@@ -123,7 +125,7 @@ export function PlayerScreen() {
           alignSelf: 'center',
         }}
       >
-        <View testID="player-swipe-area" {...swipe} style={playerSwipeArea}>
+        <View>
           <View
             style={{
               flexDirection: 'row',
@@ -152,6 +154,7 @@ export function PlayerScreen() {
           </View>
           <View style={{ alignItems: 'center', marginBottom: compact ? 18 : 31 }}>
             <View
+              pointerEvents="none"
               style={{
                 width: size,
                 height: size,

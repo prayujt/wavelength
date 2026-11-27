@@ -15,13 +15,21 @@ export interface AudioPort {
   metadata(track: Track): void;
   clearMetadata(): void;
 }
-type Recording = Awaited<ReturnType<PlaybackPort['source']>>;
-type Prepared = { id: string; at: number; track: Track; ready?: Recording; failed?: boolean };
+export type Recording = { source: AudioSource; release(): Promise<unknown> };
+type Prepared = {
+  id: string;
+  at: number;
+  track: Track;
+  cancel: AbortController;
+  ready?: Recording;
+  failed?: boolean;
+};
 export type QueueFeedState = { recommendations: FeedReference[]; playFeedEnabled?: boolean };
 export interface PlaybackPort {
   background?(): boolean;
   getPlayFeed?(input: FeedRequest, signal: AbortSignal): Promise<FeedPage<Track>>;
-  source(id: string): Promise<{ source: AudioSource; release(): Promise<unknown> }>;
+  source(id: string): Promise<Recording>;
+  bufferSource?(source: AudioSource, signal: AbortSignal): Promise<Recording | undefined>;
   track(id: string): Promise<Track | undefined>;
   queue(): Promise<
     | {
@@ -227,6 +235,7 @@ export class PlaybackController {
   private discardPrepared() {
     const previous = this.prepared;
     this.prepared = undefined;
+    previous?.cancel.abort();
     if (previous?.ready) void previous.ready.release().catch(() => {});
   }
   private prepareNext() {
@@ -245,7 +254,7 @@ export class PlaybackController {
     )
       return;
     this.discardPrepared();
-    const entry: Prepared = { id: track.id, at: Date.now(), track };
+    const entry: Prepared = { id: track.id, at: Date.now(), track, cancel: new AbortController() };
     this.prepared = entry;
     void (async () => {
       try {
@@ -261,9 +270,17 @@ export class PlaybackController {
           return;
         }
         entry.ready = recording;
+        // Keep the scoped stream available if the next song starts before buffering completes.
+        const buffered = await port.bufferSource?.(recording.source, entry.cancel.signal);
+        if (!buffered) return;
+        if (this.prepared !== entry) {
+          await buffered.release().catch(() => {});
+          return;
+        }
+        entry.ready = buffered;
+        void recording.release().catch(() => {});
       } catch {
-        // The current song keeps playing. Retry later or resolve normally on Next.
-        entry.failed = true;
+        entry.failed = !entry.ready;
       }
     })();
   }
@@ -271,6 +288,7 @@ export class PlaybackController {
     const entry = this.prepared;
     if (entry?.id === id && entry.ready && Date.now() - entry.at < 60 * 60 * 1000) {
       this.prepared = undefined;
+      entry.cancel.abort();
       return { track: entry.track, recording: entry.ready };
     }
     this.discardPrepared();
