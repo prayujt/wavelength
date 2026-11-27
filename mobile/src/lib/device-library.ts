@@ -2,6 +2,7 @@ import { toJson, fromJson, type JsonObject } from '@bufbuild/protobuf';
 import { TrackSchema, type Track } from '../gen/wavelength/v1/library_pb';
 import type { API } from './api';
 import type { OAuthSession } from '../core/auth';
+import type { AudioSource } from '../core/playback';
 import { Code, ConnectError } from '@connectrpc/connect';
 import { authenticatedURL } from '../core/auth';
 import {
@@ -63,6 +64,34 @@ export async function localSource(account: LocalAccount, id: string) {
   const item = await saved(account, id);
   if (!item) return undefined;
   const uri = URL.createObjectURL(await item.response.blob());
+  return { source: { uri }, release: async () => URL.revokeObjectURL(uri) };
+}
+export async function bufferPlayback(source: AudioSource, signal: AbortSignal) {
+  if (typeof source !== 'object') return;
+  const url = new URL(source.uri);
+  if (url.origin !== window.location.origin || !['https:', 'http:'].includes(url.protocol)) return;
+  // Keep one temporary file ahead of playback. A large or incomplete response can still stream.
+  const limit = 48 * 1024 * 1024;
+  const response = await fetch(url, {
+    credentials: 'omit',
+    redirect: 'error',
+    cache: 'no-store',
+    signal,
+  });
+  const length = Number(response.headers.get('Content-Length'));
+  if (
+    response.status !== 200 ||
+    !response.headers.get('Content-Type')?.startsWith('audio/') ||
+    length <= 0 ||
+    !Number.isFinite(length) ||
+    length > limit
+  ) {
+    await response.body?.cancel();
+    return;
+  }
+  const audio = await response.blob();
+  if (signal.aborted || audio.size !== length) return;
+  const uri = URL.createObjectURL(audio);
   return { source: { uri }, release: async () => URL.revokeObjectURL(uri) };
 }
 export async function localArtwork(account: LocalAccount, path: string) {

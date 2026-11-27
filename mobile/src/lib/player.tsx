@@ -21,7 +21,7 @@ import { authenticatedURL } from '../core/auth';
 import { useSession } from './session';
 import { errorMessage } from './api';
 import { accountWrite, installed, partition, read } from './device-store';
-import { localSource, localArtwork } from './device-library';
+import { bufferPlayback, localSource, localArtwork } from './device-library';
 import type { Track } from '../gen/wavelength/v1/library_pb';
 
 // A native player is an imperative host object, separate from immutable React state.
@@ -205,6 +205,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           ? document.visibilityState === 'hidden'
           : AppState.currentState !== 'active',
       getPlayFeed: (input, signal) => api.playfeed.getPlayFeed(input, { signal, timeoutMs: 12000 }),
+      bufferSource: installed() && !preview ? bufferPlayback : undefined,
       async source(id) {
         if (preview)
           return { source: require('../../assets/preview.wav') as number, release: async () => {} };

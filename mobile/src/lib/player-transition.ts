@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Animated, Easing, PanResponder, Platform, type ViewStyle } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, Platform, type ScrollView, type ViewStyle } from 'react-native';
 import { router } from 'expo-router';
 import { useReducedMotion } from '../components/ui';
 
 const web = Platform.OS === 'web';
-export const playerSwipeArea = web ? ({ touchAction: 'none' } as ViewStyle) : undefined;
+export const playerScrollStyle = web ? ({ overscrollBehaviorY: 'none' } as ViewStyle) : undefined;
 
 function dismiss() {
   if (router.canGoBack()) router.back();
   else router.replace('/home');
 }
 
-export function usePlayerTransition(height: number) {
+export function usePlayerTransition(height: number, hasTrack: boolean) {
   const reduced = useReducedMotion();
   const [closing, setClosing] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
   const [progress] = useState(
     () =>
       new Animated.Value(
@@ -37,22 +38,29 @@ export function usePlayerTransition(height: number) {
     return () => progress.stopAnimation();
   }, [progress, reduced]);
 
-  return useMemo(() => {
-    function close() {
-      if (closing) return;
-      if (!web || reduced) return dismiss();
-      setClosing(true);
-      Animated.timing(progress, {
-        toValue: 1,
-        duration: 230,
-        easing: Easing.in(Easing.quad),
-        useNativeDriver: false,
-        isInteraction: false,
-      }).start(({ finished }) => {
-        setClosing(false);
-        if (finished) dismiss();
-      });
-    }
+  const close = useCallback(() => {
+    if (closing) return;
+    if (!web || reduced) return dismiss();
+    setClosing(true);
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: 230,
+      easing: Easing.in(Easing.quad),
+      useNativeDriver: false,
+      isInteraction: false,
+    }).start(({ finished }) => {
+      setClosing(false);
+      if (finished) dismiss();
+    });
+  }, [closing, progress, reduced]);
+
+  useEffect(() => {
+    if (!web || !hasTrack || closing) return;
+    const scroll = scrollRef.current?.getScrollableNode();
+    if (!(scroll instanceof HTMLElement)) return;
+    let start: Touch | undefined;
+    let startedAt = 0;
+    let dragging = false;
 
     function settle() {
       Animated.timing(progress, {
@@ -64,31 +72,66 @@ export function usePlayerTransition(height: number) {
       }).start();
     }
 
-    const swipe = web
-      ? PanResponder.create({
-          onMoveShouldSetPanResponderCapture: (_, { dx, dy, numberActiveTouches }) =>
-            !closing && numberActiveTouches === 1 && dy > 8 && dy > Math.abs(dx),
-          onPanResponderMove: (_, { dy }) => {
-            if (!reduced) progress.setValue(Math.max(0, dy / height));
-          },
-          onPanResponderRelease: (_, { dy, vy }) => {
-            if (dy > Math.min(height * 0.2, 110) || (dy > 34 && vy > 0.55)) close();
-            else settle();
-          },
-          onPanResponderTerminate: settle,
-        }).panHandlers
-      : undefined;
+    function cancel() {
+      if (dragging) settle();
+      start = undefined;
+      dragging = false;
+    }
+    function touchStart(event: TouchEvent) {
+      cancel();
+      if (event.touches.length !== 1 || scroll.scrollTop > 1) return;
+      const target = event.target;
+      if (target instanceof Element && target.closest('input, [role="slider"]')) return;
+      start = event.touches[0];
+      startedAt = event.timeStamp;
+    }
+    function touchMove(event: TouchEvent) {
+      if (!start) return;
+      const touch = event.touches[0];
+      if (event.touches.length !== 1 || !event.cancelable) return cancel();
+      const x = Math.abs(touch.clientX - start.clientX);
+      const y = touch.clientY - start.clientY;
+      if (!dragging && (y <= 0 || y <= x)) {
+        if (Math.max(x, Math.abs(y)) > 6) cancel();
+        return;
+      }
+      // Claim downward motion before Safari turns the drag into native scrolling.
+      event.preventDefault();
+      dragging = true;
+      if (!reduced) progress.setValue(Math.max(0, y / height));
+    }
+    function touchEnd(event: TouchEvent) {
+      if (!start || !dragging) return cancel();
+      if (event.cancelable) event.preventDefault();
+      const y = event.changedTouches[0].clientY - start.clientY;
+      const velocity = y / Math.max(1, event.timeStamp - startedAt);
+      if (y > Math.min(height * 0.2, 110) || (y > 34 && velocity > 0.55)) close();
+      else settle();
+      start = undefined;
+      dragging = false;
+    }
+    scroll.addEventListener('touchstart', touchStart, { passive: true });
+    scroll.addEventListener('touchmove', touchMove, { passive: false });
+    scroll.addEventListener('touchend', touchEnd);
+    scroll.addEventListener('touchcancel', cancel);
+    return () => {
+      scroll.removeEventListener('touchstart', touchStart);
+      scroll.removeEventListener('touchmove', touchMove);
+      scroll.removeEventListener('touchend', touchEnd);
+      scroll.removeEventListener('touchcancel', cancel);
+    };
+  }, [close, closing, hasTrack, height, progress, reduced]);
 
-    return {
-      close,
-      swipe,
-      translateY: web
+  const translateY = useMemo(
+    () =>
+      web
         ? progress.interpolate({
             inputRange: [0, 1],
             outputRange: [0, height],
             extrapolate: 'clamp',
           })
         : 0,
-    };
-  }, [closing, height, progress, reduced]);
+    [height, progress],
+  );
+  return { close, scrollRef, translateY };
 }

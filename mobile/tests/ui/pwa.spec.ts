@@ -157,7 +157,8 @@ async function service(
       },
     );
     const json = await response.json();
-    if (method === 'CreatePlaybackLink') json.url = origin + '/preview-audio';
+    if (method === 'CreatePlaybackLink')
+      json.url = origin + '/preview-audio' + (options.shortAudio ? '/' + body.trackId : '');
     function tracks(value: unknown) {
       if (!value || typeof value !== 'object') return;
       const row = value as Record<string, unknown>;
@@ -172,7 +173,7 @@ async function service(
     if (method === 'GetCurrentUser' && options.user) json.user.id = options.user;
     return route.fulfill({ status: response.status, json });
   });
-  await context.route(origin + '/preview-audio', (route) =>
+  await context.route(/\/preview-audio(?:\/[^/]+)?$/, (route) =>
     route.fulfill({
       status: options.partial ? 206 : 200,
       contentType: 'audio/wav',
@@ -608,34 +609,53 @@ test.describe('Mobile polish', () => {
       player.evaluate((el) => new DOMMatrixReadOnly(getComputedStyle(el).transform).m42);
     await expect.poll(translation).toBe(0);
 
-    const handle = page.getByTestId('player-swipe-area');
-    const swipe = (type: 'touchstart' | 'touchmove' | 'touchend', distance: number) =>
-      handle.evaluate(
+    const swipe = (surface: ReturnType<Page['locator']>, type: string, distance: number) =>
+      surface.evaluate(
         (element, { type, distance }) => {
           const area = element.getBoundingClientRect();
-          const start = Number(element.getAttribute('data-start-y') ?? area.top + 28);
+          const x = area.left + area.width / 2;
+          const start =
+            type === 'touchstart'
+              ? area.top + area.height / 2
+              : Number(element.getAttribute('data-start-y'));
           element.setAttribute('data-start-y', String(start));
+          const target = document.elementFromPoint(x, start) ?? element;
           const touch = {
             identifier: 1,
-            target: element,
-            clientX: area.left + area.width / 2,
+            target,
+            clientX: x,
             clientY: start + distance,
-            pageX: area.left + area.width / 2,
+            pageX: x,
             pageY: start + distance,
           };
           const active = type === 'touchend' ? [] : [touch];
           // WebKit's test runner exposes Touch without a public constructor.
           const event = new Event(type, { bubbles: true, cancelable: true });
-          element.dispatchEvent(Object.assign(event, { touches: active, changedTouches: [touch] }));
+          target.dispatchEvent(Object.assign(event, { touches: active, changedTouches: [touch] }));
+          return event.defaultPrevented;
         },
         { type, distance },
       );
-    await swipe('touchstart', 0);
-    await swipe('touchmove', 24);
-    await swipe('touchmove', 165);
-    await expect.poll(translation).toBeGreaterThan(80);
-    await swipe('touchend', 165);
-    await expect(page).toHaveURL(album);
+    const slider = player.getByRole('slider', { name: 'Seek playback' });
+    await swipe(slider, 'touchstart', 0);
+    expect(await swipe(slider, 'touchmove', 42)).toBe(false);
+    await swipe(slider, 'touchend', 42);
+    const cover = player.getByLabel('The quiet between artwork', { exact: true });
+    await swipe(cover, 'touchstart', 0);
+    expect(await swipe(cover, 'touchmove', -24)).toBe(false);
+    await swipe(cover, 'touchend', -24);
+    for (const surface of [cover, player.getByText('Weightless', { exact: true })]) {
+      await swipe(surface, 'touchstart', 0);
+      await swipe(surface, 'touchmove', 24);
+      await swipe(surface, 'touchmove', 165);
+      await expect.poll(translation).toBeGreaterThan(80);
+      await swipe(surface, 'touchend', 165);
+      await expect(page).toHaveURL(album);
+      if (surface === cover) {
+        await page.getByRole('button', { name: 'Open now playing', exact: true }).click();
+        await expect.poll(translation).toBe(0);
+      }
+    }
     await expect(page.getByRole('button', { name: 'Pause playback', exact: true })).toBeVisible();
   });
 
@@ -814,6 +834,16 @@ test.describe('Mobile polish', () => {
       context,
     }) => {
       await standalone(context);
+      await context.addInitScript(() => {
+        const createURL = URL.createObjectURL;
+        const bufferedAudio: string[] = [];
+        Object.assign(window, { bufferedAudio });
+        URL.createObjectURL = (object) => {
+          const url = createURL(object);
+          if (object instanceof Blob && object.type.startsWith('audio/')) bufferedAudio.push(url);
+          return url;
+        };
+      });
       const backend = await service(context, { shortAudio: true });
       await connect(page);
       if (feed) await page.getByRole('button', { name: 'Start play feed', exact: true }).click();
@@ -826,7 +856,6 @@ test.describe('Mobile polish', () => {
       await expect
         .poll(() => backend.reports.filter((r) => r.method === 'StartListeningSession').length)
         .toBe(1);
-      // The current and next scoped playback sources must be resolved in advance.
       await expect.poll(() => backend.playbackLinks.length).toBeGreaterThanOrEqual(2);
       await expect
         .poll(() =>
@@ -835,7 +864,14 @@ test.describe('Mobile polish', () => {
           ),
         )
         .toBeGreaterThan(0.1);
+      const bufferedURL = await page.evaluate(async () => {
+        const w = window as Window & { bufferedAudio?: string[] };
+        while (!w.bufferedAudio?.length) await new Promise((resolve) => setTimeout(resolve, 10));
+        return w.bufferedAudio[0];
+      });
       const first = backend.reports.find((r) => r.method === 'StartListeningSession')!.body.trackId;
+      // Simulate iOS deferring a new media request while the PWA is hidden.
+      await page.route('**/preview-audio/**', (route) => route.abort());
       await page.evaluate(() => {
         const w = window as Window & {
           pwaAudio?: HTMLAudioElement;
@@ -860,15 +896,22 @@ test.describe('Mobile polish', () => {
               .trackId,
         )
         .not.toBe(first);
-      expect(
-        await page.evaluate(() => {
-          const w = window as Window & {
-            pwaAudio?: HTMLAudioElement;
-            originalAudio?: HTMLAudioElement;
-          };
-          return w.pwaAudio === w.originalAudio && !w.pwaAudio!.paused;
-        }),
-      ).toBe(true);
+      await expect
+        .poll(() =>
+          page.evaluate((buffered) => {
+            const w = window as Window & {
+              pwaAudio?: HTMLAudioElement;
+              originalAudio?: HTMLAudioElement;
+            };
+            return (
+              w.pwaAudio === w.originalAudio &&
+              w.pwaAudio?.src === buffered &&
+              !w.pwaAudio.paused &&
+              w.pwaAudio.currentTime > 0
+            );
+          }, bufferedURL),
+        )
+        .toBe(true);
       await expect
         .poll(
           () =>
